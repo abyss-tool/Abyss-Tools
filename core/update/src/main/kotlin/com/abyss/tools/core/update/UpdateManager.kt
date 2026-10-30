@@ -1,5 +1,6 @@
 package com.abyss.tools.core.update
 
+import com.abyss.tools.core.common.SemVer
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
