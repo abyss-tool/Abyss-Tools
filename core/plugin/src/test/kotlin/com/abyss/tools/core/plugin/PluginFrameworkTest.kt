@@ -60,7 +60,8 @@ class PluginFrameworkTest {
     // ── 安装器：未发布 APK fail-closed；数据补丁真实应用 ───────────────
 
     private val noGateway = object : ApkInstallGateway {
-        override fun install(apk: File) = Result.failure(IllegalStateException("框架占位"))
+        override fun install(apk: File): Result<Unit> =
+            Result.failure(IllegalStateException("框架占位"))
     }
 
     @Test
