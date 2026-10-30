@@ -83,11 +83,12 @@ class PluginInstaller(
     // ── 数据插件补丁流水线（全真实：下载 → 校验 → 应用 → 回滚保护）────
 
     suspend fun downloadPatch(
+        pluginId: String,
         patch: PluginPatch,
         onProgress: (readBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            val dest = File(cacheDirFor(patch.plugin), patch.url.substringAfterLast('/'))
+            val dest = File(cacheDirFor(pluginId), patch.url.substringAfterLast('/'))
             transport.download(patch.url, dest, onProgress)
             dest
         }
