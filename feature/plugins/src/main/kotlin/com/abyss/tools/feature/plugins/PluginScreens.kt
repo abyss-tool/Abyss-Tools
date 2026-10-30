@@ -38,7 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.OpenInNew
 import com.abyss.tools.core.common.toUiState
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.designsystem.component.ChipTone

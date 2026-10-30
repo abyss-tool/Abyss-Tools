@@ -143,10 +143,10 @@ fun SettingsScreen(
                     )
                 }
                 settings.lastCheckAt = System.currentTimeMillis()
-                settings.lastCheckSummary = when (checkUi) {
+                settings.lastCheckSummary = when (val state = checkUi) {
                     CheckUi.UpToDate -> "已是最新（v${AppInfo.VERSION_NAME}）"
-                    is CheckUi.Available -> "发现 v${checkUi.version}"
-                    is CheckUi.Failed -> "检查失败：${checkUi.message}"
+                    is CheckUi.Available -> "发现 v${state.version}"
+                    is CheckUi.Failed -> "检查失败：${state.message}"
                     else -> "—"
                 }
             }
@@ -299,7 +299,7 @@ private fun UpdateSectionCard(
         Spacer(Modifier.size(8.dp))
         InfoRow(label = "发布仓", value = AbyssChannels.RELEASE_REPO)
         InfoRow(label = "清单", value = "version.json / patches.json / changelog.json")
-        InfoRow(label = "当前版本", value = "v$versionName(v${AppInfo.VERSION_CODE})")
+        InfoRow(label = "当前版本", value = "v${AppInfo.VERSION_NAME}（${AppInfo.VERSION_CODE}）")
         val time = settings.lastCheckAt
         InfoRow(
             label = "上次检查",
@@ -310,14 +310,14 @@ private fun UpdateSectionCard(
             } + " · ${settings.lastCheckSummary}",
         )
 
-        val detail = when (checkUi) {
+        val detail = when (val state = checkUi) {
             CheckUi.Idle -> null
             CheckUi.Checking -> "正在读取发布仓 version.json…"
             CheckUi.UpToDate -> "当前已是通道最新版本。"
-            is CheckUi.Available -> "发现 v${checkUi.version}：${checkUi.notes ?: "（未附说明）"}" +
-                if (checkUi.patchApplicable) " · 支持增量补丁升级" else " · 需整包安装"
+            is CheckUi.Available -> "发现 v${state.version}：${state.notes ?: "（未附说明）"}" +
+                if (state.patchApplicable) " · 支持增量补丁升级" else " · 需整包安装"
 
-            is CheckUi.Failed -> "检查失败：${checkUi.message}（首个 APK 发布前，发布仓仅含清单骨架 —— 属预期状态）"
+            is CheckUi.Failed -> "检查失败：${state.message}（首个 APK 发布前，发布仓仅含清单骨架 —— 属预期状态）"
         }
         if (detail != null) {
             Spacer(Modifier.size(8.dp))
