@@ -128,18 +128,19 @@ class ZipPatchApplierTest {
     fun `写失败自动回滚`() {
         val dir = tmp.newFolder("rollback").apply {
             resolve("a.txt").writeText("AAA")
+            resolve("blocker").mkdirs() // 同名目录挡路 → 第二步写入必失败
         }
-        // 第二个文件无载荷 → 应用中途失败 → 第一个文件必须回滚
         val patch = makePatch(
             "patch-manifest.json" to manifest(
                 filesJson = """
                 [
                   {"path": "a.txt", "action": "replace"},
-                  {"path": "missing.txt", "action": "replace"}
+                  {"path": "blocker", "action": "replace"}
                 ]
                 """.trimIndent()
             ),
             "a.txt" to "REPLACED",
+            "blocker" to "X",
         )
         try {
             applier.apply(patch, dir)
@@ -191,7 +192,8 @@ class UpdateCheckerTest {
         val result = checker.check(current) as UpdateCheckResult.Available
         assertTrue(result.patchApplicable)
         assertEquals("v0.1.0", result.patch!!.fromTag)
-        assertEquals("v0.2.0", result.manifest.versionName)
+        assertEquals("0.2.0", result.manifest.versionName)
+        assertEquals("v0.2.0", result.manifest.resolvedTag)
     }
 
     @Test

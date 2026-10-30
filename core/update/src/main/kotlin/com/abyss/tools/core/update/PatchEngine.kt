@@ -92,7 +92,7 @@ class ZipPatchApplier : PatchApplier {
             throw PatchRejectedException("patch-manifest.json 缺少 target / toVersion")
         }
 
-        // ── 路径安全预检：任何非法路径 → 整包拒绝 ─────────────────────
+        // ── 路径安全与载荷完整性预检：任何非法 → 整包拒绝（零触碰）────
         val actions = manifest.files.ifEmpty {
             // manifest 未列 files 时：载荷里的每个非 manifest 条目默认 replace
             entries.keys
@@ -105,6 +105,9 @@ class ZipPatchApplier : PatchApplier {
             val canonical = file.canonicalFile
             if (canonical != targetCanonical && !canonical.path.startsWith(targetCanonical.path + File.separator)) {
                 throw PatchRejectedException("非法补丁路径（疑似穿越）：${action.path}")
+            }
+            if (action.normalized != ACTION_DELETE && entries[action.path] == null) {
+                throw PatchRejectedException("补丁包缺少载荷文件：${action.path}")
             }
         }
 
