@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深渊近黑背景：与 Compose 侧 AbyssColors.background 同源，避免冷启动白闪 -->
+    <style name="Theme.Abyss" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/abyss_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
