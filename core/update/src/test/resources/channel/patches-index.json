@@ -1,0 +1,21 @@
+{
+  "schema": "abyss-patches-v1",
+  "generatedAt": "2026-11-02T12:00:00Z",
+  "latestTag": "v0.3.0",
+  "patches": [
+    {
+      "fromTag": "v0.1.0",
+      "toTag": "v0.2.0",
+      "url": "https://example.com/patch_abyss_v0.1.0_to_v0.2.0.zip",
+      "sizeBytes": 234567,
+      "sha256": "11aabb22cc33dd44ee55ff6677889900aabbccddeeff0011223344556677889900"
+    },
+    {
+      "fromTag": "v0.2.0",
+      "toTag": "v0.3.0",
+      "url": "https://example.com/patch_abyss_v0.2.0_to_v0.3.0.zip",
+      "sizeBytes": 345678,
+      "sha256": "22bbcc33dd44ee55ff6677889900aabbccddeeff0011223344556677889900aa11bb"
+    }
+  ]
+}

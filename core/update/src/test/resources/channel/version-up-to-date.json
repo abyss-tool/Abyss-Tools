@@ -1,0 +1,9 @@
+{
+  "schema": "abyss-version-v1",
+  "versionName": "0.1.0",
+  "versionCode": 1,
+  "tag": "v0.1.0",
+  "publishedAt": "2026-10-30T12:00:00Z",
+  "channel": "framework-preview",
+  "notes": "框架预览版（本地 fixture）：与本地版本相同 → UpToDate。"
+}

@@ -1,0 +1,19 @@
+{
+  "schema": "abyss-version-v1",
+  "versionName": "0.3.0",
+  "versionCode": 3,
+  "tag": "v0.3.0",
+  "publishedAt": "2026-11-02T12:00:00Z",
+  "notes": "本地 fixture：fromTag 未命中 → 需整包下载。",
+  "download": {
+    "url": "https://example.com/abyss-v0.3.0.apk",
+    "sizeBytes": 23456789,
+    "sha256": "bb22cc33dd44ee55ff6677889900aabbccddeeff0011223344556677889900aa11"
+  },
+  "patch": {
+    "fromTag": "v0.2.0",
+    "url": "https://example.com/patch_abyss_v0.2.0_to_v0.3.0.zip",
+    "sizeBytes": 345678,
+    "sha256": "22bbcc33dd44ee55ff6677889900aabbccddeeff0011223344556677889900aa11bb"
+  }
+}
