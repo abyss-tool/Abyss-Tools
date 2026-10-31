@@ -50,6 +50,7 @@ def api(
     raw: bytes | None = None,
     accept: str = "application/vnd.github+json",
     base: str = API,
+    not_found_ok: bool = False,
 ) -> dict:
     url = path if path.startswith("http") else f"{base}{path}"
     data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
@@ -70,6 +71,8 @@ def api(
                 return json.loads(payload.decode()) if payload else {}
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")
+            if e.code == 404 and not_found_ok:
+                return {}
             if e.code in (409, 422) and attempt < 3:
                 time.sleep(1.5 * (attempt + 1))
                 continue
@@ -137,7 +140,7 @@ def main() -> None:
     print(f"[publish] sha256 = {apk_sha} · {apk_size} bytes")
 
     # ── 1. 发布仓创建 Release（幂等：已存在则复用）───────────────────────
-    releases = api("GET", f"/repos/{RELEASE_REPO}/releases/tags/{args.tag}", TOKEN)
+    releases = api("GET", f"/repos/{RELEASE_REPO}/releases/tags/{args.tag}", TOKEN, not_found_ok=True)
     if "id" in releases:
         release_id = releases["id"]
         print(f"[publish] 复用既有 Release {args.tag} (id={release_id})")
