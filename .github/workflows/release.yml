@@ -95,18 +95,26 @@ jobs:
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          NOTES_ARG=""
-          IFS=';' read -ra NOTES <<< "${{ github.event_name == 'workflow_dispatch' && inputs.notes || '' }}"
-          for n in "${NOTES[@]}"; do
-            [ -n "$n" ] && NOTES_ARG="$NOTES_ARG --notes \"$n\""
-          done
+          NOTES_ARGS=""
+          NOTES_INPUT="${{ github.event_name == 'workflow_dispatch' && inputs.notes || '' }}"
+          if [ -n "$NOTES_INPUT" ]; then
+            IFS=';' read -ra NOTES <<< "$NOTES_INPUT"
+            for n in "${NOTES[@]}"; do
+              [ -n "$n" ] && NOTES_ARGS="$NOTES_ARGS --notes \"$n\""
+            done
+          elif [ -f "docs/release-notes/v${{ steps.version.outputs.version_name }}.md" ]; then
+            # tag 发布：发布要点来自 docs/release-notes/v<version>.md（一行一条）
+            while IFS= read -r n; do
+              [ -n "$n" ] && NOTES_ARGS="$NOTES_ARGS --notes \"$n\""
+            done < "docs/release-notes/v${{ steps.version.outputs.version_name }}.md"
+          fi
           eval "python3 tools/publish_release.py \
             --tag ${{ steps.version.outputs.tag }} \
             --version-code ${{ steps.version.outputs.version_code }} \
             --apk ${{ steps.apk.outputs.path }} \
             --channel ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }} \
             --commit-sha ${{ github.sha }} \
-            $NOTES_ARG"
+            $NOTES_ARGS"
 
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v4

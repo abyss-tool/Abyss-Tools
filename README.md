@@ -25,7 +25,7 @@
 - **全部硬核能力**（终端 / Python / 沙箱双开 / 设备伪装 / 媒体处理 / 自动化…）以**独立插件仓库**的形式存在 —— 十三个大插件，每个独立仓库、独立 CI、独立补丁通道；
 - **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/Ultra-Guru/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
 
-> 当前版本 **v0.1.0 框架预览**：主界面 / 分类导航 / 插件框架 / 补丁更新引擎已成型；插件本体与 APK 资产按路线图自 v0.2 起发布。
+> 当前版本 **v0.1.1**：主界面 / 分类导航 / 插件框架 / 补丁更新引擎已成型，APK 安装网关、自更新流水线、插件补丁应用与发布流水线全部真实可用；插件本体按路线图自 v0.2 起实现。
 
 ## 主界面框架
 
@@ -83,11 +83,30 @@ git clone https://github.com/Ultra-Guru/Abyss-Tools.git
 ```
 
 CI 内容（[.github/workflows/ci.yml](.github/workflows/ci.yml)）：
-`assembleDebug` → `test`（纯 JVM 单测：SemVer / 补丁应用 / 更新检查 / 插件索引）→ `validate_manifests.py`（通道清单 schema 门禁）→ APK artifact。
+`assembleDebug` + `assembleRelease`（入库 keystore 恒定签名 —— CI 绿即代表可发布）→ `test`（纯 JVM 单测：SemVer / 补丁应用 / 更新检查 / changelog / 插件安装链）→ `validate_manifests.py`（通道清单 schema / 版本三处同步 / 脚本语法门禁）→ 双 APK artifact。
+
+## 发布与更新通道（全自动）
+
+```
+tag v* ──→ release.yml ──→ assembleRelease（入库 keystore 签名）
+                              │
+                              ▼ tools/publish_release.py（RELEASE_TOKEN）
+              Abyss-Tools-Release：GitHub Release + APK 资产
+              version.json / patches.json / changelog.json 同步滚动
+                              │
+                              ▼ 客户端（安装包内的「检查补丁更新」）
+              发现新版本 → 下载 → SHA-256 校验 → PackageInstaller 安装
+```
+
+- **升版纪律**：`app/build.gradle.kts` 与 `core/common/.../AppInfo.kt` 三处同步（CI 门禁校验），提交后打 `v*` tag 推送即发布；发布要点写在 `docs/release-notes/v<版本>.md`（一行一条）。
+- **签名恒定**：`keystore/abyss-release.jks` 入库（GitHub Releases 侧载分发的标准做法，Termux / F-Droid 同款），补丁覆盖安装无签名冲突；`ABYSS_KEYSTORE_*` 环境变量可覆盖。
+- **secret**：仓库 secret `RELEASE_TOKEN`（PAT，发布仓写入凭据）。
+- **插件侧同构**：每个 `abyss-plugin-*` 仓的 `patch-release.yml` 发布 abyss-patch-v1 数据补丁；`Abyss-Plugins` 的 `sync-index.yml` 每日 / 手动聚合 `plugins.json`。
 
 ## 路线图（对齐总体 SRS §6）
 
 - [x] **Phase 1a 框架成型**（v0.1.0）：三 tab 主界面 / 分类导航 / 插件框架 / 补丁更新引擎
+- [x] **框架闭环完善**（v0.1.1）：真实 APK 安装网关 / 自更新流水线 / 插件数据安装与补丁应用闭环 / 全仓发布工作流
 - [ ] **Phase 1b 终端成型**：伪终端渲染内核 + Shizuku 首条指令（`abyss-plugin-terminal`）
 - [ ] **Phase 2 任务系统与插件内核**：任务蓝图调用链 + DexClassLoader 插件加载
 - [ ] **Phase 3 硬核功能接入**：沙箱双开 / Python 引擎 / 悬浮球与灵动岛
