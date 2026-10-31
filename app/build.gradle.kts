@@ -59,6 +59,14 @@ android {
         }
     }
 
+    lint {
+        // targetSdk=28 是刻意工程决策（Termux 同款：untrusted_app_29+ 域的
+        // W^X 强制会击杀终端 / Python 引擎的 execve）。本项目经 GitHub
+        // Releases 侧载分发，不受 Play targetSdk 政策约束 —— 该检查项
+        // 对本渠道语义不适用，显式关闭（其余 lint 门禁照常生效）。
+        disable += "ExpiredTargetSdkVersion"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
