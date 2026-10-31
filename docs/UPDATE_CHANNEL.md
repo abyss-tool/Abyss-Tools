@@ -38,6 +38,48 @@
 
 ### changelog.json —— 版本叙事（设置页 / 更新弹层消费）
 
+```json
+{
+  "schema": "abyss-changelog-v1",
+  "generatedAt": "2026-10-31T01:55:29Z",
+  "latest": {
+    "versionName": "0.1.1",
+    "versionCode": 2,
+    "tag": "v0.1.1",
+    "date": "2026-10-31",
+    "title": "v0.1.1 —— ……",
+    "notes": ["要点一", "要点二"],
+    "markdown": "## v0.1.1\n- 要点一",
+    "releaseUrl": "https://github.com/Ultra-Guru/Abyss-Tools-Release/releases/tag/v0.1.1"
+  },
+  "history": [ { "…": "旧版本 latest 条目下沉" } ]
+}
+```
+
+客户端 `UpdateManager.fetchChangelog()` 拉取；设置页「更新日志」弹层渲染
+`entries`（latest 置顶 + history）。`markdown` 与 `notes` 内容一致，渲染端
+按能力选择。
+
+## 发布流水线（v0.1.1 起全自动）
+
+```
+开发仓升版（build.gradle.kts ↔ AppInfo 三处同步，CI 门禁校验）
+  └ git tag v* && git push --tags
+      └ release.yml：assembleRelease（keystore/abyss-release.jks 恒定签名）
+          └ tools/publish_release.py（RELEASE_TOKEN secret）
+              ├ 发布仓创建 GitHub Release + APK 资产（幂等：同名先删）
+              ├ version.json：download{url,sizeBytes,sha256} + notes + commitSha
+              ├ patches.json：latestTag 滚动
+              └ changelog.json：旧 latest 下沉 history，新版本置顶
+```
+
+发布要点来源：`docs/release-notes/v<版本>.md`（一行一条）或 dispatch
+输入（分号分隔）。
+
+客户端闭环：安装 v0.1.0 的设备 → 设置页「检查补丁更新」→ 发现 v0.1.1
+→「下载并安装整包」→ 下载 → SHA-256 校验 → PackageInstaller 安装
+（入库 keystore 同签名 → 覆盖安装零冲突）。
+
 ## 客户端决策表（core:update UpdateChecker）
 
 | 条件 | 结果 |
@@ -98,11 +140,33 @@ patch-manifest.json          # 必须在包根
 }
 ```
 
-插件详情页实时读取该通道展示补丁时间线；数据补丁经
-`PluginInstaller.applyDataPatch()` 应用到 `filesDir/plugins/<id>/`。
+插件详情页实时读取该通道展示补丁时间线，并给出应用闭环（v0.1.1 起）：
+
+- `PluginInstaller.updatablePatch()` —— 选链：`from` 命中本机版本，取
+  `to` 最大的补丁；
+- 「下载并应用补丁」：下载 → SHA-256 校验 → 备份 → 应用（
+  `PluginInstaller.applyDataPatch()`）→ 失败自动回滚 → 版本账本随
+  `plugin.json` 升级 → `PatchReport` 摘要（替换 / 新增 / 删除计数）。
+
+### 插件补丁发布（patch-release.yml，已上线）
+
+插件仓库 Actions → Patch Release → 填目标版本与变更要点：
+
+1. `tools/make_patch.py` 打 `abyss-patch-v1` 增量包（载荷 = 升版后
+   manifest + changelog/<版本>.md），同步升版仓库 `plugin.json` /
+   `CHANGELOG.md`；
+2. `tools/publish_patch.py` 创建 `v<版本>` GitHub Release + 上传 zip 资产
+   → 滚动 `patches/index.json`（新条目置顶、latest → 新版本）；
+3. `tools/validate_plugin.py` 三处一致性门禁 → bot 提交。
+
+发布后 `Abyss-Plugins` 的 `sync-index.yml`（每日 12:00 UTC / 手动）自动把
+新版本汇入 `plugins.json`。
 
 ## 校验门禁
 
-- 开发仓 CI：`tools/validate_manifests.py` 校验测试夹具（通道契约镜像）；
+- 开发仓 CI：`tools/validate_manifests.py` 校验测试夹具（通道契约镜像）、
+  版本三处同步（build.gradle.kts ↔ AppInfo）与 tools 脚本语法；
 - 发布仓 CI：`validate-manifests.yml` 校验三份清单一致性；
-- 插件仓 CI：`tools/validate_plugin.py` 校验 plugin.json 与补丁通道。
+- 插件仓 CI：`tools/validate_plugin.py` 校验 plugin.json 与补丁通道；
+- 发布流水线内置：`release.yml` 校验 tag ↔ build.gradle 版本一致；
+  `patch-release.yml` 校验插件三处一致性后再提交。

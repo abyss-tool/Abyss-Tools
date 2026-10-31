@@ -8,8 +8,8 @@
 
 | 形态 | 载体 | 安装 | 更新 |
 | --- | --- | --- | --- |
-| **APK 插件** | 独立仓库构建的 APK | 系统安装器（v0.2：PackageInstaller + 同签名信任门） | GitHub Releases 资产 |
-| **数据插件** | manifest + 数据资产目录 | 免安装，宿主目录落位 | abyss-patch-v1 数据补丁（**已可用**） |
+| **APK 插件** | 独立仓库构建的 APK | 系统安装器（v0.1.1 已接入：PackageInstaller + 同签名信任门 + 确认页转发） | GitHub Releases 资产 |
+| **数据插件** | manifest + 数据资产目录 | `installDataPlugin`（校验后原子落盘，v0.1.1 已接入） | abyss-patch-v1 数据补丁（**已可用**） |
 
 ## 契约常量（plugin-sdk:plugin-api PluginContract）
 
@@ -55,7 +55,10 @@ abyss-plugin-<name>/
 ├── ROADMAP.md              # 排期
 ├── patches/index.json      # 补丁通道（CI 校验 latest == version）
 ├── tools/validate_plugin.py
+├── tools/make_patch.py     # 数据补丁打包器（abyss-patch-v1）
+├── tools/publish_patch.py  # Release + 资产上传 + 通道滚动
 ├── .github/workflows/plugin-ci.yml
+├── .github/workflows/patch-release.yml   # 补丁发布流水线（dispatch）
 └── LICENSE                 # UGRL v1.0
 ```
 
@@ -63,16 +66,32 @@ abyss-plugin-<name>/
 repo 与仓库名一致 / changelog 含当前版本 / 补丁通道 latest 一致。
 全绿才算一次合法的插件仓库提交。
 
+### 补丁发布流水线（patch-release.yml）
+
+Actions → Patch Release → Run workflow（填目标版本 + 变更要点）：
+
+1. `make_patch.py`：校验 SemVer 升序 → 打 `abyss-patch-v1` 增量包
+   （载荷 = 升版后 plugin.json + changelog/<版本>.md）→ 同步升版仓库
+   `plugin.json` / `CHANGELOG.md`；产物在 `patches/data/`（不入库）；
+2. `publish_patch.py`：创建 `v<版本>` GitHub Release + 上传 zip 资产 →
+   滚动 `patches/index.json`（新条目置顶，latest → 新版本）；
+3. `validate_plugin.py` 三处一致性门禁 → bot 提交（`[skip ci]`）。
+
+宿主侧即时可消费：插件详情页 → 「下载并应用补丁」。
+
 ## 宿主侧消费链路（core:plugin）
 
 ```
-Abyss-Plugins/plugins.json（中心索引，13 插件聚合）
-    → PluginRepository.fetchIndex()            # 插件中心页
-    → PluginDetailScreen                       # 详情 + 补丁时间线
-    → PluginInstaller.downloadApk()            # 资产未发布 → 人话错误（fail-closed）
+Abyss-Plugins/plugins.json（中心索引，13 插件聚合，sync-index 自动滚动）
+    → PluginRepository.fetchIndex()            # 插件中心页（含「我的插件」）
+    → PluginDetailScreen                       # 详情 + 补丁时间线 + 应用闭环
+    → PluginInstaller.installDataPlugin()      # 数据形态：校验 + 原子落盘
+    → PluginInstaller.downloadApk()            # APK 形态：资产未发布 → 人话错误
     → PluginInstaller.verifyApk()              # SHA-256 门禁
-    → ApkInstallGateway.install()              # Android 侧（v0.2 PackageInstaller）
-    → PluginInstaller.applyDataPatch()         # 数据补丁（备份 + 回滚，已可用）
+    → PackageInstallerApkGateway.install()     # 真实系统安装（:app 注入）
+    → PluginInstaller.updatablePatch()         # 选链：from 命中取 to 最大
+    → PluginInstaller.applyDataPatch()         # 数据补丁（备份 + 回滚）
+    → PluginInstaller.uninstall()              # 卸载清目录（确认弹层）
 ```
 
 ## v0.2 预告（宿主桥）

@@ -46,18 +46,24 @@
 lambda 按身份比较 —— 重组期新建 lambda 会引发 draw 失效风暴）；效果
 级 `runCatching`（OEM RenderEffect/AGSL 差异单项降级，进程存活优先）。
 
-## 更新体系（双仓库）
+## 更新体系（双仓库，全自动）
 
 ```
-开发仓 Abyss-Tools（源码 + CI 门禁）
-    │ CI 发布（v0.2 起接入自动流水线）
+开发仓 Abyss-Tools（源码 + CI 门禁：双变体构建 + 单测 + 清单/版本同步门禁）
+    │ git tag v*（升版三处同步：build.gradle.kts ↔ AppInfo）
+    ▼
+release.yml：assembleRelease（keystore/abyss-release.jks 恒定签名）
+    │ tools/publish_release.py（RELEASE_TOKEN）
     ▼
 发布仓 Abyss-Tools-Release
+    ├─ GitHub Release v<版本> + APK 资产（sha256 / size 入清单）
     ├─ version.json   ← 客户端「检查更新」固定读取点
-    ├─ patches.json   ← 跨版本链式增量索引
-    └─ changelog.json ← 版本叙事
+    ├─ patches.json   ← latestTag 滚动（vcdiff 二进制增量 v0.2 接入）
+    └─ changelog.json ← 旧 latest 下沉 history，新版本置顶
     ▼
-App UpdateChecker（比对 SemVer）→ 增量补丁命中 / 整包
+App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
+    → 设置页「下载并安装」：下载 → SHA-256 校验 → PackageInstaller 安装
+      （同签名门禁恒定通过；未知来源确认页自动转发）
 ```
 
 数据层补丁（abyss-patch-v1，插件 manifest / 技能目录）**已可用**：
@@ -66,19 +72,27 @@ App UpdateChecker（比对 SemVer）→ 增量补丁命中 / 整包
 
 ## 插件体系
 
-- 中心索引：`Abyss-Plugins/plugins.json`（13 个大插件聚合）
+- 中心索引：`Abyss-Plugins/plugins.json`（13 个大插件聚合；
+  `sync-index.yml` 每日 / 手动自动聚合，APK 资产自动探测）
 - 插件仓约定：`plugin.json`（manifest）+ `patches/index.json`（补丁通道）
-  + `tools/validate_plugin.py`（CI 门禁）
+  + `tools/validate_plugin.py`（CI 门禁）+ `patch-release.yml`
+  （数据补丁发布流水线：make_patch → publish_patch → 三处一致性门禁）
 - 宿主契约：`PluginContract.HOST_API_VERSION`（只增不减），
   `filesDir/plugins/<id>/plugin.json` 为安装态单一事实源
-- 安装流水线（框架期已就绪）：下载 → SHA-256 校验 → ApkInstallGateway
-  （Android 侧占位，v0.2 接 PackageInstaller + 同签名信任门）
+- 安装流水线（v0.1.1 起全链路真实）：
+  - APK 形态：下载 → SHA-256 校验 → `PackageInstallerApkGateway`
+    （同签名门禁 + 未知来源确认页转发 + 结果广播等待 + 超时 abandon）
+  - 数据形态：`installDataPlugin`（id 形态 / SemVer / 宿主下限校验 →
+    manifest 原子落盘）→ 版本账本（installedVersion）→ 补丁应用闭环
+    （updatablePatch 选链 → applyDataPatch）→ 卸载清目录
 
 详见 [PLUGIN_SDK.md](PLUGIN_SDK.md)。
 
 ## 安全基线
 
-- targetSdk 钉 28（终端引擎 SELinux 红线，Termux 同款决策）
+- targetSdk 钉 28（终端引擎 SELinux 红线，Termux 同款决策；
+  `lint { disable += "ExpiredTargetSdkVersion" }` —— 侧载分发渠道语义不适用）
 - 插件资产 fail-closed：签名 / 校验 / 路径穿越三重门
+- 发布签名恒定：入库 keystore（指纹不变 → 覆盖安装零冲突）
 - 免责声明内置 App（设置 → 许可与免责声明）+ 仓库 LICENSE（UGRL）
 - R8 混淆：v0.2 发布流水线接入（框架期 minify 关闭，CI 面最小）
