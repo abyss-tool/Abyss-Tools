@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -25,7 +28,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -38,18 +43,25 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.AbyssChannels
+import com.abyss.tools.core.common.UiState
+import com.abyss.tools.core.common.toUiState
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.InfoRow
+import com.abyss.tools.core.designsystem.component.LoadingState
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
+import com.abyss.tools.core.update.ChangelogManifest
 import com.abyss.tools.core.update.UpdateCheckResult
 import com.abyss.tools.core.update.UpdateManager
+import com.abyss.tools.core.update.VersionManifest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 设置仓储（SharedPreferences + Compose 状态直读直写）。
@@ -112,9 +124,15 @@ private sealed interface CheckUi {
     data object Idle : CheckUi
     data object Checking : CheckUi
     data object UpToDate : CheckUi
-    data class Available(val version: String, val notes: String?, val patchApplicable: Boolean) : CheckUi
+    data class Available(
+        val manifest: VersionManifest,
+        val patchApplicable: Boolean,
+    ) : CheckUi
     data class Failed(val message: String) : CheckUi
 }
+
+/** 自更新整包下载安装阶段。 */
+private enum class SelfUpdatePhase { IDLE, DOWNLOADING, VERIFYING, INSTALLING, DONE, FAILED }
 
 @Composable
 fun SettingsScreen(
@@ -128,14 +146,67 @@ fun SettingsScreen(
     var checkUi by remember { mutableStateOf<CheckUi>(CheckUi.Idle) }
     var showLicense by remember { mutableStateOf(false) }
 
+    // ── 更新日志查看 ─────────────────────────────────────────────────
+    var showChangelog by remember { mutableStateOf(false) }
+    var changelogState by remember { mutableStateOf<UiState<ChangelogManifest>>(UiState.Loading) }
+    val openChangelog: () -> Unit = {
+        showChangelog = true
+        scope.launch {
+            changelogState = updateManager.fetchChangelog().toUiState()
+        }
+    }
+
+    // ── 自更新整包流水线 ─────────────────────────────────────────────
+    var selfPhase by remember { mutableStateOf(SelfUpdatePhase.IDLE) }
+    var selfProgress by remember { mutableFloatStateOf(-1f) }
+    var selfFailure by remember { mutableStateOf<String?>(null) }
+
+    val downloadAndInstall: () -> Unit = {
+        val state = checkUi as? CheckUi.Available
+        val download = state?.manifest?.download
+        val busy = selfPhase == SelfUpdatePhase.DOWNLOADING ||
+            selfPhase == SelfUpdatePhase.VERIFYING ||
+            selfPhase == SelfUpdatePhase.INSTALLING
+        if (state != null && download != null && !busy) {
+            selfPhase = SelfUpdatePhase.DOWNLOADING
+            selfFailure = null
+            scope.launch {
+                updateManager.downloadApk(download) { read, total ->
+                    selfProgress = if (total > 0) read.toFloat() / total else -1f
+                }.onSuccess { file ->
+                    selfPhase = SelfUpdatePhase.VERIFYING
+                    if (!updateManager.verify(file, download.sha256)) {
+                        selfPhase = SelfUpdatePhase.FAILED
+                        selfFailure = "SHA-256 校验失败 —— 拒绝安装（fail-closed）"
+                    } else {
+                        selfPhase = SelfUpdatePhase.INSTALLING
+                        val result = withContext(Dispatchers.IO) { updateManager.installApk(file) }
+                        result
+                            .onSuccess { selfPhase = SelfUpdatePhase.DONE }
+                            .onFailure {
+                                selfPhase = SelfUpdatePhase.FAILED
+                                selfFailure = it.message ?: "安装失败"
+                            }
+                    }
+                }.onFailure {
+                    selfPhase = SelfUpdatePhase.FAILED
+                    selfFailure = it.message ?: "下载失败"
+                }
+            }
+        }
+    }
+
     val checkUpdate: () -> Unit = {
         if (checkUi !is CheckUi.Checking) {
             checkUi = CheckUi.Checking
+            selfPhase = SelfUpdatePhase.IDLE
+            selfFailure = null
             scope.launch {
                 checkUi = when (val r = updateManager.checkForUpdate(AppInfo.version)) {
                     is UpdateCheckResult.UpToDate -> CheckUi.UpToDate
                     is UpdateCheckResult.Available -> CheckUi.Available(
-                        r.manifest.versionName, r.manifest.notes, r.patchApplicable
+                        manifest = r.manifest,
+                        patchApplicable = r.patchApplicable,
                     )
 
                     is UpdateCheckResult.Failed -> CheckUi.Failed(
@@ -145,7 +216,7 @@ fun SettingsScreen(
                 settings.lastCheckAt = System.currentTimeMillis()
                 settings.lastCheckSummary = when (val state = checkUi) {
                     CheckUi.UpToDate -> "已是最新（v${AppInfo.VERSION_NAME}）"
-                    is CheckUi.Available -> "发现 v${state.version}"
+                    is CheckUi.Available -> "发现 v${state.manifest.versionName}"
                     is CheckUi.Failed -> "检查失败：${state.message}"
                     else -> "—"
                 }
@@ -189,7 +260,12 @@ fun SettingsScreen(
                 UpdateSectionCard(
                     checkUi = checkUi,
                     settings = settings,
+                    selfPhase = selfPhase,
+                    selfProgress = selfProgress,
+                    selfFailure = selfFailure,
                     onCheck = checkUpdate,
+                    onDownloadAndInstall = downloadAndInstall,
+                    onOpenChangelog = openChangelog,
                 )
             }
 
@@ -227,6 +303,19 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showLicense = false }) { Text("我已阅读") }
+            },
+        )
+    }
+
+    if (showChangelog) {
+        ChangelogDialog(
+            state = changelogState,
+            onDismiss = { showChangelog = false },
+            onRetry = {
+                scope.launch {
+                    changelogState = UiState.Loading
+                    changelogState = updateManager.fetchChangelog().toUiState()
+                }
             },
         )
     }
@@ -272,7 +361,12 @@ private fun GlassIntensityCard(settings: SettingsRepository) {
 private fun UpdateSectionCard(
     checkUi: CheckUi,
     settings: SettingsRepository,
+    selfPhase: SelfUpdatePhase,
+    selfProgress: Float,
+    selfFailure: String?,
     onCheck: () -> Unit,
+    onDownloadAndInstall: () -> Unit,
+    onOpenChangelog: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -310,14 +404,27 @@ private fun UpdateSectionCard(
             } + " · ${settings.lastCheckSummary}",
         )
 
-        val detail = when (val state = checkUi) {
-            CheckUi.Idle -> null
-            CheckUi.Checking -> "正在读取发布仓 version.json…"
-            CheckUi.UpToDate -> "当前已是通道最新版本。"
-            is CheckUi.Available -> "发现 v${state.version}：${state.notes ?: "（未附说明）"}" +
-                if (state.patchApplicable) " · 支持增量补丁升级" else " · 需整包安装"
+        val available = checkUi as? CheckUi.Available
+        val detail = when {
+            selfPhase != SelfUpdatePhase.IDLE && selfPhase != SelfUpdatePhase.FAILED -> null
+            checkUi is CheckUi.Checking -> "正在读取发布仓 version.json…"
+            checkUi is CheckUi.UpToDate -> "当前已是通道最新版本。"
+            available != null -> buildString {
+                append("发现 v")
+                append(available.manifest.versionName)
+                append("：")
+                append(available.manifest.notes ?: "（未附说明）")
+                append(" · ")
+                append(
+                    if (available.patchApplicable) "支持增量补丁升级"
+                    else "需整包安装"
+                )
+            }
 
-            is CheckUi.Failed -> "检查失败：${state.message}（首个 APK 发布前，发布仓仅含清单骨架 —— 属预期状态）"
+            checkUi is CheckUi.Failed ->
+                "检查失败：${(checkUi as CheckUi.Failed).message}（首个 APK 发布前，发布仓仅含清单骨架 —— 属预期状态）"
+
+            else -> null
         }
         if (detail != null) {
             Spacer(Modifier.size(8.dp))
@@ -327,12 +434,29 @@ private fun UpdateSectionCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        // ── 自更新整包流水线（下载 → 校验 → PackageInstaller 安装）────
+        if (available != null) {
+            Spacer(Modifier.size(10.dp))
+            SelfUpdateUi(
+                phase = selfPhase,
+                progress = selfProgress,
+                failure = selfFailure,
+                downloadUrl = available.manifest.download?.url,
+                onInstall = onDownloadAndInstall,
+            )
+        }
+
         Spacer(Modifier.size(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = onCheck, enabled = checkUi !is CheckUi.Checking) {
                 Text("检查补丁更新")
             }
             Spacer(Modifier.size(10.dp))
+            OutlinedButton(onClick = onOpenChangelog) { Text("更新日志") }
+        }
+        Spacer(Modifier.size(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "启动时自动检查",
                 style = MaterialTheme.typography.bodySmall,
@@ -344,6 +468,154 @@ private fun UpdateSectionCard(
             )
         }
     }
+}
+
+@Composable
+private fun SelfUpdateUi(
+    phase: SelfUpdatePhase,
+    progress: Float,
+    failure: String?,
+    downloadUrl: String?,
+    onInstall: () -> Unit,
+) {
+    Column {
+        when (phase) {
+            SelfUpdatePhase.IDLE -> {
+                if (downloadUrl != null) {
+                    Button(onClick = onInstall) { Text("下载并安装整包") }
+                } else {
+                    Text(
+                        text = "通道尚未发布 APK 资产（download 为空）—— v0.2 发布流水线起提供整包下载。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            SelfUpdatePhase.DOWNLOADING -> {
+                Text("下载整包…", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.size(6.dp))
+                if (progress >= 0f) {
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            SelfUpdatePhase.VERIFYING -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+                Text("SHA-256 校验中…", style = MaterialTheme.typography.bodySmall)
+            }
+
+            SelfUpdatePhase.INSTALLING -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+                Text("提交系统安装器（确认页如弹出请允许）…", style = MaterialTheme.typography.bodySmall)
+            }
+
+            SelfUpdatePhase.DONE -> Text(
+                "安装完成 —— 重启后生效。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            SelfUpdatePhase.FAILED -> Column {
+                Text(
+                    text = failure ?: "安装失败",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Spacer(Modifier.size(8.dp))
+                if (downloadUrl != null) {
+                    Button(onClick = onInstall) { Text("重试下载并安装") }
+                }
+            }
+        }
+    }
+}
+
+/** 更新日志弹层：latest + history 全量条目（标题 / 日期 / 要点）。 */
+@Composable
+private fun ChangelogDialog(
+    state: UiState<ChangelogManifest>,
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("更新日志") },
+        text = {
+            when (state) {
+                is UiState.Loading -> Box(Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
+                    LoadingState("正在读取发布仓 changelog.json…")
+                }
+
+                is UiState.Error -> Column {
+                    Text(
+                        text = "更新日志拉取失败：${state.message}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    TextButton(onClick = onRetry) { Text("重试") }
+                }
+
+                is UiState.Data -> Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (state.value.entries.isEmpty()) {
+                        Text(
+                            "通道暂无更新日志条目。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    state.value.entries.forEachIndexed { index, entry ->
+                        if (index > 0) {
+                            Spacer(Modifier.size(10.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Spacer(Modifier.size(10.dp))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "v${entry.versionName}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            entry.date?.let {
+                                Text(
+                                    text = it,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        entry.title?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                        entry.notes.forEach { note ->
+                            Text(
+                                text = "· $note",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
 }
 
 @Composable

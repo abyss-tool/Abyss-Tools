@@ -141,6 +141,145 @@ class PluginFrameworkTest {
         assertTrue(!installer.isInstalled("abyss-plugin-qr-craft"))
     }
 
+    // ── 数据层安装（installDataPlugin 真实闭环）────────────────────────
+
+    private fun entry(
+        id: String = "abyss-plugin-terminal",
+        version: String = "0.1.0",
+        minApp: String = "0.1.0",
+    ) = PluginIndexEntry(
+        id = id, name = "终端引擎",
+        repo = "Ultra-Guru/$id", category = "terminal",
+        version = version, minApp = minApp, summary = "Termux 血统终端",
+        icon = "🖥", permissions = listOf("INTERNET"),
+        patchChannel = "https://raw.githubusercontent.com/Ultra-Guru/$id/main/patches/index.json",
+        roadmap = listOf("v0.2 伪终端内核"),
+    )
+
+    @Test
+    fun `数据层安装 - manifest 校验后原子落盘并进版本账本`() {
+        val root = tmp.newFolder("plugins-data")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+
+        val result = installer.installDataPlugin(entry())
+        val manifest = result.getOrThrow()
+
+        assertEquals("abyss-plugin-terminal", manifest.id)
+        assertTrue(installer.isInstalled("abyss-plugin-terminal"))
+        assertEquals(1, installer.installed().size)
+        // 版本查询可用
+        assertEquals("0.1.0", installer.installedVersion("abyss-plugin-terminal").toString())
+        // 落盘内容可再解析（序列化 → 反序列化回环）
+        val onDisk = installer.installedManifest("abyss-plugin-terminal")!!
+        assertEquals(manifest, onDisk)
+        assertEquals(listOf("INTERNET"), onDisk.permissions)
+        // staging 残留不应存在
+        assertTrue(!installer.pluginDir("abyss-plugin-terminal").resolve("plugin.json.staging").exists())
+    }
+
+    @Test
+    fun `数据层安装 - 重复安装覆盖升级且无残留`() {
+        val root = tmp.newFolder("plugins-reinstall")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+
+        installer.installDataPlugin(entry()).getOrThrow()
+        val upgraded = installer.installDataPlugin(entry(version = "0.2.0")).getOrThrow()
+
+        assertEquals("0.2.0", upgraded.version)
+        assertEquals("0.2.0", installer.installedVersion("abyss-plugin-terminal").toString())
+        // 仍是唯一登记（目录不重复）
+        assertEquals(1, installer.installed().size)
+    }
+
+    @Test
+    fun `数据层安装 - 非法 id 与坏版本号 fail-closed`() {
+        val root = tmp.newFolder("plugins-bad")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+
+        // id 形态非法（无连字符 → 不匹配 ID_PATTERN）
+        assertTrue(installer.installDataPlugin(entry(id = "Terminal")).isFailure)
+        // 版本号非法
+        assertTrue(installer.installDataPlugin(entry(version = "0.1")).isFailure)
+        assertTrue(installer.installDataPlugin(entry(version = "abc")).isFailure)
+        // 宿主下限高于当前 AppInfo.VERSION_NAME
+        assertTrue(installer.installDataPlugin(entry(minApp = "99.0.0")).isFailure)
+        // 全部失败后不应产生任何登记
+        assertTrue(installer.installed().isEmpty())
+    }
+
+    @Test
+    fun `updatablePatch - from 命中本机版本时取 to 最大的补丁`() {
+        val root = tmp.newFolder("plugins-patch-select")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+
+        // 未安装 → 永远无可应用补丁
+        val emptyChannel = PluginPatchChannel(
+            plugin = "abyss-plugin-terminal", latest = "0.1.2",
+            patches = listOf(
+                PluginPatch(from = "0.1.0", to = "0.1.1", url = "https://x/p1.zip"),
+                PluginPatch(from = "0.1.0", to = "0.1.2", url = "https://x/p2.zip"),
+            ),
+        )
+        assertEquals(null, installer.updatablePatch("abyss-plugin-terminal", emptyChannel))
+
+        // 安装 0.1.0 后 → 命中 from=0.1.0 的两条中 to 最大的 0.1.2
+        installer.installDataPlugin(entry()).getOrThrow()
+        val selected = installer.updatablePatch("abyss-plugin-terminal", emptyChannel)!!
+        assertEquals("0.1.2", selected.to)
+        assertEquals("https://x/p2.zip", selected.url)
+
+        // 补丁应用后本机为 0.1.2 → 无命中（链已走到头）
+        installer.pluginDir("abyss-plugin-terminal").resolve("plugin.json").writeText(
+            """{"id":"abyss-plugin-terminal","name":"终端引擎","version":"0.1.2","category":"terminal"}"""
+        )
+        assertEquals(null, installer.updatablePatch("abyss-plugin-terminal", emptyChannel))
+    }
+
+    @Test
+    fun `数据层安装到补丁应用的完整链路`() = runTest {
+        val root = tmp.newFolder("plugins-chain")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+
+        // 1) 数据层安装 0.1.0
+        installer.installDataPlugin(entry()).getOrThrow()
+        assertEquals("0.1.0", installer.installedVersion("abyss-plugin-terminal").toString())
+
+        // 2) 补丁包：replace plugin.json（升 0.1.1）+ add skills/hello.json
+        val patchZip = tmp.newFile("chain-patch.zip")
+        ZipOutputStream(patchZip.outputStream().buffered()).use { zip ->
+            zip.putNextEntry(ZipEntry("patch-manifest.json"))
+            zip.write(
+                """
+                {
+                  "schema": "abyss-patch-v1",
+                  "target": "abyss-plugin-terminal",
+                  "fromVersion": "0.1.0",
+                  "toVersion": "0.1.1",
+                  "files": [
+                    {"path": "plugin.json", "action": "replace"},
+                    {"path": "skills/hello.json", "action": "add"}
+                  ]
+                }
+                """.trimIndent().toByteArray()
+            )
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("plugin.json"))
+            zip.write(
+                """{"id":"abyss-plugin-terminal","name":"终端引擎","version":"0.1.1","category":"terminal","summary":"Termux 血统终端"}""".toByteArray()
+            )
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("skills/hello.json"))
+            zip.write("""{"skill":"hello"}""".toByteArray())
+            zip.closeEntry()
+        }
+
+        // 3) 应用 → 版本账本随 plugin.json 升级
+        val report = installer.applyDataPatch("abyss-plugin-terminal", patchZip)
+        assertEquals("0.1.1", report.toVersion)
+        assertEquals("0.1.1", installer.installedVersion("abyss-plugin-terminal").toString())
+        assertTrue(installer.pluginDir("abyss-plugin-terminal").resolve("skills/hello.json").exists())
+    }
+
     private fun fakeTransport() = object : com.abyss.tools.core.update.HttpTransport {
         override fun get(url: String): String = "{}"
         override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {

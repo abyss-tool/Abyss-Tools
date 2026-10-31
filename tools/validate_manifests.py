@@ -99,13 +99,45 @@ def check_plugin_channel_fixture() -> None:
     check_version(data.get("latest"), str(path))
 
 
+def check_changelog_fixture() -> None:
+    path = Path("core/update/src/test/resources/channel/changelog.json")
+    if not path.exists():
+        fail(f"{path}: changelog 夹具缺失（changelog.json 消费端测试依赖）")
+        return
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("schema") != "abyss-changelog-v1":
+        fail(f"{path}: schema 应为 abyss-changelog-v1")
+    entries = []
+    if data.get("latest") is not None:
+        entries.append(("latest", data["latest"]))
+    entries += [("history", e) for e in data.get("history", [])]
+    versions = []
+    for where, entry in entries:
+        check_version(entry.get("versionName"), f"{path}[{where}]")
+        versions.append(entry.get("versionName"))
+        tag = entry.get("tag")
+        if tag is not None and tag != f"v{entry.get('versionName')}":
+            fail(f"{path}[{where}]: tag({tag}) 与 versionName 不一致")
+    if len(versions) != len(set(versions)):
+        fail(f"{path}: 条目版本号重复")
+    # latest 必须是最新（严格大于 history 中所有版本的主次修订序）
+    if data.get("latest") is not None and data.get("history"):
+        latest = tuple(int(x) for x in data["latest"]["versionName"].split("."))
+        for h in data["history"]:
+            hv = tuple(int(x) for x in h["versionName"].split("."))
+            if hv >= latest:
+                fail(f"{path}: latest({latest}) 应高于 history 条目({hv})")
+    print(f"[manifests] changelog 夹具：{len(entries)} 条目校验通过")
+
+
 if __name__ == "__main__":
     check_channel_fixtures()
     check_plugin_index_fixture()
     check_plugin_channel_fixture()
+    check_changelog_fixture()
     if errors:
         print(f"\n[manifests] ✗ {len(errors)} 处校验失败：", file=sys.stderr)
         for e in errors:
             print(f"  - {e}", file=sys.stderr)
         sys.exit(1)
-    print("[manifests] ✓ 全部更新通道 / 插件索引夹具校验通过")
+    print("[manifests] ✓ 全部更新通道 / 插件索引 / changelog 夹具校验通过")

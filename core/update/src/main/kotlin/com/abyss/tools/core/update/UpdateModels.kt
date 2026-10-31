@@ -63,4 +63,6 @@ object UpdateParsers {
     fun parseVersionManifest(raw: String): VersionManifest = json.decodeFromString(raw)
 
     fun parsePatchesManifest(raw: String): PatchesManifest = json.decodeFromString(raw)
+
+    fun parseChangelogManifest(raw: String): ChangelogManifest = json.decodeFromString(raw)
 }

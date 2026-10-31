@@ -47,7 +47,7 @@ import com.kyant.backdrop.Backdrop
 import kotlinx.coroutines.launch
 
 /**
- * 仪表盘 —— 主界面第一 tab：状态总览 / 快捷入口 / 补丁更新。
+ * 仪表盘 —— 主界面第一 tab：状态总览 / 快捷入口 / 补丁更新 / 插件本机态。
  */
 
 /** 仪表盘更新卡片状态（app 不直接消费 UpdateCheckResult，映射到此）。 */
@@ -72,6 +72,8 @@ fun DashboardScreen(
     onOpenTool: (String) -> Unit,
     onOpenPlugins: () -> Unit,
     bottomClearance: Dp,
+    installedPluginCount: Int = 0,
+    autoCheckUpdates: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
 
@@ -101,6 +103,11 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+
+    // ── 启动时自动检查（设置页开关接线）──────────────────────────────
+    LaunchedEffect(autoCheckUpdates) {
+        if (autoCheckUpdates && updateUi is UpdateUi.Idle) checkUpdate()
     }
 
     Column(
@@ -146,7 +153,10 @@ fun DashboardScreen(
 
             // ── 统计卡 ────────────────────────────────────────────────
             item {
-                StatsRow(indexState = indexState)
+                StatsRow(
+                    indexState = indexState,
+                    installedPluginCount = installedPluginCount,
+                )
             }
 
             // ── 补丁更新卡（液态玻璃件：采样主内容）────────────────────
@@ -181,7 +191,11 @@ fun DashboardScreen(
             item {
                 SectionHeader(title = "插件生态")
                 Box(Modifier.size(6.dp))
-                PluginEntryCard(indexState = indexState, onOpen = onOpenPlugins)
+                PluginEntryCard(
+                    indexState = indexState,
+                    installedPluginCount = installedPluginCount,
+                    onOpen = onOpenPlugins,
+                )
             }
 
             // ── 路线图 ────────────────────────────────────────────────
@@ -194,7 +208,7 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun StatsRow(indexState: UiState<PluginIndex>) {
+private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int) {
     val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 13
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(
@@ -208,8 +222,8 @@ private fun StatsRow(indexState: UiState<PluginIndex>) {
             modifier = Modifier.weight(1f),
         )
         StatCard(
-            value = "已建立",
-            label = "补丁更新通道",
+            value = "$installedPluginCount",
+            label = "本机已装插件",
             modifier = Modifier.weight(1f),
         )
     }
@@ -307,7 +321,11 @@ private fun UpdateCard(
 }
 
 @Composable
-private fun PluginEntryCard(indexState: UiState<PluginIndex>, onOpen: () -> Unit) {
+private fun PluginEntryCard(
+    indexState: UiState<PluginIndex>,
+    installedPluginCount: Int,
+    onOpen: () -> Unit,
+) {
     val count = (indexState as? UiState.Data)?.value?.plugins?.size ?: 13
     Column(
         modifier = Modifier
@@ -316,12 +334,18 @@ private fun PluginEntryCard(indexState: UiState<PluginIndex>, onOpen: () -> Unit
             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
-        Text(
-            text = "插件中心 · $count 个大插件",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "插件中心 · $count 个大插件",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.weight(1f),
+            )
+            if (installedPluginCount > 0) {
+                StatusChip("本机已装 $installedPluginCount", ChipTone.OK)
+            }
+        }
         Spacer(Modifier.size(4.dp))
         Text(
             text = "终端引擎 / Python 游乐场 / 沙箱双开 / 设备伪装 / 媒体实验室…每个插件独立仓库、独立 CI、独立补丁通道。",

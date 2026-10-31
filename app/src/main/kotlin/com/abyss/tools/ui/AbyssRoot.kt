@@ -105,6 +105,14 @@ fun AbyssRoot() {
     val backStack = remember { AbyssBackStack(Screen.Dashboard) }
     val settings = registry.settings
 
+    // 插件本机状态版本号：安装 / 卸载 / 补丁应用后自增 —— 驱动插件中心
+    // 「我的插件」分区、安装徽章与仪表盘统计重读磁盘。
+    var pluginStateVersion by remember { mutableStateOf(0) }
+    val bumpPluginState = { pluginStateVersion += 1 }
+    val installedPluginCount = remember(pluginStateVersion) {
+        registry.pluginInstaller.installed().size
+    }
+
     BackHandler(enabled = backStack.canPop) { backStack.pop() }
 
     val bottomClearance = AbyssBottomBarHeight + 24.dp
@@ -134,6 +142,8 @@ fun AbyssRoot() {
                                 onOpenTool = { backStack.push(Screen.Tool(it)) },
                                 onOpenPlugins = { backStack.push(Screen.PluginHub) },
                                 bottomClearance = bottomClearance,
+                                installedPluginCount = installedPluginCount,
+                                autoCheckUpdates = settings.checkOnLaunch,
                             )
 
                             Screen.NavHub -> NavHubScreen(
@@ -155,6 +165,8 @@ fun AbyssRoot() {
                                 installer = registry.pluginInstaller,
                                 onBack = { backStack.pop() },
                                 onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
+                                stateVersion = pluginStateVersion,
+                                onPluginsChanged = bumpPluginState,
                             )
 
                             is Screen.PluginDetail -> PluginDetailScreen(
@@ -164,6 +176,7 @@ fun AbyssRoot() {
                                 installer = registry.pluginInstaller,
                                 backdrop = backdrop,
                                 onBack = { backStack.pop() },
+                                onPluginsChanged = bumpPluginState,
                             )
 
                             is Screen.Tool -> ToolScreen(

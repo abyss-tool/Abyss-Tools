@@ -248,3 +248,96 @@ class DigestsTest {
         f.delete()
     }
 }
+
+class ChangelogTest {
+
+    @Test
+    fun `解析 changelog latest 与 history 合成全量条目`() {
+        val raw = javaClass.classLoader!!
+            .getResourceAsStream("channel/changelog.json")!!.readBytes().decodeToString()
+        val manifest = UpdateParsers.parseChangelogManifest(raw)
+
+        assertEquals("abyss-changelog-v1", manifest.schema)
+        assertEquals("0.2.0", manifest.latest!!.versionName)
+        assertEquals(1, manifest.history.size)
+        // latest 置顶的全量条目序
+        assertEquals(listOf("0.2.0", "0.1.0"), manifest.entries.map { it.versionName })
+        assertEquals(3, manifest.latest.notes.size)
+        assertEquals("v0.2.0", manifest.latest.resolvedTag)
+        // history 条目缺省 tag 时按 v{version} 推导
+        assertEquals("v0.1.0", manifest.history.first().resolvedTag)
+    }
+
+    @Test
+    fun `空 changelog 容忍`() {
+        val manifest = UpdateParsers.parseChangelogManifest("{}")
+        assertEquals(0, manifest.entries.size)
+        assertEquals(null, manifest.latest)
+    }
+
+    @Test
+    fun `UpdateManager fetchChangelog 走配置通道`() = runTest {
+        val raw = javaClass.classLoader!!
+            .getResourceAsStream("channel/changelog.json")!!.readBytes().decodeToString()
+        val transport = object : HttpTransport {
+            override fun get(url: String): String = raw
+            override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {
+                dest.writeBytes(raw.toByteArray())
+            }
+        }
+        val cache = kotlin.io.path.createTempDirectory("updates").toFile()
+
+        // 未配置通道 → 人话失败
+        val unconfigured = UpdateManager(transport, "https://x/version.json", cache)
+        assertTrue(unconfigured.fetchChangelog().isFailure)
+        assertTrue(
+            unconfigured.fetchChangelog().exceptionOrNull()!!.message!!.contains("未配置")
+        )
+
+        // 配置通道 → 拉取并解析
+        val configured = UpdateManager(
+            transport, "https://x/version.json", cache,
+            changelogJsonUrl = "https://x/changelog.json",
+        )
+        val result = configured.fetchChangelog().getOrThrow()
+        assertEquals("0.2.0", result.latest!!.versionName)
+        cache.deleteRecursively()
+    }
+
+    @Test
+    fun `installApk 未装配网关时人话失败`() = runTest {
+        val cache = kotlin.io.path.createTempDirectory("updates").toFile()
+        val manager = UpdateManager(
+            object : HttpTransport {
+                override fun get(url: String): String = "{}"
+                override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {}
+            },
+            "https://x/version.json", cache,
+        )
+        val apk = File(cache, "x.apk").apply { writeBytes(byteArrayOf(1)) }
+        val result = manager.installApk(apk)
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()!!.message!!.contains("未装配"))
+        cache.deleteRecursively()
+    }
+
+    @Test
+    fun `installApk 经网关直达`() = runTest {
+        val cache = kotlin.io.path.createTempDirectory("updates").toFile()
+        val gateway = object : ApkInstallGateway {
+            override fun install(apk: File): Result<Unit> =
+                Result.failure(IllegalStateException("用户取消"))
+        }
+        val manager = UpdateManager(
+            object : HttpTransport {
+                override fun get(url: String): String = "{}"
+                override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {}
+            },
+            "https://x/version.json", cache,
+            apkGateway = gateway,
+        )
+        val apk = File(cache, "x.apk").apply { writeBytes(byteArrayOf(1)) }
+        assertEquals("用户取消", manager.installApk(apk).exceptionOrNull()!!.message)
+        cache.deleteRecursively()
+    }
+}

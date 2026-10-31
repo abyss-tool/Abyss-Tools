@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- APK 插件安装与宿主自更新（PackageInstaller 提交；未知来源安装由
+         系统确认页授权，网关自动转发 STATUS_PENDING_USER_ACTION 的确认意图） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".AbyssApplication"
         android:allowBackup="true"

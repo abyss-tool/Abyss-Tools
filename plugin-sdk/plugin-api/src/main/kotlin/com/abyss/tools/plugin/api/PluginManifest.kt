@@ -29,9 +29,14 @@ data class PluginManifest(
         private val json = Json {
             ignoreUnknownKeys = true
             isLenient = true
+            prettyPrint = true
         }
 
         fun parse(raw: String): PluginManifest = json.decodeFromString(raw)
+
+        /** 序列化回 plugin.json 形态（installDataPlugin 落盘 / 插件仓生成用）。 */
+        fun serialize(manifest: PluginManifest): String =
+            json.encodeToString(PluginManifest.serializer(), manifest)
     }
 }
 
