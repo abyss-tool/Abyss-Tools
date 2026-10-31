@@ -15,6 +15,8 @@ jobs:
   # ── 构建 + 单元测试 ────────────────────────────────────────────────────
   # 本仓库不做本地编译：全部编译验证走 GitHub Actions（ubuntu-latest 自带
   # Android SDK cmdline-tools，Gradle 8.14 wrapper 自动拉取发行版）。
+  # debug + release 双变体：release 用入库 keystore 签名（指纹恒定，发布
+  # 流水线复用同一配置 —— CI 绿即代表可发布）。
   build:
     name: Build & Test
     runs-on: ubuntu-latest
@@ -35,8 +37,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Assemble debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Assemble debug + release APK
+        run: ./gradlew assembleDebug assembleRelease --stacktrace
 
       - name: Unit tests
         run: ./gradlew test --stacktrace
@@ -48,7 +50,16 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: abyss-tools-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
   # ── 更新通道清单校验（防手写 JSON 漂移）────────────────────────────────
+  # 夹具 schema / 插件索引完整性 / changelog 序 / 版本三处同步（build.gradle
+  # ↔ AppInfo）/ tools 脚本语法。发布仓与插件中心仓另有同款校验，三处同构。
   manifests:
     name: Validate Manifests
     runs-on: ubuntu-latest
@@ -57,5 +68,5 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate update-channel & plugin fixtures
+      - name: Validate update-channel & plugin fixtures & version sync
         run: python3 tools/validate_manifests.py

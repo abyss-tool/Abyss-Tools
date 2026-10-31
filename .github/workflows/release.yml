@@ -1,0 +1,116 @@
+name: Release
+
+# 发布流水线（双仓库模式，对齐 Android-Guru-Agent 体系）：
+#   开发仓（本仓）tag → 构建 release APK（入库 keystore 签名，指纹恒定）→
+#   发布仓（Abyss-Tools-Release）创建 GitHub Release + 上传 APK 资产 →
+#   同步 version.json / patches.json / changelog.json → 客户端「检查更新」
+#   即刻可发现并下载安装（PackageInstaller 网关同签名门禁恒定通过）。
+#
+# 触发：
+#   - push tag v*（推荐：先在 app/build.gradle.kts 与 AppInfo 同步升版）
+#   - workflow_dispatch（从 build.gradle.kts 读当前版本发布，tag 缺省推导）
+#
+# 需要仓库 secret：RELEASE_TOKEN（具有 repo 权限的 PAT —— 发布仓写入 +
+# Release 创建）。设置方式见 README「发布与更新通道」。
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: '更新要点（分号分隔，多条）'
+        required: false
+        default: ''
+      channel:
+        description: '通道标识'
+        required: false
+        default: 'framework-preview'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle (caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # ── 版本纪律：tag 必须与 build.gradle.kts / AppInfo 三处一致 ──────
+      # （单一事实源防漂移：升版只改这两处 + 打 tag，其余流水线自动推导）
+      - name: Verify version sync & resolve tag
+        id: version
+        run: |
+          GRADLE_VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          GRADLE_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts | head -1)
+          APPINFO_VERSION=$(grep -oP 'VERSION_NAME:\s*String\s*=\s*"\K[^"]+' core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt)
+          APPINFO_CODE=$(grep -oP 'VERSION_CODE:\s*Int\s*=\s*\K\d+' core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt)
+          echo "gradle: v$GRADLE_VERSION ($GRADLE_CODE)  appinfo: v$APPINFO_VERSION ($APPINFO_CODE)"
+          if [ "$GRADLE_VERSION" != "$APPINFO_VERSION" ] || [ "$GRADLE_CODE" != "$APPINFO_CODE" ]; then
+            echo "::error::版本三处不同步（app/build.gradle.kts vs AppInfo）—— 先同步再发布"; exit 1
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            if [ "$TAG" != "v$GRADLE_VERSION" ]; then
+              echo "::error::tag($TAG) 与 build.gradle.kts(v$GRADLE_VERSION) 不一致"; exit 1
+            fi
+          else
+            TAG="v$GRADLE_VERSION"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_name=$GRADLE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$GRADLE_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble release APK (signed)
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Locate release APK
+        id: apk
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          ls -la "$APK"
+          sha256sum "$APK"
+
+      - name: Publish to Abyss-Tools-Release
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          NOTES_ARG=""
+          IFS=';' read -ra NOTES <<< "${{ github.event_name == 'workflow_dispatch' && inputs.notes || '' }}"
+          for n in "${NOTES[@]}"; do
+            [ -n "$n" ] && NOTES_ARG="$NOTES_ARG --notes \"$n\""
+          done
+          eval "python3 tools/publish_release.py \
+            --tag ${{ steps.version.outputs.tag }} \
+            --version-code ${{ steps.version.outputs.version_code }} \
+            --apk ${{ steps.apk.outputs.path }} \
+            --channel ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }} \
+            --commit-sha ${{ github.sha }} \
+            $NOTES_ARG"
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: abyss-tools-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

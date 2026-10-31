@@ -19,3 +19,7 @@ captures/
 *.aab
 *.vcdiff
 outputs/
+
+# Python 构建产物
+__pycache__/
+*.pyc

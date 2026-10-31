@@ -66,7 +66,7 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
         val installer = pm.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(packageName)
-            setInstallReason(PackageInstaller.SessionParams.INSTALL_REASON_USER)
+            setInstallReason(PackageManager.INSTALL_REASON_USER)
         }
         val sessionId = installer.createSession(params)
 
@@ -83,6 +83,12 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
         }
     }
 
+    /** 跨线程可见的安装结果持有器（广播回调主线程 ↔ 阻塞工作线程）。 */
+    private class InstallStatus {
+        @Volatile var status: Int = Int.MIN_VALUE
+        @Volatile var message: String? = null
+    }
+
     /** 注册结果广播 → commit → 等待最终状态（含用户确认页转发）。 */
     private fun awaitCommitResult(
         installer: PackageInstaller,
@@ -92,9 +98,7 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
     ) {
         val action = "$ACTION_RESULT.$sessionId"
         val latch = CountDownLatch(1)
-
-        @Volatile var status: Int = Int.MIN_VALUE
-        @Volatile var statusMessage: String? = null
+        val result = InstallStatus()
 
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
@@ -110,8 +114,8 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
                     }
                     return
                 }
-                status = s
-                statusMessage = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                result.status = s
+                result.message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                 latch.countDown()
             }
         }
@@ -132,10 +136,10 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
                 throw IOException("安装超时：系统未在 ${TIMEOUT_SECONDS}s 内回报结果（$packageName）")
             }
 
-            when (status) {
+            when (result.status) {
                 PackageInstaller.STATUS_SUCCESS -> Unit
                 else -> throw IOException(
-                    "安装失败（status=$status）：${statusMessage ?: "无附加信息"}（$packageName）"
+                    "安装失败（status=${result.status}）：${result.message ?: "无附加信息"}（$packageName）"
                 )
             }
         } finally {

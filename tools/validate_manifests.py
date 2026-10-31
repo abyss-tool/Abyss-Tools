@@ -130,14 +130,53 @@ def check_changelog_fixture() -> None:
     print(f"[manifests] changelog 夹具：{len(entries)} 条目校验通过")
 
 
+def check_version_sync() -> None:
+    """版本三处一致（单一事实源纪律）：app/build.gradle.kts ↔ AppInfo。
+
+    发布流水线（release.yml）从 build.gradle.kts 推导 tag；客户端比对用
+    AppInfo —— 两处漂移会让「检查更新」语义错乱（tag 与实际版本号不符）。
+    """
+    gradle = Path("app/build.gradle.kts")
+    appinfo = Path("core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt")
+    gradle_text = gradle.read_text(encoding="utf-8")
+    appinfo_text = appinfo.read_text(encoding="utf-8")
+
+    m_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle_text)
+    m_code = re.search(r"versionCode\s*=\s*(\d+)", gradle_text)
+    a_name = re.search(r'VERSION_NAME:\s*String\s*=\s*"([^"]+)"', appinfo_text)
+    a_code = re.search(r"VERSION_CODE:\s*Int\s*=\s*(\d+)", appinfo_text)
+    if not (m_name and m_code and a_name and a_code):
+        fail("check_version_sync: 版本字段解析失败（build.gradle.kts / AppInfo 形态变更？）")
+        return
+    if m_name.group(1) != a_name.group(1):
+        fail(f"check_version_sync: versionName 漂移 build.gradle={m_name.group(1)!r} AppInfo={a_name.group(1)!r}")
+    if m_code.group(1) != a_code.group(1):
+        fail(f"check_version_sync: versionCode 漂移 build.gradle={m_code.group(1)!r} AppInfo={a_code.group(1)!r}")
+    if not SEMVER.match(m_name.group(1)):
+        fail(f"check_version_sync: versionName 非 SemVer → {m_name.group(1)!r}")
+    print(f"[manifests] 版本同步：v{m_name.group(1)} ({m_code.group(1)}) 三处一致")
+
+
+def check_scripts_compile() -> None:
+    import py_compile
+
+    for py in sorted(Path("tools").glob("*.py")):
+        try:
+            py_compile.compile(str(py), doraise=True)
+        except py_compile.PyCompileError as e:
+            fail(f"{py}: 语法错误 → {e}")
+
+
 if __name__ == "__main__":
     check_channel_fixtures()
     check_plugin_index_fixture()
     check_plugin_channel_fixture()
     check_changelog_fixture()
+    check_version_sync()
+    check_scripts_compile()
     if errors:
         print(f"\n[manifests] ✗ {len(errors)} 处校验失败：", file=sys.stderr)
         for e in errors:
             print(f"  - {e}", file=sys.stderr)
         sys.exit(1)
-    print("[manifests] ✓ 全部更新通道 / 插件索引 / changelog 夹具校验通过")
+    print("[manifests] ✓ 全部更新通道 / 插件索引 / changelog / 版本同步校验通过")

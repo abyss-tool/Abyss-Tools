@@ -23,9 +23,34 @@ android {
         versionName = "0.1.0"
     }
 
+    // ── 发布签名：入库 keystore（GitHub Releases 侧载分发的标准做法，────
+    // Termux / F-Droid 同款；对齐 Android-Guru-Agent 体系）。CI 与本地共用
+    // 同一份 → 签名指纹恒定 → 补丁更新 / 覆盖安装无签名冲突（宿主自更新
+    // 网关的同签名门禁依赖此恒定性）。逃生门：ABYSS_KEYSTORE_FILE /
+    // ABYSS_KEYSTORE_PASSWORD / ABYSS_KEY_ALIAS / ABYSS_KEY_PASSWORD
+    // 环境变量可覆盖（CI secret 注入场景）。
+    signingConfigs {
+        create("release") {
+            val keystoreFile = (project.findProperty("abyssKeystoreFile") as String?)
+                ?: System.getenv("ABYSS_KEYSTORE_FILE")
+                ?: rootProject.file("keystore/abyss-release.jks").absolutePath
+            storeFile = file(keystoreFile)
+            storePassword = (project.findProperty("abyssKeystorePassword") as String?)
+                ?: System.getenv("ABYSS_KEYSTORE_PASSWORD") ?: "abyss-release-2026"
+            keyAlias = (project.findProperty("abyssKeyAlias") as String?)
+                ?: System.getenv("ABYSS_KEY_ALIAS") ?: "abyss-release"
+            keyPassword = (project.findProperty("abyssKeyPassword") as String?)
+                ?: System.getenv("ABYSS_KEY_PASSWORD") ?: "abyss-release-2026"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+    }
+
     buildTypes {
         release {
-            // 框架期：R8 混淆与签名收编留待 v0.2 发布流水线接入
+            signingConfig = signingConfigs.getByName("release")
+            // R8 混淆收编留待 v0.2 发布流水线（先保证签名通道可验证）
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
