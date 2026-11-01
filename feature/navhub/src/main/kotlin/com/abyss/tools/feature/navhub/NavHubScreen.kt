@@ -137,7 +137,7 @@ private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "十三个大插件仓库 · 独立安装 · 独立补丁更新",
+                    text = "八大插件仓库 · 小功能内置 · 大功能插件化 · 独立补丁更新",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -168,6 +168,7 @@ private fun ToolRow(tool: ToolDef, onClick: () -> Unit) {
 
 private fun ToolStatus.tone(): ChipTone = when (this) {
     ToolStatus.READY -> ChipTone.OK
+    ToolStatus.BUILT_IN -> ChipTone.OK
     ToolStatus.PLUGIN -> ChipTone.INFO
     ToolStatus.FRAMEWORK -> ChipTone.NEUTRAL
 }
@@ -242,6 +243,9 @@ fun ToolScreen(
                         PluginCarrierCard(pluginId = tool.pluginId ?: "", onOpenPlugin = onOpenPlugin)
                     }
                 }
+                ToolStatus.BUILT_IN -> {
+                    item { BuiltInFeatureCard(tool = tool) }
+                }
                 ToolStatus.FRAMEWORK -> {
                     item { FrameworkPlaceholderCard() }
                 }
@@ -300,6 +304,36 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
         androidx.compose.material3.Button(onClick = { onOpenPlugin(pluginId) }) {
             Text(if (pluginId.isBlank()) "前往插件中心" else "查看插件 · $pluginId")
         }
+    }
+}
+
+@Composable
+private fun BuiltInFeatureCard(tool: ToolDef) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .padding(16.dp),
+    ) {
+        Text(
+            text = "主壳内置 · 无需安装插件",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.size(4.dp))
+        Text(
+            text = "自 v0.2 起本工具由独立插件仓并入主壳，随深渊工具版本更新直接获得，" +
+                "不再占用插件中心位次 —— 功能界面按内置路线图逐步落地。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(
+            text = "内置路线：「${tool.title}」随主壳迭代（原插件仓已归档）",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 

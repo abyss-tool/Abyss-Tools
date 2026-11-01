@@ -19,8 +19,8 @@ android {
         // 将不可用。Termux 至今钉 targetSdk 28 正是同因。本项目经 GitHub
         // Releases 侧载分发，不受 Play targetSdk 政策约束。
         targetSdk = 28
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.2.0"
     }
 
     // ── 发布签名：入库 keystore（GitHub Releases 侧载分发的标准做法，────

@@ -4,6 +4,23 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
+ * 插件 Shizuku 授权声明 —— 「插件内单独带有 Shizuku 授权」的契约载体。
+ *
+ * 背景：Shizuku 的授权机制是严格 per-app 的（绑定具体包名）。宿主获得
+ * 授权后，运行在宿主进程内的代码可经宿主 Binder 通道间接使用；但**独立
+ * APK 插件有自己的包名，必须由用户单独授权一次**，否则 Shizuku 服务端
+ * 直接拒绝。声明本字段 = 插件详情页向用户明确「装完插件还要单独授权
+ * Shizuku」的原因与用途，避免用户在未知情的情况下反复碰壁。
+ */
+@Serializable
+data class PluginShizukuDecl(
+    /** 是否需要独立于宿主的 Shizuku 授权（独立 APK 插件按 per-app 授权）。 */
+    val ownAuth: Boolean = false,
+    /** 为什么需要（详情页向用户解释，人话）。 */
+    val reason: String = "",
+)
+
+/**
  * 插件 manifest（plugin.json）—— 插件包与插件仓库共用的自描述文件。
  *
  * 插件仓库根的 plugin.json 与安装目录内的 plugin.json 同构：仓库侧由
@@ -20,6 +37,8 @@ data class PluginManifest(
     val summary: String = "",
     val icon: String? = null,
     val permissions: List<String> = emptyList(),
+    /** Shizuku 授权声明（null = 不涉及；独立 APK 插件需要单独授权时必填）。 */
+    val shizuku: PluginShizukuDecl? = null,
     val entry: String? = null,
     val repo: String = "",
     val patchChannel: String? = null,

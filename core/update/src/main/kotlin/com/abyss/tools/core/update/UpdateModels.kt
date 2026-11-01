@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * 发布仓（Ultra-Guru/Abyss-Tools-Release）更新通道数据契约。
+ * 发布仓（abyss-tool/Abyss-Tools-Release）更新通道数据契约。
  *
  * 与 Android-Guru-Agent-Release 的 version.json / patches.json 字段语义
  * 对齐（versionName / versionCode / tag / download / patch），在其上

@@ -209,16 +209,16 @@ fun DashboardScreen(
 
 @Composable
 private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int) {
-    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 13
+    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 8
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(
-            value = "$pluginCount",
-            label = "大插件仓库",
+            value = "${ToolCatalog.builtInCount}",
+            label = "主壳内置工具",
             modifier = Modifier.weight(1f),
         )
         StatCard(
-            value = "${ToolCatalog.tools.size}",
-            label = "登记工具",
+            value = "$pluginCount",
+            label = "大插件仓库",
             modifier = Modifier.weight(1f),
         )
         StatCard(

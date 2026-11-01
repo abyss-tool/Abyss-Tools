@@ -2,11 +2,11 @@
 
 # 深渊工具 Abyss Tools
 
-### 🕳 面向极客的 Android 系统级超级工具箱 —— 液态玻璃 M3 主壳 · 十三大插件仓库 · 补丁热更新
+### 🕳 面向极客的 Android 系统级超级工具箱 —— 液态玻璃 M3 主壳 · 轻功能内置 · 八大重型插件 · 补丁热更新
 
-**A system-level geek toolbox for Android — liquid glass M3 shell · 13 plugin repos · patch updates.**
+**A system-level geek toolbox for Android — liquid glass M3 shell · built-in tools + 8 heavyweight plugins · patch updates.**
 
-[![CI](https://github.com/Ultra-Guru/Abyss-Tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Ultra-Guru/Abyss-Tools/actions/workflows/ci.yml)
+[![CI](https://github.com/abyss-tool/Abyss-Tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/abyss-tool/Abyss-Tools/actions/workflows/ci.yml)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.3.21-7F52FF?logo=kotlin&logoColor=white)
 ![AGP](https://img.shields.io/badge/AGP-8.13.2-3DDC84?logo=android&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack_Compose-BOM_2026.02.00-4285F4?logo=jetpackcompose&logoColor=white)
@@ -19,13 +19,13 @@
 
 ## 这是什么
 
-深渊工具是一个「主壳轻、能力重」的 Android 超级工具箱框架：
+深渊工具是一个「主壳轻、能力重」的 Android 超级工具箱框架。**v0.2 起承载形态定型为三分法：**
 
-- **主壳（本仓库）** 只做三件事：液态玻璃 Material 3 界面、工具目录导航、插件与更新的框架底座；
-- **全部硬核能力**（终端 / Python / 沙箱双开 / 设备伪装 / 媒体处理 / 自动化…）以**独立插件仓库**的形式存在 —— 十三个大插件，每个独立仓库、独立 CI、独立补丁通道；
-- **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/Ultra-Guru/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
+- **轻功能一律内置**：应用管理器 / Shizuku 工具箱 / 任务蓝图 / 自动化编排 / 灵动岛悬浮球 / 动态壁纸 / 二维码工坊 —— 直接写进主仓库（`ToolStatus.BUILT_IN`），随版本更新获得，零安装成本；
+- **只有「重」的能力才做成插件**：终端 / Python / 沙箱双开 / 设备伪装 / 媒体处理 / 网络守护 / 备份迁移 / **应用构建器**（旗舰）—— 原生工具链或独立进程级能力，独立仓库、独立 CI、独立补丁通道，部分插件可声明**独立 Shizuku 授权**；
+- **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/abyss-tool/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
 
-> 当前版本 **v0.1.1**：主界面 / 分类导航 / 插件框架 / 补丁更新引擎已成型，APK 安装网关、自更新流水线、插件补丁应用与发布流水线全部真实可用；插件本体按路线图自 v0.2 起实现。
+> 当前版本 **v0.2.0**：内置化重构完成（七个轻量工具并入主壳）、应用构建器登记插件中心、插件 Shizuku 独立授权契约落地；插件本体按各自路线图实现。
 
 ## 主界面框架
 
@@ -67,17 +67,19 @@
 
 | 仓库 | 角色 |
 | --- | --- |
-| [Ultra-Guru/Abyss-Tools](https://github.com/Ultra-Guru/Abyss-Tools) | 开发仓库：源码 + CI 门禁（本仓库） |
-| [Ultra-Guru/Abyss-Tools-Release](https://github.com/Ultra-Guru/Abyss-Tools-Release) | 发布仓库：version.json / patches.json / changelog.json + Releases 资产 |
-| [Ultra-Guru/Abyss-Plugins](https://github.com/Ultra-Guru/Abyss-Plugins) | 插件中心：plugins.json 索引 + 插件规范 |
-| [Ultra-Guru/abyss-plugin-*](https://github.com/Ultra-Guru/Abyss-Plugins) × 13 | 十三个大插件仓库（终端 / Python / 沙箱 / 伪装 / 媒体 / 自动化 / 灵动岛 / 壁纸 / 网络 / 二维码 / 备份 / Shizuku / 应用管理） |
+| [abyss-tool/Abyss-Tools](https://github.com/abyss-tool/Abyss-Tools) | 开发仓库：源码 + CI 门禁 + **内置工具实现**（本仓库） |
+| [abyss-tool/Abyss-Tools-Release](https://github.com/abyss-tool/Abyss-Tools-Release) | 发布仓库：version.json / patches.json / changelog.json + Releases 资产 |
+| [abyss-tool/Abyss-Plugins](https://github.com/abyss-tool/Abyss-Plugins) | 插件中心：plugins.json 索引 + 插件规范 |
+| [abyss-tool/abyss-plugin-*](https://github.com/abyss-tool/Abyss-Plugins) × 8 | 八个重型插件仓库（终端 / Python / 沙箱 / 伪装 / 媒体 / 网络 / 备份 / **应用构建器**） |
+
+> v0.2 内置化重构：`abyss-plugin-{app-manager, shizuku-kit, automation, island, wallpaper, qr-craft}` 六仓已归档 —— 能力并入主壳内置路线（点击导航页对应工具可见内置说明卡），不再占用插件中心位次。
 
 ## 构建（不在本地编译）
 
 本仓库**不做本地编译验证**：全部构建走 GitHub Actions（`ubuntu-latest` 自带 Android SDK，Gradle 8.14 wrapper 自动拉取）。
 
 ```bash
-git clone https://github.com/Ultra-Guru/Abyss-Tools.git
+git clone https://github.com/abyss-tool/Abyss-Tools.git
 # 本地跑只需 JDK 17 + Android SDK（Android Studio 自带）：
 ./gradlew assembleDebug
 ```
@@ -107,6 +109,7 @@ tag v* ──→ release.yml ──→ assembleRelease（入库 keystore 签名�
 
 - [x] **Phase 1a 框架成型**（v0.1.0）：三 tab 主界面 / 分类导航 / 插件框架 / 补丁更新引擎
 - [x] **框架闭环完善**（v0.1.1）：真实 APK 安装网关 / 自更新流水线 / 插件数据安装与补丁应用闭环 / 全仓发布工作流
+- [x] **内置化重构**（v0.2.0）：七个轻量工具并入主壳 / 应用构建器登记插件中心 / 插件 Shizuku 独立授权契约
 - [ ] **Phase 1b 终端成型**：伪终端渲染内核 + Shizuku 首条指令（`abyss-plugin-terminal`）
 - [ ] **Phase 2 任务系统与插件内核**：任务蓝图调用链 + DexClassLoader 插件加载
 - [ ] **Phase 3 硬核功能接入**：沙箱双开 / Python 引擎 / 悬浮球与灵动岛

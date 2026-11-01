@@ -50,7 +50,7 @@
     "title": "v0.1.1 —— ……",
     "notes": ["要点一", "要点二"],
     "markdown": "## v0.1.1\n- 要点一",
-    "releaseUrl": "https://github.com/Ultra-Guru/Abyss-Tools-Release/releases/tag/v0.1.1"
+    "releaseUrl": "https://github.com/abyss-tool/Abyss-Tools-Release/releases/tag/v0.1.1"
   },
   "history": [ { "…": "旧版本 latest 条目下沉" } ]
 }

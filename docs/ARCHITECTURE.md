@@ -72,11 +72,13 @@ App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
 
 ## 插件体系
 
-- 中心索引：`Abyss-Plugins/plugins.json`（13 个大插件聚合；
+- 中心索引：`Abyss-Plugins/plugins.json`（8 个重型插件聚合；
   `sync-index.yml` 每日 / 手动自动聚合，APK 资产自动探测）
 - 插件仓约定：`plugin.json`（manifest）+ `patches/index.json`（补丁通道）
   + `tools/validate_plugin.py`（CI 门禁）+ `patch-release.yml`
   （数据补丁发布流水线：make_patch → publish_patch → 三处一致性门禁）
+- 分界纪律（v0.2 定型）：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 / 大型框架）；轻量功能（应用管理 / Shizuku 面板 / 任务蓝图 / 自动化 / 灵动岛 / 壁纸 / 二维码）一律 `ToolStatus.BUILT_IN` 内置主壳，随版本更新获得
+- Shizuku 授权声明：独立 APK 插件可在 manifest 声明 `shizuku.ownAuth`（per-app 授权，不继承宿主）—— 插件详情页展示独立授权引导
 - 宿主契约：`PluginContract.HOST_API_VERSION`（只增不减），
   `filesDir/plugins/<id>/plugin.json` 为安装态单一事实源
 - 安装流水线（v0.1.1 起全链路真实）：

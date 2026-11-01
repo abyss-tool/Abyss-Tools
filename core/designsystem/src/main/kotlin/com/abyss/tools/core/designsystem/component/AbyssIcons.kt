@@ -7,6 +7,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Construction
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Download
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 object AbyssIcons {
     fun icon(key: String): ImageVector = when (key) {
         "extension" -> Icons.Rounded.Extension
+        "construction" -> Icons.Rounded.Construction
         "apps" -> Icons.Rounded.Apps
         "security" -> Icons.Rounded.Security
         "bolt" -> Icons.Rounded.Bolt

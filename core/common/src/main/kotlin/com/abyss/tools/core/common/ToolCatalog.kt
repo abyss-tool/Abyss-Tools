@@ -3,11 +3,19 @@ package com.abyss.tools.core.common
 /**
  * 工具目录（导航页的数据底座）。
  *
- * 框架期定位：把「深渊工具」的全部能力域以分类目录形式登记在案 ——
- * 每个工具都有明确的承载形态：
- *  - [ToolStatus.READY]      壳内可用（后续版本在宿主内直接实现）
- *  - [ToolStatus.PLUGIN]     由插件承载（点击跳到对应插件详情页安装）
+ * 承载形态三分法（v0.2 起定型）：
+ *  - [ToolStatus.READY]      壳内已可用（当前为插件中心入口）
+ *  - [ToolStatus.BUILT_IN]   主壳内置功能 —— 轻量能力直接写进主仓库，
+ *                            随版本更新获得，无需安装插件（v0.2 起：
+ *                            应用管理 / Shizuku 面板 / 自动化 / 灵动岛 /
+ *                            壁纸 / 二维码 / 任务蓝图）
+ *  - [ToolStatus.PLUGIN]     由大插件承载（重型能力：独立仓库 / 独立 CI /
+ *                            独立补丁通道，点击跳到对应插件详情页安装）
  *  - [ToolStatus.FRAMEWORK]  框架占位（路线图内排期，当前不可用）
+ *
+ * 分界纪律：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 /
+ * 大型框架 —— 终端 / Python / 沙箱 / 伪装 / 媒体 / 网络 / 备份 / 构建
+ * 器）；轻量功能一律内置，避免插件中心的碎片化。
  *
  * 插件永远是导航页的第一个分类 —— 这是深渊工具「主壳轻、能力重」的
  * 产品结构表达。
@@ -17,9 +25,10 @@ enum class ToolCategory(
     val title: String,
     val description: String,
 ) {
-    PLUGINS("plugins", "插件", "十余个大插件仓库构成的能力生态：终端 / Python / 沙箱 / 伪装 / 媒体……"),
+    PLUGINS("plugins", "插件", "八个大插件仓库构成的重型能力生态：终端 / Python / 沙箱 / 伪装 / 媒体 / 网络 / 备份 / 构建器 —— 小功能内置，大功能插件化"),
     SYSTEM("system", "系统工具", "基于 Shizuku 的免 Root 系统管控：冻结 / 隐藏 / 提取 / 优化"),
     TERMINAL("terminal", "终端与脚本", "内置 Linux 终端环境与 IDE 级代码编辑，任务蓝图驱动执行"),
+    DEV("dev", "开发与构建", "手机端 APK 构建器：Alpine + PRoot 底座 + 三条构建路径（大插件承载）"),
     SANDBOX("sandbox", "沙箱与多开", "VirtualApp 血统的虚拟空间：免安装运行 / 应用双开 / 隔离管控"),
     DISGUISE("disguise", "伪装与隐私", "机型 / 定位 / 电量 / 图标伪装与防截屏等隐私增强"),
     MEDIA("media", "媒体工具", "FFmpeg 级音视频处理：批量剪辑 / 提取 / 无痕导出"),
@@ -31,6 +40,7 @@ enum class ToolCategory(
 
 enum class ToolStatus(val label: String) {
     READY("可用"),
+    BUILT_IN("内置"),
     PLUGIN("插件承载"),
     FRAMEWORK("路线图中"),
 }
@@ -56,10 +66,22 @@ object ToolCatalog {
         ToolDef(
             id = "plugin-hub",
             title = "插件中心",
-            summary = "十三个大插件仓库：浏览 / 安装 / 补丁更新，一站式插件生态入口。",
+            summary = "八个大插件仓库：浏览 / 安装 / 补丁更新，一站式重型能力生态入口。",
             category = ToolCategory.PLUGINS,
             status = ToolStatus.READY,
             iconKey = "extension",
+        ),
+
+        // ── 开发与构建 ─────────────────────────────────────────────
+        ToolDef(
+            id = "app-builder",
+            title = "应用构建器",
+            summary = "手机端 APK 构建器：Alpine + PRoot 底座，Anpyra / 内置工具链 / " +
+                "标准 Gradle 三路径自由选择，支持独立 Shizuku 授权（大插件承载）。",
+            category = ToolCategory.DEV,
+            status = ToolStatus.PLUGIN,
+            pluginId = "abyss-plugin-app-builder",
+            iconKey = "construction",
         ),
 
         // ── 系统工具 ───────────────────────────────────────────────────
@@ -68,8 +90,7 @@ object ToolCatalog {
             title = "应用管理器",
             summary = "应用冻结 / 隐藏 / 强制停止 / 提取安装包 / 图标伪装（pm hide / disable-user）。",
             category = ToolCategory.SYSTEM,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-app-manager",
+            status = ToolStatus.BUILT_IN,
             iconKey = "apps",
         ),
         ToolDef(
@@ -77,8 +98,7 @@ object ToolCatalog {
             title = "Shizuku 工具箱",
             summary = "免 Root 提权指令面板：appops / settings / dumpsys 的可视化封装。",
             category = ToolCategory.SYSTEM,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-shizuku-kit",
+            status = ToolStatus.BUILT_IN,
             iconKey = "security",
         ),
         ToolDef(
@@ -130,7 +150,7 @@ object ToolCatalog {
             title = "任务蓝图",
             summary = "JSON 任务编排：shell / python / ui_toast 步骤链 + 成功判定 + 进阶解锁。",
             category = ToolCategory.TERMINAL,
-            status = ToolStatus.FRAMEWORK,
+            status = ToolStatus.BUILT_IN,
             iconKey = "account_tree",
         ),
 
@@ -188,8 +208,7 @@ object ToolCatalog {
             title = "二维码工坊",
             summary = "ZXing 生成 / 解析 / 网页转二维码，一键分享。",
             category = ToolCategory.MEDIA,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-qr-craft",
+            status = ToolStatus.BUILT_IN,
             iconKey = "qr",
         ),
 
@@ -199,8 +218,7 @@ object ToolCatalog {
             title = "自动化编排",
             summary = "任务蓝图调度引擎：定时任务 / 触发器 / 步骤重试。",
             category = ToolCategory.AUTOMATION,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-automation",
+            status = ToolStatus.BUILT_IN,
             iconKey = "bolt",
         ),
 
@@ -210,8 +228,7 @@ object ToolCatalog {
             title = "灵动岛与悬浮球",
             summary = "WindowManager 悬浮件：拖拽 / 吸附 / 状态岛动画。",
             category = ToolCategory.DESKTOP,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-island",
+            status = ToolStatus.BUILT_IN,
             iconKey = "widgets",
         ),
         ToolDef(
@@ -219,8 +236,7 @@ object ToolCatalog {
             title = "动态壁纸",
             summary = "WallpaperService 引擎：液态玻璃同源视觉的壁纸工坊。",
             category = ToolCategory.DESKTOP,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-wallpaper",
+            status = ToolStatus.BUILT_IN,
             iconKey = "wallpaper",
         ),
 
@@ -254,4 +270,7 @@ object ToolCatalog {
 
     /** 插件承载形态的工具数（仪表盘统计用）。 */
     val pluginDrivenCount: Int get() = tools.count { it.status == ToolStatus.PLUGIN }
+
+    /** 主壳内置形态的工具数（v0.2 内置化重构后的一等公民）。 */
+    val builtInCount: Int get() = tools.count { it.status == ToolStatus.BUILT_IN }
 }

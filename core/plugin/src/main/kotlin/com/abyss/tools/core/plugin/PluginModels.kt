@@ -1,11 +1,12 @@
 package com.abyss.tools.core.plugin
 
 import com.abyss.tools.core.common.SemVer
+import com.abyss.tools.plugin.api.PluginShizukuDecl
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * 插件中心（Ultra-Guru/Abyss-Plugins）索引数据契约。
+ * 插件中心（abyss-tool/Abyss-Plugins）索引数据契约。
  *
  * plugins.json 由插件仓库群聚合生成 —— 每个 abyss-plugin-* 仓库的
  * plugin.json 汇成一条索引项；App 的插件中心页只消费该索引（单一
@@ -30,6 +31,8 @@ data class PluginIndexEntry(
     val summary: String = "",
     val icon: String? = null,
     val permissions: List<String> = emptyList(),
+    /** Shizuku 独立授权声明（null = 不涉及；见 PluginShizukuDecl）。 */
+    val shizuku: PluginShizukuDecl? = null,
     /** APK 下载资产（null = 尚未发布，框架预览期常态）。 */
     val apk: PluginApkInfo? = null,
     /** 该插件的补丁通道（缺省按约定推导）。 */

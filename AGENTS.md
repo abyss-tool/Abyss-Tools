@@ -44,8 +44,8 @@ SELinux 红线，见 app/build.gradle.kts 注释）。升降版本须整组联�
 ## 仓库矩阵
 
 - 开发仓（本仓）→ 发布仓 `Abyss-Tools-Release`（version.json 等）→
-  客户端；插件中心 `Abyss-Plugins`（plugins.json）→ 十三个
-  `abyss-plugin-*` 插件仓。
+  客户端；插件中心 `Abyss-Plugins`（plugins.json）→ 八个
+  `abyss-plugin-*` 重型插件仓（轻功能已内置主壳，v0.2 起）。
 - 插件侧改动：先改插件仓（含其 CI 校验），再同步插件中心索引。
 
 ## 界面语言

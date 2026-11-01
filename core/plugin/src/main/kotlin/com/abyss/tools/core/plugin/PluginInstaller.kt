@@ -184,6 +184,7 @@ class PluginInstaller(
         summary = summary,
         icon = icon,
         permissions = permissions,
+        shizuku = shizuku,
         entry = null,
         repo = repo,
         patchChannel = patchChannel,

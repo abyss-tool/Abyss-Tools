@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
 import com.abyss.tools.core.designsystem.component.ChipTone
@@ -115,7 +116,7 @@ fun PluginHubScreen(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "索引源：Ultra-Guru/Abyss-Plugins · plugins.json",
+                    text = "索引源：abyss-tool/Abyss-Plugins · plugins.json",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -406,7 +407,7 @@ private fun PluginDetailContent(
         mutableStateOf<UiState<PluginPatchChannel>>(UiState.Loading)
     }
     val channelUrl = entry.patchChannel
-        ?: "https://raw.githubusercontent.com/Ultra-Guru/${entry.id}/main/patches/index.json"
+        ?: AbyssChannels.pluginPatchChannel(entry.id)
     LaunchedEffect(entry.id) {
         channelState = channelClient.fetchPatchChannel(channelUrl).toUiState()
     }
@@ -680,6 +681,37 @@ private fun PluginDetailContent(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                        }
+                    }
+                }
+            }
+
+            // ── Shizuku 独立授权（独立 APK 插件的 per-app 授权声明）────
+            entry.shizuku?.let { decl ->
+                item {
+                    InfoCard(title = "Shizuku 授权") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusChip(
+                                text = if (decl.ownAuth) "需要独立授权" else "随宿主授权",
+                                tone = if (decl.ownAuth) ChipTone.WARN else ChipTone.OK,
+                            )
+                            Text(
+                                text = if (decl.ownAuth) {
+                                    "本插件为独立 APK，Shizuku 授权按应用包名逐一发放 —— " +
+                                        "安装后需在 Shizuku 内单独授权一次（宿主的授权不能继承给插件）。"
+                                } else {
+                                    "本插件的 Shizuku 调用运行在宿主进程内，宿主授权后即可间接使用。"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (decl.reason.isNotBlank()) {
+                                Text(
+                                    text = "用途：${decl.reason}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

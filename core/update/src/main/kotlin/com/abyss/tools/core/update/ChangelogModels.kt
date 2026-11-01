@@ -3,7 +3,7 @@ package com.abyss.tools.core.update
 import kotlinx.serialization.Serializable
 
 /**
- * 发布仓（Ultra-Guru/Abyss-Tools-Release）changelog.json 数据契约。
+ * 发布仓（abyss-tool/Abyss-Tools-Release）changelog.json 数据契约。
  *
  * 更新日志是更新通道的「叙事层」：version.json 只回答「有没有新版本」，
  * changelog.json 回答「这个版本带来了什么」。设置页「查看更新日志」与

@@ -13,7 +13,7 @@
       "设置页自更新整包流水线与更新日志查看器"
     ],
     "markdown": "## v0.2.0\n- PackageInstaller 真实安装网关\n- 插件数据层安装与补丁应用闭环\n- 设置页自更新整包流水线",
-    "releaseUrl": "https://github.com/Ultra-Guru/Abyss-Tools-Release/releases/tag/v0.2.0"
+    "releaseUrl": "https://github.com/abyss-tool/Abyss-Tools-Release/releases/tag/v0.2.0"
   },
   "history": [
     {

@@ -5,8 +5,8 @@ package com.abyss.tools.core.common
  * 人工同步；发布流水线接入后由 CI 注入校验，防漂移）。
  */
 object AppInfo {
-    const val VERSION_NAME: String = "0.1.1"
-    const val VERSION_CODE: Int = 2
+    const val VERSION_NAME: String = "0.2.0"
+    const val VERSION_CODE: Int = 3
 
     val version: SemVer
         get() = requireNotNull(SemVer.parse(VERSION_NAME)) {

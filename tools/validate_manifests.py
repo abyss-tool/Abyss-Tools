@@ -11,9 +11,9 @@ import sys
 from pathlib import Path
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
-REPO = re.compile(r"^Ultra-Guru/abyss-plugin-[a-z0-9]+(-[a-z0-9]+)*$")
+REPO = re.compile(r"^abyss-tool/abyss-plugin-[a-z0-9]+(-[a-z0-9]+)*$")
 CHANNEL = re.compile(
-    r"^https://raw\.githubusercontent\.com/Ultra-Guru/abyss-plugin-[a-z0-9-]+/main/patches/index\.json$"
+    r"^https://raw\.githubusercontent\.com/abyss-tool/abyss-plugin-[a-z0-9-]+/main/patches/index\.json$"
 )
 
 errors: list[str] = []
@@ -63,8 +63,8 @@ def check_plugin_index_fixture() -> None:
     if data.get("schema") != "abyss-plugin-index-v1":
         fail(f"{path}: schema 应为 abyss-plugin-index-v1")
     plugins = data.get("plugins", [])
-    if len(plugins) < 10:
-        fail(f"{path}: 插件中心至少登记 10 个大插件（当前 {len(plugins)}）")
+    if len(plugins) < 8:
+        fail(f"{path}: 插件中心至少登记 8 个大插件（当前 {len(plugins)}）—— v0.2 内置化重构后的体量红线")
     ids = set()
     for p in plugins:
         where = f"{path}[{p.get('id')}]"

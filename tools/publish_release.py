@@ -33,7 +33,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 API = "https://api.github.com"
-RELEASE_REPO = os.environ.get("ABYSS_RELEASE_REPO", "Ultra-Guru/Abyss-Tools-Release")
+RELEASE_REPO = os.environ.get("ABYSS_RELEASE_REPO", "abyss-tool/Abyss-Tools-Release")
 TOKEN = os.environ.get("RELEASE_TOKEN", "")
 
 

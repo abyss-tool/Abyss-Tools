@@ -21,18 +21,38 @@ class PluginFrameworkTest {
         javaClass.classLoader!!.getResourceAsStream(name)!!.readBytes().decodeToString()
 
     @Test
-    fun `解析 13 插件索引`() {
+    fun `解析 8 插件索引（内置化重构后）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
         assertEquals("abyss-plugin-index-v1", index.schema)
-        assertEquals(13, index.plugins.size)
-        assertEquals("终端引擎", index.plugins.first().name)
+        assertEquals(8, index.plugins.size)
+        // 内置化后索引只剩重型插件；终端引擎仍在列
+        assertTrue(index.plugins.any { it.id == "abyss-plugin-terminal" && it.name == "终端引擎" })
         assertTrue(index.plugins.all { it.versionSemVer != null })
-        assertTrue(index.plugins.all { it.repo.startsWith("Ultra-Guru/abyss-plugin-") })
+        assertTrue(index.plugins.all { it.repo.startsWith("abyss-tool/abyss-plugin-") })
         assertTrue(index.plugins.all { it.patchChannel != null })
         // id 与仓库末段一一对应（索引完整性的核心不变式）
         assertTrue(index.plugins.all { it.repo.endsWith(it.id) })
         // id 唯一
         assertEquals(index.plugins.size, index.plugins.map { it.id }.toSet().size)
+        // 已内置化的六个小插件不再占据插件中心位次
+        val retired = setOf(
+            "abyss-plugin-qr-craft", "abyss-plugin-island", "abyss-plugin-wallpaper",
+            "abyss-plugin-shizuku-kit", "abyss-plugin-app-manager", "abyss-plugin-automation",
+        )
+        assertTrue(index.plugins.none { it.id in retired })
+    }
+
+    @Test
+    fun `解析应用构建器的独立 Shizuku 授权声明`() {
+        val index = PluginParsers.parseIndex(resource("plugins-index.json"))
+        val builder = index.plugins.first { it.id == "abyss-plugin-app-builder" }
+        assertEquals("dev", builder.category)
+        assertEquals("应用构建器", builder.name)
+        val decl = builder.shizuku
+        assertTrue(decl != null && decl.ownAuth)
+        assertTrue(decl!!.reason.contains("Shizuku"))
+        // 无声明插件解析为 null（字段缺省不炸）
+        assertTrue(index.plugins.first { it.id == "abyss-plugin-terminal" }.shizuku == null)
     }
 
     @Test
@@ -54,7 +74,7 @@ class PluginFrameworkTest {
         }
         val repo = PluginRepository(transport, "https://x/plugins.json")
         val result = repo.fetchIndex().getOrThrow()
-        assertEquals(13, result.plugins.size)
+        assertEquals(8, result.plugins.size)
     }
 
     // ── 安装器：未发布 APK fail-closed；数据补丁真实应用 ───────────────
@@ -70,7 +90,7 @@ class PluginFrameworkTest {
         val installer = PluginInstaller(root, fakeTransport(), noGateway)
         val entry = PluginIndexEntry(
             id = "abyss-plugin-terminal", name = "终端引擎",
-            repo = "Ultra-Guru/abyss-plugin-terminal", category = "terminal",
+            repo = "abyss-tool/abyss-plugin-terminal", category = "terminal",
             version = "0.1.0", summary = "", apk = null,
         )
         val result = installer.downloadApk(entry)
@@ -149,10 +169,10 @@ class PluginFrameworkTest {
         minApp: String = "0.1.0",
     ) = PluginIndexEntry(
         id = id, name = "终端引擎",
-        repo = "Ultra-Guru/$id", category = "terminal",
+        repo = "abyss-tool/$id", category = "terminal",
         version = version, minApp = minApp, summary = "Termux 血统终端",
         icon = "🖥", permissions = listOf("INTERNET"),
-        patchChannel = "https://raw.githubusercontent.com/Ultra-Guru/$id/main/patches/index.json",
+        patchChannel = "https://raw.githubusercontent.com/abyss-tool/$id/main/patches/index.json",
         roadmap = listOf("v0.2 伪终端内核"),
     )
 

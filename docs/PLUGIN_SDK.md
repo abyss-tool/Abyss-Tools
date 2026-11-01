@@ -34,18 +34,24 @@
   "summary": "……",
   "icon": "🖥",
   "permissions": ["INTERNET"],
+  "shizuku": {"ownAuth": true, "reason": "为什么需要独立授权（人话）"},
   "entry": "com.abyss.tools.plugin.terminal.TerminalPlugin",
-  "repo": "Ultra-Guru/abyss-plugin-terminal",
-  "patchChannel": "https://raw.githubusercontent.com/Ultra-Guru/abyss-plugin-terminal/main/patches/index.json",
+  "repo": "abyss-tool/abyss-plugin-terminal",
+  "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-terminal/main/patches/index.json",
   "roadmap": ["v0.2 …", "v0.3 …"]
 }
 ```
 
 字段纪律：`version` / `minApp` 必须是合法 SemVer；`repo` 末段必须等于
 `id`；`category` ∈ {terminal, system, sandbox, disguise, media,
-automation, desktop, network, data, tools}。
+automation, desktop, network, data, tools, dev}。
 
-## 插件仓库骨架（十三个大插件仓库同构）
+`shizuku` 为可选声明（缺省 null = 不涉及）：`ownAuth: true` 表示本插件
+为独立 APK 且需用户在 Shizuku 内**单独授权一次**（Shizuku 授权严格
+per-app，宿主授权不能继承给独立插件包名）—— 详情页会展示独立授权引导
+与 `reason`；运行在宿主进程内的数据插件不声明此字段。
+
+## 插件仓库骨架（八个重型插件仓库同构）
 
 ```
 abyss-plugin-<name>/
@@ -82,7 +88,7 @@ Actions → Patch Release → Run workflow（填目标版本 + 变更要点）�
 ## 宿主侧消费链路（core:plugin）
 
 ```
-Abyss-Plugins/plugins.json（中心索引，13 插件聚合，sync-index 自动滚动）
+Abyss-Plugins/plugins.json（中心索引，8 插件聚合，sync-index 自动滚动）
     → PluginRepository.fetchIndex()            # 插件中心页（含「我的插件」）
     → PluginDetailScreen                       # 详情 + 补丁时间线 + 应用闭环
     → PluginInstaller.installDataPlugin()      # 数据形态：校验 + 原子落盘
