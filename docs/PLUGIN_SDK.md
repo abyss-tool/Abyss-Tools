@@ -51,7 +51,7 @@ automation, desktop, network, data, tools, dev}。
 per-app，宿主授权不能继承给独立插件包名）—— 详情页会展示独立授权引导
 与 `reason`；运行在宿主进程内的数据插件不声明此字段。
 
-## 插件仓库骨架（八个重型插件仓库同构）
+## 插件仓库骨架（七个重型插件仓库同构）
 
 ```
 abyss-plugin-<name>/

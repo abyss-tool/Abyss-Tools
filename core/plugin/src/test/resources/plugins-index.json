@@ -50,27 +50,6 @@
       ]
     },
     {
-      "id": "abyss-plugin-disguise",
-      "name": "设备伪装",
-      "repo": "abyss-tool/abyss-plugin-disguise",
-      "category": "disguise",
-      "version": "0.1.0",
-      "minApp": "0.1.0",
-      "summary": "机型 / 定位 / 电量 / 信号伪装：沙箱 Hook 层返回伪造数据 + 蓝牙 HID 广播伪装。",
-      "icon": "🎭",
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "BLUETOOTH_ADVERTISE"
-      ],
-      "apk": null,
-      "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-disguise/main/patches/index.json",
-      "roadmap": [
-        "v0.2 机型与构建指纹伪装",
-        "v0.3 定位 / 电量伪造",
-        "v0.4 蓝牙 HID 广播伪装"
-      ]
-    },
-    {
       "id": "abyss-plugin-media-lab",
       "name": "媒体实验室",
       "repo": "abyss-tool/abyss-plugin-media-lab",

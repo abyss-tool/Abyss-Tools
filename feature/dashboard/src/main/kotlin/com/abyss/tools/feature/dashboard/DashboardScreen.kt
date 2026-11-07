@@ -50,6 +50,13 @@ import kotlinx.coroutines.launch
  * 仪表盘 —— 主界面第一 tab：状态总览 / 快捷入口 / 补丁更新 / 插件本机态。
  */
 
+/** Shizuku 徽章语义（app 壳从 core:shell 状态映射，避免 dashboard 依赖 Shizuku AAR）。 */
+sealed interface ShizukuUi {
+    data object NotRunning : ShizukuUi
+    data object RunningUnauthorized : ShizukuUi
+    data object Authorized : ShizukuUi
+}
+
 /** 仪表盘更新卡片状态（app 不直接消费 UpdateCheckResult，映射到此）。 */
 internal sealed interface UpdateUi {
     data object Idle : UpdateUi
@@ -74,6 +81,8 @@ fun DashboardScreen(
     bottomClearance: Dp,
     installedPluginCount: Int = 0,
     autoCheckUpdates: Boolean = false,
+    shizukuUi: ShizukuUi = ShizukuUi.NotRunning,
+    installPermGranted: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
 
@@ -143,11 +152,19 @@ fun DashboardScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // ── 状态行：Shizuku / 权限链（框架占位）────────────────────
+            // ── 状态行：Shizuku / 安装权限（真实态，新手引导页可修）────
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip(text = "Shizuku · 未连接", tone = ChipTone.NEUTRAL)
-                    StatusChip(text = "权限链 · 框架占位", tone = ChipTone.NEUTRAL)
+                    val (shizukuLabel, shizukuTone) = when (shizukuUi) {
+                        ShizukuUi.Authorized -> "Shizuku · 已授权" to ChipTone.OK
+                        ShizukuUi.RunningUnauthorized -> "Shizuku · 未授权" to ChipTone.WARN
+                        ShizukuUi.NotRunning -> "Shizuku · 未运行" to ChipTone.NEUTRAL
+                    }
+                    StatusChip(text = shizukuLabel, tone = shizukuTone)
+                    StatusChip(
+                        text = if (installPermGranted) "安装未知应用 · 已允许" else "安装未知应用 · 未允许",
+                        tone = if (installPermGranted) ChipTone.OK else ChipTone.WARN,
+                    )
                 }
             }
 
@@ -174,7 +191,7 @@ fun DashboardScreen(
             }
             items(count = 4, key = { it }) { index ->
                 val tool = listOf(
-                    "terminal", "app-manager", "sandbox-space", "device-disguise",
+                    "battery-disguise", "location-disguise", "terminal", "app-builder",
                 )[index].let { ToolCatalog.byId(it) }
                 if (tool != null) {
                     com.abyss.tools.core.designsystem.component.ListRowCard(
@@ -209,7 +226,7 @@ fun DashboardScreen(
 
 @Composable
 private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int) {
-    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 8
+    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 7
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(
             value = "${ToolCatalog.builtInCount}",
@@ -348,7 +365,7 @@ private fun PluginEntryCard(
         }
         Spacer(Modifier.size(4.dp))
         Text(
-            text = "终端引擎 / Python 游乐场 / 沙箱双开 / 设备伪装 / 媒体实验室…每个插件独立仓库、独立 CI、独立补丁通道。",
+            text = "终端引擎 / Python 游乐场 / 沙箱双开 / 媒体实验室…每个插件独立仓库、独立 CI、独立补丁通道。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
         )

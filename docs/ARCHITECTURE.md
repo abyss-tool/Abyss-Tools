@@ -5,16 +5,19 @@
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │ :app 主壳                                                      │
+│   MainActivity（首启引导门：未完成新手引导不进主界面）          │
 │   AbyssRoot（Crossfade 返回栈） · ServiceRegistry（手动 DI）   │
 │   内容层 = 玻璃采样源（layerBackdrop）→ 玻璃件悬浮其上          │
 ├───────────────┬───────────────┬───────────────────────────────┤
-│ :feature:dashboard │ :feature:navhub │ :feature:plugins │ :feature:settings │
+│ :feature:dashboard │ :feature:navhub │ :feature:plugins         │
+│ :feature:disguise │ :feature:onboarding │ :feature:settings    │
 │      （纯 Compose 界面层，依赖注入经由参数，不感知 DI 容器）      │
 ├───────────────┴───────────────┴───────────────────────────────┤
 │ :core:designsystem（M3 主题 + 液态玻璃组件）                    │
 │    └── :vendor:backdrop（Kyant0/AndroidLiquidGlass，Apache-2.0）│
 ├───────────────────────────────────────────────────────────────┤
 │ :core:plugin（索引/安装器/插件补丁通道）  :core:update（补丁引擎）│
+│ :core:shell（Shizuku adb shell 网关 + 指令编排，伪装四件套共用）│
 │    └── :plugin-sdk:plugin-api（契约）      └── :core:common     │
 │                                                （SemVer/目录/渠道）│
 └───────────────────────────────────────────────────────────────┘
@@ -23,10 +26,25 @@
 ## 依赖方向（单向，无环）
 
 - `app → feature:* → designsystem → vendor:backdrop`
-- `feature:* → core:{common,plugin,update}`
+- `feature:* → core:{common,plugin,update,shell}`
 - `core:plugin → core:update → core:common`；`core:plugin → plugin-sdk`
+- `core:shell`：Android 库（Shizuku AAR）但指令编排（ShizukuCommands）
+  零 Android 依赖可单测；接口隔离（ShellGateway）对齐 ApkInstallGateway 模式
 - 纯 JVM 模块（common / update / plugin / plugin-sdk）：单测零 Android
   依赖，CI 上 `./gradlew test` 即全量行为验证。
+
+## 伪装四件套（v0.3 内置，:feature:disguise + :core:shell）
+
+| 引擎 | 通道 | 生效范围 |
+| --- | --- | --- |
+| 电量伪装 | `dumpsys battery set/unplug/reset` | 全系统（官方电池测试通道，重启自恢复） |
+| 定位伪装 | appops `mock_location` + `LocationManager.addTestProvider` 三源注入 | 全系统（Fake GPS 同款官方通道） |
+| 信号伪装 | `cmd connectivity` / `svc data` / `svc wifi` | 真实连接性开关（与系统快捷开关等价） |
+| 机型伪装 | `settings put global device_name` + 档案导出 | 设备名即刻生效；Build 字段档案由沙箱 Hook 层消费 |
+
+诚实边界：无 Root 不改 ro.product.*（系统属性只读）；信号格数伪造属
+SystemUI 渲染层 —— 均明示不装能。Shizuku 状态经 `ShizukuMonitor`
+扇出，Compose 侧唯一桥接点 `rememberShizukuStatus`（app 模块）。
 
 ## 导航与返回栈
 
@@ -72,12 +90,12 @@ App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
 
 ## 插件体系
 
-- 中心索引：`Abyss-Plugins/plugins.json`（8 个重型插件聚合；
+- 中心索引：`Abyss-Plugins/plugins.json`（7 个重型插件聚合，v0.3 伪装内置化后；
   `sync-index.yml` 每日 / 手动自动聚合，APK 资产自动探测）
 - 插件仓约定：`plugin.json`（manifest）+ `patches/index.json`（补丁通道）
   + `tools/validate_plugin.py`（CI 门禁）+ `patch-release.yml`
   （数据补丁发布流水线：make_patch → publish_patch → 三处一致性门禁）
-- 分界纪律（v0.2 定型）：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 / 大型框架）；轻量功能（应用管理 / Shizuku 面板 / 任务蓝图 / 自动化 / 灵动岛 / 壁纸 / 二维码）一律 `ToolStatus.BUILT_IN` 内置主壳，随版本更新获得
+- 分界纪律（v0.2 定型，v0.3 延续）：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 / 大型框架）；轻量功能（应用管理 / Shizuku 面板 / 任务蓝图 / 自动化 / 灵动岛 / 壁纸 / 二维码，及 v0.3 伪装四件套）一律 `ToolStatus.BUILT_IN` 内置主壳，随版本更新获得
 - Shizuku 授权声明：独立 APK 插件可在 manifest 声明 `shizuku.ownAuth`（per-app 授权，不继承宿主）—— 插件详情页展示独立授权引导
 - 宿主契约：`PluginContract.HOST_API_VERSION`（只增不减），
   `filesDir/plugins/<id>/plugin.json` 为安装态单一事实源

@@ -21,10 +21,10 @@ class PluginFrameworkTest {
         javaClass.classLoader!!.getResourceAsStream(name)!!.readBytes().decodeToString()
 
     @Test
-    fun `解析 8 插件索引（内置化重构后）`() {
+    fun `解析 7 插件索引（v0.3 伪装内置化后）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
         assertEquals("abyss-plugin-index-v1", index.schema)
-        assertEquals(8, index.plugins.size)
+        assertEquals(7, index.plugins.size)
         // 内置化后索引只剩重型插件；终端引擎仍在列
         assertTrue(index.plugins.any { it.id == "abyss-plugin-terminal" && it.name == "终端引擎" })
         assertTrue(index.plugins.all { it.versionSemVer != null })
@@ -34,10 +34,11 @@ class PluginFrameworkTest {
         assertTrue(index.plugins.all { it.repo.endsWith(it.id) })
         // id 唯一
         assertEquals(index.plugins.size, index.plugins.map { it.id }.toSet().size)
-        // 已内置化的六个小插件不再占据插件中心位次
+        // 已内置化的插件不再占据插件中心位次（v0.2 六个 + v0.3 伪装）
         val retired = setOf(
             "abyss-plugin-qr-craft", "abyss-plugin-island", "abyss-plugin-wallpaper",
             "abyss-plugin-shizuku-kit", "abyss-plugin-app-manager", "abyss-plugin-automation",
+            "abyss-plugin-disguise",
         )
         assertTrue(index.plugins.none { it.id in retired })
     }
@@ -74,7 +75,7 @@ class PluginFrameworkTest {
         }
         val repo = PluginRepository(transport, "https://x/plugins.json")
         val result = repo.fetchIndex().getOrThrow()
-        assertEquals(8, result.plugins.size)
+        assertEquals(7, result.plugins.size)
     }
 
     // ── 安装器：未发布 APK fail-closed；数据补丁真实应用 ───────────────

@@ -137,7 +137,7 @@ private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "八大插件仓库 · 小功能内置 · 大功能插件化 · 独立补丁更新",
+                    text = "七大插件仓库 · 小功能内置 · 大功能插件化 · 独立补丁更新",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -324,7 +324,7 @@ private fun BuiltInFeatureCard(tool: ToolDef) {
         Spacer(Modifier.size(4.dp))
         Text(
             text = "自 v0.2 起本工具由独立插件仓并入主壳，随深渊工具版本更新直接获得，" +
-                "不再占用插件中心位次 —— 功能界面按内置路线图逐步落地。",
+                "不再占用插件中心位次（v0.3 起：伪装四件套同款内置路线，功能页真实可用）。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

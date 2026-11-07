@@ -112,11 +112,22 @@ class SettingsRepository(context: Context) {
             prefs.edit().putLong(KEY_LAST_CHECK_AT, value).apply()
         }
 
+    private var _onboardingCompleted by mutableStateOf(prefs.getBoolean(KEY_ONBOARDING_DONE, false))
+
+    /** 首启新手引导（权限一站式）是否已完成 —— 未完成不进主界面。 */
+    var onboardingCompleted: Boolean
+        get() = _onboardingCompleted
+        set(value) {
+            _onboardingCompleted = value
+            prefs.edit().putBoolean(KEY_ONBOARDING_DONE, value).apply()
+        }
+
     private companion object {
         const val KEY_GLASS_INTENSITY = "glass_intensity"
         const val KEY_CHECK_ON_LAUNCH = "check_updates_on_launch"
         const val KEY_LAST_CHECK = "last_check_summary"
         const val KEY_LAST_CHECK_AT = "last_check_at"
+        const val KEY_ONBOARDING_DONE = "onboarding_completed"
     }
 }
 
@@ -141,6 +152,7 @@ fun SettingsScreen(
     versionName: String,
     onClearPluginCache: () -> Unit,
     bottomClearance: Dp,
+    onRestartOnboarding: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var checkUi by remember { mutableStateOf<CheckUi>(CheckUi.Idle) }
@@ -273,6 +285,14 @@ fun SettingsScreen(
             item {
                 SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
                 PluginSectionCard(onClearPluginCache = onClearPluginCache)
+            }
+
+            // ── 权限与新手引导 ──────────────────────────────────────
+            if (onRestartOnboarding != null) {
+                item {
+                    SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
+                    OnboardingSectionCard(onRestart = onRestartOnboarding)
+                }
             }
 
             // ── 关于 ─────────────────────────────────────────────────
@@ -616,6 +636,33 @@ private fun ChangelogDialog(
             TextButton(onClick = onDismiss) { Text("关闭") }
         },
     )
+}
+
+@Composable
+private fun OnboardingSectionCard(onRestart: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+            .padding(16.dp),
+    ) {
+        InfoRow(label = "Shizuku", value = "系统级功能钥匙（伪装四件套 / 提权指令）")
+        InfoRow(label = "安装未知应用", value = "插件安装 / App 自更新")
+        InfoRow(label = "可选权限", value = "定位基准（伪装定位）/ 通知")
+        Spacer(Modifier.size(10.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.size(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "换机 / 授权失效 / 新增权限？重跑一遍新手引导即可",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onRestart) { Text("重新运行") }
+        }
+    }
 }
 
 @Composable

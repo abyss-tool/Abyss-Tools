@@ -63,8 +63,8 @@ def check_plugin_index_fixture() -> None:
     if data.get("schema") != "abyss-plugin-index-v1":
         fail(f"{path}: schema 应为 abyss-plugin-index-v1")
     plugins = data.get("plugins", [])
-    if len(plugins) < 8:
-        fail(f"{path}: 插件中心至少登记 8 个大插件（当前 {len(plugins)}）—— v0.2 内置化重构后的体量红线")
+    if len(plugins) < 7:
+        fail(f"{path}: 插件中心至少登记 7 个大插件（当前 {len(plugins)}）—— v0.3 伪装四件套内置化后的体量红线（小功能内置主壳，只有重型能力独立成仓）")
     ids = set()
     for p in plugins:
         where = f"{path}[{p.get('id')}]"

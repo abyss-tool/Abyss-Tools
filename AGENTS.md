@@ -17,6 +17,8 @@
 5. `core:update` / `core:plugin` / `core:common` / `plugin-sdk` 保持
    **纯 JVM**（可单测、CI 零 Android 依赖）：Android 侧依赖（Context /
    PackageManager）一律隔离在接口后面（如 `ApkInstallGateway`）。
+   `core:shell` 同纪律：Shizuku AAR 只进网关实现，指令编排
+   （ShizukuCommands）零 Android 依赖可单测。
 6. **手动 DI（ServiceRegistry）**：框架期不引 Hilt/KSP/kapt —— 新依赖
    先问「能不能用接口隔离」。
 
@@ -44,8 +46,8 @@ SELinux 红线，见 app/build.gradle.kts 注释）。升降版本须整组联�
 ## 仓库矩阵
 
 - 开发仓（本仓）→ 发布仓 `Abyss-Tools-Release`（version.json 等）→
-  客户端；插件中心 `Abyss-Plugins`（plugins.json）→ 八个
-  `abyss-plugin-*` 重型插件仓（轻功能已内置主壳，v0.2 起）。
+  客户端；插件中心 `Abyss-Plugins`（plugins.json）→ 七个
+  `abyss-plugin-*` 重型插件仓（轻功能已内置主壳，v0.2 / v0.3 起）。
 - 插件侧改动：先改插件仓（含其 CI 校验），再同步插件中心索引。
 
 ## 界面语言
