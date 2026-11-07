@@ -175,12 +175,16 @@ class PluginInstaller(
         onPhase(ApkPipelinePhase.INSTALLING)
         // 网关为阻塞调用（等待系统安装结果广播）：切 IO 线程
         val installed = withContext(Dispatchers.IO) { installApk(file) }
-        return installed.flatMap {
-            onPhase(ApkPipelinePhase.REGISTERING)
-            // 系统安装成功 → 版本账本对齐索引版本（同 installDataPlugin 语义，
-            // 同步含落盘 IO）
-            withContext(Dispatchers.IO) { installDataPlugin(entry) }
-        }
+        // fold 为 inline —— onSuccess 内可直接调挂起函数（版本账本同步）
+        return installed.fold(
+            onSuccess = {
+                onPhase(ApkPipelinePhase.REGISTERING)
+                // 系统安装成功 → 版本账本对齐索引版本（同 installDataPlugin
+                // 语义，同步含落盘 IO）
+                withContext(Dispatchers.IO) { installDataPlugin(entry) }
+            },
+            onFailure = { Result.failure(it) },
+        )
     }
 
     /**

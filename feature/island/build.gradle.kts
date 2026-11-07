@@ -54,4 +54,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     // ServiceLifecycleOwner（LifecycleRegistry / ViewModelStore 桥接 ComposeView）
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // ViewTree 三桥接的另两件套：lifecycle-viewmodel（ViewTreeViewModelStoreOwner.set）
+    // 与 savedstate（SavedStateRegistryController / ViewTreeSavedStateRegistryOwner.set）。
+    // 这两个构件在依赖树里可能只以 implementation 传递（不进编译类路径）—— 显式
+    // 声明保证 Service 内 ComposeView 桥接可编译（版本与 catalog lifecycle 线对齐）。
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.savedstate:savedstate-ktx:1.2.1")
 }
