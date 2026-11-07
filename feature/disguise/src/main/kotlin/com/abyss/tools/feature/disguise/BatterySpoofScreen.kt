@@ -3,6 +3,7 @@ package com.abyss.tools.feature.disguise
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.designsystem.component.SectionHeader
@@ -36,6 +38,8 @@ import com.abyss.tools.core.shell.BatterySnapshot
 import com.abyss.tools.core.shell.BatteryStatus
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuStatus
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -44,7 +48,9 @@ import kotlinx.coroutines.launch
  * 能力说明（诚实边界）：
  *  - 生效范围 = 整个系统（任何 App 读 BatteryManager 都拿到伪装值）；
  *  - 「拔掉电源」用于压掉充电图标，否则充电动画会盖过等级显示；
- *  - 「恢复真实电量」= dumpsys battery reset，系统重新同步真实电池。
+ *  - 「持续保持」启动守护服务周期重申伪装值 —— 定制 ROM 回写真实
+ *    电量时自动压回，系统显示恒为伪装值；
+ *  - 「恢复真实电量」= 停守护 + dumpsys battery reset，系统重新同步。
  */
 @Composable
 fun BatterySpoofScreen(
@@ -55,25 +61,48 @@ fun BatterySpoofScreen(
     onOpenShizuku: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     var snapshot by remember { mutableStateOf<BatterySnapshot?>(null) }
+    var systemShowsSpoofed by remember { mutableStateOf<Boolean?>(null) }
+    var guardRunning by remember { mutableStateOf(false) }
     var level by remember { mutableStateOf(settings.batteryLevel.toFloat()) }
     var status by remember { mutableStateOf(settings.batteryStatus) }
     var unplug by remember { mutableStateOf(settings.batteryUnplug) }
+    var guard by remember { mutableStateOf(settings.batteryGuard) }
     var busy by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var feedbackError by remember { mutableStateOf(false) }
     var feedbackDetail by remember { mutableStateOf<String?>(null) }
 
-    /** 进入页面即读取真实电池态（Shizuku 可用时）。 */
-    LaunchedEffect(Unit) {
+    /** 读系统当前电池态（进页面 / 应用后验证共用）。 */
+    suspend fun readSystem(verifyAgainst: Int? = null) {
         gateway.exec(BatteryCommands.read()).onSuccess { result ->
             if (result.isSuccess) {
                 snapshot = BatteryCommands.parseSnapshot(result.stdout)
-                snapshot?.level?.let { level = it.toFloat() }
-                snapshot?.status?.let { status = it }
+                verifyAgainst?.let { expected ->
+                    systemShowsSpoofed = snapshot?.level == expected
+                }
             }
+        }
+    }
+
+    /** 进入页面即读取真实电池态（Shizuku 可用时）。 */
+    LaunchedEffect(Unit) {
+        readSystem()
+    }
+
+    /** 守护服务运行态轮询（volatile 快照 → Compose 状态）。 */
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            guardRunning = BatteryGuardService.isGuarding
+            BatteryGuardService.lastError?.let { err ->
+                feedbackError = true
+                feedback = err
+                feedbackDetail = null
+            }
+            delay(1200)
         }
     }
 
@@ -110,31 +139,29 @@ fun BatterySpoofScreen(
         SpoofHeader(title = "电量伪装", onBack = onBack)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                bottom = 32.dp,
-            ),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { ShizukuGuardBanner(shizukuStatus, onRequestShizukuPermission, onOpenShizuku) }
 
-            // ── 真实读数 ───────────────────────────────────────────────
+            // ── 系统当前显示（显示即伪装验证）─────────────────────────
             item {
-                snapshot?.let { s ->
-                    KeyValueCard(
-                        title = "当前系统读数（伪装前的真实态）",
-                        rows = listOfNotNull(
-                            "电量等级" to "${s.level ?: "?"}%",
-                            "电池状态" to (s.status?.label ?: "未知"),
-                            "外部供电" to when (s.powered) {
-                                true -> "是（充电中）"
-                                false -> "否"
-                                null -> "未知"
-                            },
-                        ),
+                val rows = buildList {
+                    snapshot?.let { s ->
+                        add("系统当前显示" to "${s.level ?: "?"}% · ${s.status?.label ?: "未知"}")
+                        add("外部供电" to when (s.powered) {
+                            true -> "是（充电中）"
+                            false -> "否"
+                            null -> "未知"
+                        })
+                    }
+                    add(
+                        if (systemShowsSpoofed == true) "验证结果" to "✅ 系统读数 = 伪装值（显示即伪装）"
+                        else if (systemShowsSpoofed == false) "验证结果" to "⚠ 系统读数 ≠ 伪装值（ROM 回写，建议开启持续保持）"
+                        else "守护状态" to if (guardRunning) "运行中 · 每 20s 重申伪装值" else "未运行"
                     )
                 }
+                KeyValueCard(title = "电量伪装状态", rows = rows)
             }
 
             // ── 等级滑杆 ───────────────────────────────────────────────
@@ -218,6 +245,22 @@ fun BatterySpoofScreen(
                         }
                         Switch(checked = unplug, onCheckedChange = { unplug = it })
                     }
+                    Spacer(Modifier.size(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = "持续保持（防 ROM 回写）",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = "守护服务每 20s 重申伪装值 —— 定制 ROM 把真实电量" +
+                                    "回写时自动压回，系统显示恒为伪装值",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = guard, onCheckedChange = { guard = it })
+                    }
                 }
             }
 
@@ -228,24 +271,40 @@ fun BatterySpoofScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = {
+                            val targetLevel = level.toInt()
                             val commands = buildList {
-                                add(BatteryCommands.setLevel(level.toInt()))
+                                add(BatteryCommands.setLevel(targetLevel))
                                 add(BatteryCommands.setStatus(status))
                                 if (unplug) add(BatteryCommands.unplug())
                             }
                             run(*commands.toTypedArray()) { ok, detail ->
                                 feedbackError = !ok
                                 feedback = if (ok) {
-                                    "电量伪装已生效：${level.toInt()}% · ${status.label}" +
-                                        if (unplug) " · 已拔电" else ""
+                                    (if (guardRunning) "伪装值已更新" else "电量伪装已生效") +
+                                        "：${targetLevel}% · ${status.label}" +
+                                        (if (unplug) " · 已拔电" else "") +
+                                        (if (guard) " · 守护中" else "")
                                 } else {
                                     "应用失败（Shizuku 未就绪或系统拒绝）"
                                 }
                                 feedbackDetail = detail.ifBlank { null }
                                 if (ok) {
-                                    settings.batteryLevel = level.toInt()
+                                    settings.batteryLevel = targetLevel
                                     settings.batteryStatus = status
                                     settings.batteryUnplug = unplug
+                                    settings.batteryGuard = guard
+                                    if (guard) {
+                                        BatteryGuardService.start(context, targetLevel, status, unplug)
+                                        guardRunning = true
+                                    } else {
+                                        BatteryGuardService.stop(context)
+                                        guardRunning = false
+                                    }
+                                    // 800ms 后回读系统显示值 —— 「显示即伪装」验证
+                                    scope.launch {
+                                        delay(800)
+                                        readSystem(verifyAgainst = targetLevel)
+                                    }
                                 }
                             }
                         },
@@ -256,14 +315,25 @@ fun BatterySpoofScreen(
                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.size(8.dp))
                         }
-                        Text("应用伪装")
+                        Text(if (guardRunning) "更新伪装值" else "应用伪装")
                     }
                     OutlinedButton(
                         onClick = {
+                            BatteryGuardService.stop(context)
+                            guardRunning = false
                             run(BatteryCommands.reset()) { ok, detail ->
                                 feedbackError = !ok
-                                feedback = if (ok) "已恢复真实电量（系统重新同步）" else "恢复失败"
+                                feedback = if (ok) {
+                                    "已恢复真实电量（守护已停，系统重新同步）"
+                                } else {
+                                    "恢复失败"
+                                }
                                 feedbackDetail = detail.ifBlank { null }
+                                if (ok) systemShowsSpoofed = null
+                                scope.launch {
+                                    delay(600)
+                                    readSystem()
+                                }
                             }
                         },
                         enabled = !busy,
@@ -279,8 +349,8 @@ fun BatterySpoofScreen(
                     body = "经 Shizuku 以 adb shell 权限写入电池服务状态，" +
                         "系统级生效、免 Root、重启后自动恢复真实值。" +
                         "侧录电池曲线的 App（如电池健康类工具）同样读到伪装值。" +
-                        "部分定制 ROM 的电量管理服务可能周期性回写真实值，" +
-                        "如发现读数跳回，重新应用即可。",
+                        "部分定制 ROM 的电量管理服务可能周期性回写真实值 ——" +
+                        "开启「持续保持」后守护服务每 20s 自动压回，显示恒为伪装值。",
                 )
             }
         }

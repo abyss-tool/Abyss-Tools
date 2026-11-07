@@ -58,6 +58,11 @@
             android:name="com.abyss.tools.feature.disguise.LocationSpoofService"
             android:exported="false" />
 
+        <!-- 电量伪装保持守护：周期重申 dumpsys battery 伪装值（前台服务） -->
+        <service
+            android:name="com.abyss.tools.feature.disguise.BatteryGuardService"
+            android:exported="false" />
+
         <!-- 统一 FileProvider：应用管理器（提取 APK 分享）与二维码工坊
              （PNG 分享）共用，路径映射见 res/xml/file_paths.xml -->
         <provider
