@@ -15,6 +15,9 @@ coroutines = "1.10.2"
 # serialization 1.9.0：以 Kotlin 2.1.21 构建，Kotlin 2.3.21 消费端完全兼容
 serialization = "1.9.0"
 okhttp = "4.12.0"
+# Shizuku 13.1.5（Maven Central）：免 Root 提权底座 —— 伪装四件套 / 沙箱引擎
+# 的系统级指令通道（adb shell 上下文）。与 Shizuku App v13.x 服务端兼容。
+shizuku = "13.1.5"
 # material-icons 官方已停止演进（BOM 2026.02.00 仍映射 1.7.8），显式 pin 同值
 compose-material-icons = "1.7.8"
 junit = "4.13.2"
@@ -37,6 +40,8 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]

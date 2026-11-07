@@ -44,10 +44,13 @@ rootProject.name = "abyss-tools"
 // :core:designsystem       M3 主题 + 液态玻璃组件库（GlassSurface / 玻璃底栏）
 // :core:update             补丁更新引擎（version.json/patches.json 客户端 + 补丁应用）
 // :core:plugin             插件框架（仓库索引拉取 / 安装器 / 插件补丁通道）
+// :core:shell              Shizuku 执行层（伪装四件套 / 内置工具的 adb shell 通道）
 // :plugin-sdk:plugin-api   插件契约（宿主 ↔ 插件共享，含 manifest schema）
 // :feature:dashboard       仪表盘
 // :feature:navhub          导航（分类工具目录，第一类 = 插件）
 // :feature:plugins         插件中心 + 插件详情（安装 AP 框架）
+// :feature:disguise        伪装四件套（机型 / 电量 / 信号 / 定位，Shizuku 免 Root）
+// :feature:onboarding      首启新手引导（权限申请一站式）
 // :feature:settings        设置（含补丁更新入口）
 include(":app")
 include(":vendor:backdrop")
@@ -55,8 +58,11 @@ include(":core:common")
 include(":core:designsystem")
 include(":core:update")
 include(":core:plugin")
+include(":core:shell")
 include(":plugin-sdk:plugin-api")
 include(":feature:dashboard")
 include(":feature:navhub")
 include(":feature:plugins")
+include(":feature:disguise")
+include(":feature:onboarding")
 include(":feature:settings")
