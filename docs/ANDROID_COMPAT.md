@@ -15,7 +15,7 @@ Python 游乐场（Chaquopy）、应用构建器（Alpine + PRoot）—— 都�
 **结论：Android 15/16 适配 = 「在钉 28 的前提下于新系统完美运行」，
 而不是升 target。**
 
-## 逐项矩阵（v0.5.0）
+## 逐项矩阵（v0.6.0）
 
 | Android 15/16 变化 | 约束对象 | 本仓状态 | 对策 |
 |---|---|---|---|
@@ -23,7 +23,8 @@ Python 游乐场（Chaquopy）、应用构建器（Alpine + PRoot）—— 都�
 | **edge-to-edge 强制**（仅 targetSdk 35+） | target 35+ 应用 | ✅ 不受约束 | 钉 28 保留 legacy 装饰窗口语义；同时全量页面已按 `enableEdgeToEdge + statusBarsPadding` 主动适配 inset（玻璃底栏 `navigationBarsPadding`），未来升 target 零改动 |
 | **RECEIVER_EXPORTED 强制**（14 起，仅 targetSdk 34+） | 运行时注册广播 | ✅ 已加固 | `PackageInstallerApkGateway` 在 Android 13+ 显式 `RECEIVER_NOT_EXPORTED`（广播仅收本应用 PendingIntent 定向回调），老系统降级注册。安全审计零告警，前向兼容 |
 | **后台活动启动（BAL）收紧** | 所有应用 | ✅ 不涉及 | 安装确认页经 `STATUS_PENDING_USER_ACTION` 的系统 PendingIntent 转发（系统侧发起），不触发 BAL 限制 |
-| **FGS 类型强制**（14 起，仅 targetSdk 34+） | 前台服务 | ✅ 不受约束 | 钉 28 无类型强制。悬浮球 / 定位伪装 / 电量守护三处前台服务保持无类型声明；升 target 时需补 `specialUse` / `location` 类型（已列入升级清单） |
+| **FGS 类型强制**（14 起，仅 targetSdk 34+） | 前台服务 | ✅ 不受约束 | 钉 28 无类型强制。悬浮球 / 定位伪装 / 电量守护 / **信号显示覆盖层（v0.6.0 新增）**四处前台服务保持无类型声明；升 target 时需补 `specialUse` 类型（已列入升级清单） |
+| **overlay 窗口在安全屏隐藏**（12 起系统原生行为） | TYPE_APPLICATION_OVERLAY | ✅ 已知边界 | 信号显示伪装覆盖层在锁屏 / 下拉快捷面板头部不显示（系统对 overlay 的原生约束，免 Root 无解）；全 App 界面 / 截图 / 屏幕共享 / 录屏均正常同视图。配置变更经 `ACTION_CONFIGURATION_CHANGED` 重建布局参数 |
 | **精确闹钟需授权**（12 起，仅 targetSdk 31+） | AlarmManager exact | ✅ 自动授予 | 任务蓝图调度 `setExactAndAllowWhileIdle` 在 target<31 自动授权；代码内保留 `SecurityException → setAndAllowWhileIdle` 降级双保险 |
 | **通知运行时权限**（13 起，仅 targetSdk 33+） | 通知 | ✅ 自动授予 | 钉 28 在 13+ 设备通知权限默认授予；悬浮球前台服务通知正常展示 |
 | **Photo Picker** | 图片选择 | ✅ 已采用 | 二维码工坊用 `PickVisualMedia`（免存储权限），新系统走系统级 Picker |
@@ -40,13 +41,14 @@ Python 游乐场（Chaquopy）、应用构建器（Alpine + PRoot）—— 都�
   `zipalign -P 16` 检查（升级清单）。
 - 真机回归清单（Android 15/16 各一台）：安装插件 APK（确认页转发）→
   补丁应用 → Shizuku 指令通道 → 悬浮球 overlay → 动态壁纸设置 →
-  蓝图定时调度（重启恢复）。
+  蓝图定时调度（重启恢复）→ **信号显示伪装（Shizuku 一键授权 →
+  启停覆盖层 → 截图核验同视图）**。
 
 ## 升级 targetSdk 的前置条件（长期路线，非本版本范围）
 
 1. 终端 / Python / 构建器插件的执行域迁移（proot 沙箱内自包含执行，
    绕开 `untrusted_app_29+` 的 W^X 约束）；
-2. FGS 类型化（悬浮球 `specialUse` + 定位伪装 `location`）；
+2. FGS 类型化（悬浮球 / 信号覆盖层 `specialUse` + 定位伪装 `location`）；
 3. 通知 / 精确闹钟 / RECEIVER_EXPORTED 的 target 级强制项启用
    （代码已按上文矩阵预置）；
 4. scoped storage 全量迁移（二维码双路径已预演）。

@@ -35,18 +35,22 @@
 - 纯 JVM 模块（common / update / plugin / plugin-sdk）：单测零 Android
   依赖，CI 上 `./gradlew test` 即全量行为验证。
 
-## 伪装四件套（v0.3 内置，:feature:disguise + :core:shell）
+## 伪装四件套（v0.3 内置，v0.6 信号显示伪装落地；:feature:disguise + :core:shell）
 
 | 引擎 | 通道 | 生效范围 |
 | --- | --- | --- |
 | 电量伪装 | `dumpsys battery set/unplug/reset` | 全系统（官方电池测试通道，重启自恢复） |
 | 定位伪装 | appops `mock_location` + `LocationManager.addTestProvider` 三源注入 | 全系统（Fake GPS 同款官方通道） |
-| 信号伪装 | `cmd connectivity` / `svc data` / `svc wifi` | 真实连接性开关（与系统快捷开关等价） |
+| 信号伪装（真实开关） | `cmd connectivity` / `svc data` / `svc wifi` | 真实连接性开关（与系统快捷开关等价） |
+| **信号显示伪装（v0.6）** | appops `SYSTEM_ALERT_WINDOW`（Shizuku 一键授权）+ `TYPE_APPLICATION_OVERLAY` 前台服务覆盖层 | 状态栏显示层：Assertion（5G-A/5G/4G/LTE/3G）+ 信号格 1-4 + Wi-Fi 图标，无卡可用；截图 / 屏幕共享 / 录屏同视图；停止即恢复真实显示 |
 | 机型伪装 | `settings put global device_name` + 档案导出 | 设备名即刻生效；Build 字段档案由沙箱 Hook 层消费 |
 
-诚实边界：无 Root 不改 ro.product.*（系统属性只读）；信号格数伪造属
-SystemUI 渲染层 —— 均明示不装能。Shizuku 状态经 `ShizukuMonitor`
-扇出，Compose 侧唯一桥接点 `rememberShizukuStatus`（app 模块）。
+诚实边界：无 Root 不改 ro.product.*（系统属性只读）；App 代码读
+TelephonyManager / WifiManager 拿到的仍是真实值（Hook 属 LSPatch / 沙箱
+插件领域）；覆盖层在锁屏 / 下拉快捷面板头部不显示（系统对 overlay 的
+原生约束）。信号显示伪装的绘制逻辑单一实现于 `SignalStatusArt`
+（覆盖层 View 与页内 Compose 预览共用，所见即所得）。Shizuku 状态经
+`ShizukuMonitor` 扇出，Compose 侧唯一桥接点 `rememberShizukuStatus`。
 
 ## 内置七工具（v0.4 全部真实功能页，占位页时代结束）
 
@@ -70,6 +74,10 @@ Android 15/16 适配立场（16KB / edge-to-edge / RECEIVER 加固 / FGS 等
 底栏仅顶层 tab 显示（stack.size == 1），详情页沉浸全屏 —— 玻璃采样源
 在内容根上，任何页面滚过玻璃件下方都会被真实采样。
 
+v0.6.0 起返回栈可序列化（`rememberSaveable` + listSaver）：旋转 /
+深浅色切换 / 进程重建后原位恢复；AppManagerDetail 只序列化包名键，
+恢复后经 AppInfoProvider 异步重挂（查不到则诚实留在列表页）。
+
 ## 液态玻璃系统（三层能力）
 
 | 档位 | 条件 | 渲染 |
@@ -84,11 +92,11 @@ lambda 按身份比较 —— 重组期新建 lambda 会引发 draw 失效风暴
 ## 更新体系（双仓库，全自动）
 
 ```
-开发仓 Abyss-Tools（源码 + CI 门禁：双变体构建 + 单测 + 清单/版本同步门禁）
-    │ git tag v*（升版三处同步：build.gradle.kts ↔ AppInfo）
+开发仓 Abyss-Tools（源码 + CI 门禁：双变体构建 + 单测 + 清单/版本单一事实源门禁）
+    │ git tag v*（版本号只住在 AppInfo.kt，build.gradle.kts 推导）
     ▼
-release.yml：assembleRelease（keystore/meng411722.jks 恒定签名）
-    │ tools/publish_release.py（RELEASE_TOKEN）
+release.yml：assembleRelease（secrets 注入签名材料 + apksigner 指纹门禁）
+    │ tools/publish_release.py（RELEASE_TOKEN；versionCode 单调门禁 + 写后自检）
     ▼
 发布仓 Abyss-Tools-Release
     ├─ GitHub Release v<版本> + APK 资产（sha256 / size 入清单）
@@ -97,8 +105,9 @@ release.yml：assembleRelease（keystore/meng411722.jks 恒定签名）
     └─ changelog.json ← 旧 latest 下沉 history，新版本置顶
     ▼
 App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
-    → 设置页「下载并安装」：下载 → SHA-256 校验 → PackageInstaller 安装
-      （同签名门禁恒定通过；未知来源确认页自动转发）
+    → 设置页「下载并安装」：下载（FetchHostPolicy 域白名单）→
+      SHA-256 强制校验（摘要缺失即拒）→ PackageInstaller 安装
+      （同签名门禁 + 发布者指纹硬校验；未知来源确认页自动转发）
 ```
 
 数据层补丁（abyss-patch-v1，插件 manifest / 技能目录）**已可用**：
@@ -134,7 +143,13 @@ App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
 
 - targetSdk 钉 28（终端引擎 SELinux 红线，Termux 同款决策；
   `lint { disable += "ExpiredTargetSdkVersion" }` —— 侧载分发渠道语义不适用）
-- 插件资产 fail-closed：签名 / 校验 / 路径穿越三重门
-- 发布签名恒定：入库 keystore（指纹不变 → 覆盖安装零冲突）
+- 插件资产 fail-closed：签名 / 校验 / 路径穿越三重门 + 运行时
+  ChannelPolicy 白名单（索引 / 补丁条目逐条校验，不合规整条拒收）
+- 发布信任链（v0.6.0）：签名材料出库入 secrets；宿主自更新发布者指纹
+  硬校验（PublisherSignatures）；更新链 fail-closed（摘要强制 +
+  FetchHostPolicy 四域白名单 + 重定向落点复检 + 体量上限）；补丁引擎
+  zip bomb 三重上限 + 备份区外置。详见 [SECURITY.md](SECURITY.md)
+- Shizuku 通道：免引用参数统一经 requireSafeToken 白名单门禁，
+  自由文本 shellQuote 转义；网关并发读管道 + 1MB 单流上限 + 30s 看门狗
 - 免责声明内置 App（设置 → 许可与免责声明）+ 仓库 LICENSE（UGRL）
 - R8 混淆：v0.2 发布流水线接入（框架期 minify 关闭，CI 面最小）

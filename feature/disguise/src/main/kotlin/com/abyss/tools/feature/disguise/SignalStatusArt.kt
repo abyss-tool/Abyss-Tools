@@ -221,7 +221,8 @@ object SignalStatusArt {
                 paint,
             )
         }
-        paint.alpha = 255
+        // 恢复图标原生 alpha（后续文本 / 扇形绘制继承同一 paint）
+        paint.alpha = Color.alpha(icon)
     }
 
     /** Wi-Fi 扇形（圆心在图标块底部中点，四弧自弱到强，未满弧画空槽）。 */
