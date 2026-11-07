@@ -170,7 +170,7 @@ class LocationSpoofService : Service() {
                 currentLat = lat
                 currentLng = lng
                 speed = mode.speedMps.toFloat() * (0.9f + Random.nextFloat() * 0.2f)
-                bearing = ((Math.toDegrees(heading) % 360) + 360f) % 360f
+                bearing = (((Math.toDegrees(heading) % 360.0) + 360.0) % 360.0).toFloat()
                 accuracy = when (mode) {
                     MovementMode.WALK -> 4f + Random.nextFloat() * 4f
                     MovementMode.RIDE -> 3f + Random.nextFloat() * 3f
