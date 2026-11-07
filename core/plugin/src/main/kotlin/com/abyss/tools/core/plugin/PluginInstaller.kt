@@ -144,6 +144,55 @@ class PluginInstaller(
     /** 阻塞调用（等待系统安装结果广播）—— 调用方负责切 IO 线程。 */
     fun installApk(file: File): Result<Unit> = apkGateway.install(file)
 
+    /** APK 一条龙安装的阶段回调（UI 进度反馈用）。 */
+    enum class ApkPipelinePhase { DOWNLOADING, VERIFYING, INSTALLING, REGISTERING }
+
+    /**
+     * APK 插件一条龙安装（v0.3.0 收口）：
+     * 下载 → SHA-256 校验 → 系统安装器 → **版本账本同步**。
+     *
+     * 此前 APK 安装与数据层登记是两条独立线 —— 装完 APK 后本机 plugin.json
+     * 仍停留在旧版本（或未登记），补丁通道的 from 比对会算错、插件中心
+     * 的「已安装」徽章也不反映 APK 安装态。本方法把「APK 安装成功」与
+     * 「登记簿对齐索引版本」收敛到单一入口：系统安装器返回成功后立即
+     * 复用 [installDataPlugin] 的校验 + 原子落盘，任一环节失败都如实上报。
+     *
+     * @param onPhase 阶段回调（DOWNLOADING 阶段的进度另走 [onProgress]）。
+     */
+    suspend fun installApkPlugin(
+        entry: PluginIndexEntry,
+        onProgress: (readBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
+        onPhase: (ApkPipelinePhase) -> Unit = { _ -> },
+    ): Result<PluginManifest> {
+        onPhase(ApkPipelinePhase.DOWNLOADING)
+        val file = downloadApk(entry, onProgress).getOrThrow()
+        onPhase(ApkPipelinePhase.VERIFYING)
+        if (!verifyApk(entry, file)) {
+            return Result.failure(
+                IllegalStateException("SHA-256 校验失败 —— 拒绝安装（fail-closed）：${entry.id}")
+            )
+        }
+        onPhase(ApkPipelinePhase.INSTALLING)
+        // 网关为阻塞调用（等待系统安装结果广播）：切 IO 线程
+        val installed = withContext(Dispatchers.IO) { installApk(file) }
+        return installed.flatMap {
+            onPhase(ApkPipelinePhase.REGISTERING)
+            // 系统安装成功 → 版本账本对齐索引版本（同 installDataPlugin 语义，
+            // 同步含落盘 IO）
+            withContext(Dispatchers.IO) { installDataPlugin(entry) }
+        }
+    }
+
+    /**
+     * 最近一次下载的 APK 缓存文件（UI 侧解析包名 / 引导系统卸载 APK 本体用）。
+     * 缓存被清理或从未下载 → null，调用方诚实降级。
+     */
+    fun cachedApkFile(entry: PluginIndexEntry): File? {
+        val apk = entry.apk ?: return null
+        val file = File(cacheDirFor(entry.id), apk.url.substringAfterLast('/'))
+        return file.takeIf { it.exists() && it.length() > 0L }
+    }
+
     // ── 数据插件补丁流水线（全真实：下载 → 校验 → 应用 → 回滚保护）────
 
     suspend fun downloadPatch(

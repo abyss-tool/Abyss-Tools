@@ -38,6 +38,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
@@ -59,6 +63,8 @@ import com.abyss.tools.core.plugin.PluginRepository
 import com.abyss.tools.core.update.PatchReport
 import com.kyant.backdrop.Backdrop
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -76,6 +82,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun PluginHubScreen(
     repository: PluginRepository,
+    channelClient: PluginChannelClient,
     installer: PluginInstaller,
     onBack: () -> Unit,
     onOpenPlugin: (String) -> Unit,
@@ -85,6 +92,7 @@ fun PluginHubScreen(
     var indexState by remember { mutableStateOf<UiState<PluginIndex>>(UiState.Loading) }
     var retryKey by remember { mutableStateOf(0) }
     var categoryFilter by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(retryKey) {
         indexState = UiState.Loading
@@ -93,6 +101,39 @@ fun PluginHubScreen(
 
     // 本机已装插件（stateVersion 变化时重读磁盘）
     val installedPlugins = remember(stateVersion) { installer.installed() }
+
+    // ── 一键检查更新（v0.3.0）：遍历已装插件的补丁通道，
+    //    找出 from 命中本机版本的可应用补丁 ────────────────────────
+    var updatesState by remember { mutableStateOf<UiState<Map<String, PluginPatch>>>(UiState.Loading) }
+    var updatesChecked by remember { mutableStateOf(false) }
+    val checkUpdates: (PluginIndex) -> Unit = { index ->
+        updatesChecked = true
+        updatesState = UiState.Loading
+        scope.launch {
+            updatesState = withContext(Dispatchers.IO) {
+                runCatching {
+                    val installedIds = installedPlugins.map { it.id }.toSet()
+                    index.plugins
+                        .filter { it.id in installedIds }
+                        .map { entry ->
+                            // 每插件一通道，并发拉取；单通道失败不影响其余
+                            async {
+                                val url = entry.patchChannel
+                                    ?: AbyssChannels.pluginPatchChannel(entry.id)
+                                channelClient.fetchPatchChannel(url).getOrNull()
+                                    ?.let { channel ->
+                                        installer.updatablePatch(entry.id, channel)
+                                            ?.let { patch -> entry.id to patch }
+                                    }
+                            }
+                        }
+                        .awaitAll()
+                        .mapNotNull { it }
+                        .toMap()
+                }.toUiState()
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -150,7 +191,62 @@ fun PluginHubScreen(
                             SectionHeader(
                                 title = "我的插件",
                                 subtitle = "本机已装 ${installedPlugins.size} 个 · 数据层登记 + 补丁通道",
+                                trailing = {
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { checkUpdates(state.value) },
+                                    ) { Text(if (updatesChecked) "重新检查" else "检查更新") }
+                                },
                             )
+                        }
+                        // 检查结果摘要（人话：N 个可更新 / 全部最新 / 检查失败可重试）
+                        if (updatesChecked) {
+                            item {
+                                when (val u = updatesState) {
+                                    is UiState.Loading -> Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                        Spacer(Modifier.size(8.dp))
+                                        Text(
+                                            "正在核对补丁通道…",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+
+                                    is UiState.Error -> Text(
+                                        text = "检查更新失败：${u.message}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+
+                                    is UiState.Data ->
+                                        if (u.value.isEmpty()) {
+                                            Text(
+                                                "已装插件均为通道可应用链的最新版本。",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        } else {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                StatusChip("${u.value.size} 个可更新", ChipTone.WARN)
+                                                Spacer(Modifier.size(8.dp))
+                                                Text(
+                                                    "进入对应插件详情页下载并应用补丁。",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        }
+                                }
+                            }
+                        }
+                        val updatableIds = when (val u = updatesState) {
+                            is UiState.Data -> u.value.keys
+                            else -> emptySet()
                         }
                         items(
                             count = installedPlugins.size,
@@ -161,6 +257,7 @@ fun PluginHubScreen(
                                 name = manifest.name,
                                 id = manifest.id,
                                 localVersion = manifest.version,
+                                updatable = manifest.id in updatableIds,
                                 onClick = { onOpenPlugin(manifest.id) },
                             )
                         }
@@ -203,7 +300,13 @@ fun PluginHubScreen(
 }
 
 @Composable
-private fun InstalledPluginRow(name: String, id: String, localVersion: String, onClick: () -> Unit) {
+private fun InstalledPluginRow(
+    name: String,
+    id: String,
+    localVersion: String,
+    updatable: Boolean = false,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -223,6 +326,10 @@ private fun InstalledPluginRow(name: String, id: String, localVersion: String, o
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        if (updatable) {
+            StatusChip("可更新", ChipTone.WARN)
+            Spacer(Modifier.size(6.dp))
         }
         StatusChip("本地 v$localVersion", ChipTone.OK)
     }
@@ -375,8 +482,10 @@ private fun DetailBar(title: String, onBack: () -> Unit) {
     }
 }
 
-/** APK 安装流水线阶段（下载 → 校验 → 提交系统安装器）。 */
-private enum class InstallPhase { IDLE, DOWNLOADING, VERIFYING, INSTALLING, DONE, FAILED }
+/** APK 安装流水线阶段（下载 → 校验 → 提交系统安装器 → 版本账本同步）。 */
+private enum class InstallPhase {
+    IDLE, DOWNLOADING, VERIFYING, INSTALLING, REGISTERING, DONE, FAILED,
+}
 
 /** 数据插件安装阶段（manifest 校验 → 原子落盘）。 */
 private enum class DataInstallPhase { IDLE, WORKING, DONE, FAILED }
@@ -419,35 +528,31 @@ private fun PluginDetailContent(
 
     val startInstall: () -> Unit = {
         if (phase != InstallPhase.DOWNLOADING && phase != InstallPhase.VERIFYING &&
-            phase != InstallPhase.INSTALLING
+            phase != InstallPhase.INSTALLING && phase != InstallPhase.REGISTERING
         ) {
             phase = InstallPhase.DOWNLOADING
             failure = null
             scope.launch {
-                installer.downloadApk(entry) { read, total ->
-                    progress = if (total > 0) read.toFloat() / total else -1f
-                }.onSuccess { file ->
-                    phase = InstallPhase.VERIFYING
-                    if (!installer.verifyApk(entry, file)) {
-                        phase = InstallPhase.FAILED
-                        failure = "SHA-256 校验失败 —— 拒绝安装（fail-closed）"
-                    } else {
-                        phase = InstallPhase.INSTALLING
-                        // 网关为阻塞调用（等待系统安装结果广播）：切 IO 线程
-                        val result = withContext(Dispatchers.IO) { installer.installApk(file) }
-                        result
-                            .onSuccess {
-                                phase = InstallPhase.DONE
-                                refreshLocal()
-                            }
-                            .onFailure {
-                                phase = InstallPhase.FAILED
-                                failure = it.message ?: "安装失败"
-                            }
-                    }
+                // v0.3.0：一条龙安装（下载 → 校验 → 系统安装器 → 版本账本同步）
+                installer.installApkPlugin(
+                    entry,
+                    onProgress = { read, total ->
+                        progress = if (total > 0) read.toFloat() / total else -1f
+                    },
+                    onPhase = { p ->
+                        phase = when (p) {
+                            PluginInstaller.ApkPipelinePhase.DOWNLOADING -> InstallPhase.DOWNLOADING
+                            PluginInstaller.ApkPipelinePhase.VERIFYING -> InstallPhase.VERIFYING
+                            PluginInstaller.ApkPipelinePhase.INSTALLING -> InstallPhase.INSTALLING
+                            PluginInstaller.ApkPipelinePhase.REGISTERING -> InstallPhase.REGISTERING
+                        }
+                    },
+                ).onSuccess {
+                    phase = InstallPhase.DONE
+                    refreshLocal()
                 }.onFailure {
                     phase = InstallPhase.FAILED
-                    failure = it.message ?: "下载失败"
+                    failure = it.message ?: "安装失败"
                 }
             }
         }
@@ -653,6 +758,57 @@ private fun PluginDetailContent(
                             )
                             Spacer(Modifier.size(10.dp))
                             OutlinedButton(onClick = { uninstallConfirm = true }) { Text("卸载") }
+                        }
+
+                        // APK 本体卸载引导（v0.3.0）：独立 APK 插件经系统安装器
+                        // 安装，需在系统侧卸载 —— 从缓存 APK 解析包名直达系统卸载页；
+                        // 缓存已清时降级为系统应用设置列表
+                        if (entry.apk != null) {
+                            val context = LocalContext.current
+                            Spacer(Modifier.size(10.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Spacer(Modifier.size(10.dp))
+                            val cachedApk = remember(localManifest) {
+                                installer.cachedApkFile(entry)
+                            }
+                            val apkPackage = remember(cachedApk) {
+                                cachedApk?.let {
+                                    runCatching {
+                                        context.packageManager
+                                            .getPackageArchiveInfo(it.path, 0)
+                                            ?.packageName
+                                    }.getOrNull()
+                                }
+                            }
+                            Text(
+                                text = "APK 本体卸载：独立 APK 插件由系统安装器管理。" +
+                                    if (apkPackage != null) {
+                                        "已识别包名 $apkPackage —— 点击直达系统卸载确认页。"
+                                    } else {
+                                        "本地缓存已清理，无法解析包名 —— 请到系统设置的「应用管理」中手动卸载。"
+                                    },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            if (apkPackage != null) {
+                                OutlinedButton(onClick = {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_UNINSTALL_PACKAGE,
+                                                Uri.parse("package:$apkPackage"),
+                                            ),
+                                        )
+                                    }
+                                }) { Text("卸载 APK 本体") }
+                            } else {
+                                OutlinedButton(onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                                    }
+                                }) { Text("打开系统应用设置") }
+                            }
                         }
                     }
                 }
@@ -1047,8 +1203,14 @@ private fun InstallFlowUi(
                 Text("提交系统安装器（确认页如弹出请允许）…", style = MaterialTheme.typography.bodySmall)
             }
 
+            InstallPhase.REGISTERING -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+                Text("同步版本账本（plugin.json）…", style = MaterialTheme.typography.bodySmall)
+            }
+
             InstallPhase.DONE -> Text(
-                "安装完成。",
+                "安装完成 —— APK 已就位，本机版本登记已同步至通道版本。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )

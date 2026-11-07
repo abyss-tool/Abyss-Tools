@@ -301,6 +301,87 @@ class PluginFrameworkTest {
         assertTrue(installer.pluginDir("abyss-plugin-terminal").resolve("skills/hello.json").exists())
     }
 
+    // ── APK 一条龙安装（installApkPlugin：下载 → 校验 → 安装 → 账本同步）──
+
+    private fun apkEntry(
+        version: String = "0.2.0",
+        sha256: String? = null,
+    ) = PluginIndexEntry(
+        id = "abyss-plugin-app-builder", name = "应用构建器",
+        repo = "abyss-tool/abyss-plugin-app-builder", category = "dev",
+        version = version, minApp = "0.1.0", summary = "手机端 APK 构建",
+        apk = PluginApkInfo(
+            url = "https://x/abyss-plugin-app-builder-$version.apk",
+            sizeBytes = 1,
+            sha256 = sha256,
+        ),
+    )
+
+    @Test
+    fun `APK 一条龙 - 安装成功后版本账本同步到索引版本`() = runTest {
+        val root = tmp.newFolder("plugins-apk-ok")
+        val okGateway = object : ApkInstallGateway {
+            override fun install(apk: File) = Result.success(Unit)
+        }
+        val installer = PluginInstaller(root, fakeTransport(), okGateway)
+
+        val phases = mutableListOf<PluginInstaller.ApkPipelinePhase>()
+        val result = installer.installApkPlugin(
+            entry = apkEntry(),
+            onProgress = { _, _ -> },
+            onPhase = { phases.add(it) },
+        )
+
+        val manifest = result.getOrThrow()
+        assertEquals("abyss-plugin-app-builder", manifest.id)
+        // 版本账本对齐索引版本（v0.3.0 前的缺口：装完 APK 登记还停在旧值）
+        assertEquals("0.2.0", installer.installedVersion("abyss-plugin-app-builder").toString())
+        assertTrue(installer.isInstalled("abyss-plugin-app-builder"))
+        // 阶段回调完整走完四段
+        assertEquals(
+            listOf(
+                PluginInstaller.ApkPipelinePhase.DOWNLOADING,
+                PluginInstaller.ApkPipelinePhase.VERIFYING,
+                PluginInstaller.ApkPipelinePhase.INSTALLING,
+                PluginInstaller.ApkPipelinePhase.REGISTERING,
+            ),
+            phases,
+        )
+        // 缓存文件保留（卸载引导解析包名用）
+        assertTrue(installer.cachedApkFile(apkEntry()) != null)
+    }
+
+    @Test
+    fun `APK 一条龙 - SHA-256 不符 fail-closed 且不登记`() = runTest {
+        val root = tmp.newFolder("plugins-apk-bad-hash")
+        val okGateway = object : ApkInstallGateway {
+            override fun install(apk: File) = Result.success(Unit)
+        }
+        val installer = PluginInstaller(root, fakeTransport(), okGateway)
+
+        // 通道声明的摘要与下载内容不符 → 校验失败
+        val result = installer.installApkPlugin(apkEntry(sha256 = "deadbeef")) { _, _ -> }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()!!.message!!.contains("SHA-256"))
+        // 不产生任何登记
+        assertTrue(!installer.isInstalled("abyss-plugin-app-builder"))
+    }
+
+    @Test
+    fun `APK 一条龙 - 系统安装器拒绝时不上账本`() = runTest {
+        val root = tmp.newFolder("plugins-apk-reject")
+        val rejectGateway = object : ApkInstallGateway {
+            override fun install(apk: File): Result<Unit> =
+                Result.failure(IllegalStateException("签名不一致：拒绝覆盖（fail-closed）"))
+        }
+        val installer = PluginInstaller(root, fakeTransport(), rejectGateway)
+
+        val result = installer.installApkPlugin(apkEntry()) { _, _ -> }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()!!.message!!.contains("签名不一致"))
+        assertTrue(!installer.isInstalled("abyss-plugin-app-builder"))
+    }
+
     private fun fakeTransport() = object : com.abyss.tools.core.update.HttpTransport {
         override fun get(url: String): String = "{}"
         override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {
