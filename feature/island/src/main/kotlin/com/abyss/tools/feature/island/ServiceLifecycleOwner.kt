@@ -18,9 +18,9 @@ import androidx.savedstate.SavedStateRegistryOwner
  * 所以 Service 里挂 Compose 前必须自建宿主并注入 ViewTree：
  *
  * ```
- * ViewTreeLifecycleOwner.set(view, owner)          // Recomposer 生命周期感知
- * ViewTreeViewModelStoreOwner.set(view, owner)     // viewModel() 作用域
- * ViewTreeSavedStateRegistryOwner.set(view, owner) // rememberSaveable 语义
+ * view.setViewTreeLifecycleOwner(owner)          // Recomposer 生命周期感知
+ * view.setViewTreeViewModelStoreOwner(owner)     // viewModel() 作用域
+ * view.setViewTreeSavedStateRegistryOwner(owner) // rememberSaveable 语义
  * ```
  *
  * 生命周期时序（与 Activity 对照，全部主线程）：
@@ -43,8 +43,8 @@ import androidx.savedstate.SavedStateRegistryOwner
  *  - 两个 overlay 窗口（球 + 面板）共享同一个宿主：生命周期代表的是「本服务
  *    的窗口存续期」，与一个 Activity 宿多个 ComposeView 的结构同构；面板
  *    removeView 只拆 composition，不动宿主；
- *  - ViewTree 注入用官方静态方法（ViewTreeLifecycleOwner.set 等，lifecycle
- *    2.5+ 的现行 API），不用已废弃的 -ktx 扩展函数。
+ *  - ViewTree 注入用现行扩展函数（lifecycle 2.5+：`View.setViewTreeLifecycleOwner`
+ *    等，旧静态方法类已废弃移除）；
  */
 internal class ServiceLifecycleOwner :
     LifecycleOwner,
@@ -52,14 +52,16 @@ internal class ServiceLifecycleOwner :
     SavedStateRegistryOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
-    private val viewModelStore = ViewModelStore()
+
+    // 背后存储与 override 属性分名，避免同名遮蔽 / 自引用。
+    private val store = ViewModelStore()
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
 
     override val lifecycle: Lifecycle
         get() = lifecycleRegistry
 
     override val viewModelStore: ViewModelStore
-        get() = viewModelStore
+        get() = store
 
     override val savedStateRegistry: SavedStateRegistry
         get() = savedStateRegistryController.savedStateRegistry
@@ -83,6 +85,6 @@ internal class ServiceLifecycleOwner :
         if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
             lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         }
-        viewModelStore.clear()
+        store.clear()
     }
 }

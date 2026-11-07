@@ -26,9 +26,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewTreeLifecycleOwner
-import androidx.lifecycle.viewmodel.ViewTreeViewModelStoreOwner
-import androidx.savedstate.ViewTreeSavedStateRegistryOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.abyss.tools.core.designsystem.theme.AbyssTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -169,9 +169,9 @@ class FloatingBallService : Service() {
         }
 
         val view = ComposeView(this).apply {
-            ViewTreeLifecycleOwner.set(this, owner)
-            ViewTreeViewModelStoreOwner.set(this, owner)
-            ViewTreeSavedStateRegistryOwner.set(this, owner)
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
             setContent {
                 AbyssTheme {
                     val prefs by prefsFlow.collectAsState()
@@ -318,9 +318,9 @@ class FloatingBallService : Service() {
         val view = ComposeView(this).apply {
             // 与球共享同一 ServiceLifecycleOwner（宿主代表「本服务的窗口存续期」，
             // 面板 removeView 只拆 composition，不动宿主 —— 见桥接层注释）
-            ViewTreeLifecycleOwner.set(this, owner)
-            ViewTreeViewModelStoreOwner.set(this, owner)
-            ViewTreeSavedStateRegistryOwner.set(this, owner)
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
             setContent {
                 AbyssTheme {
                     val timeText by clockFlow.collectAsState()
