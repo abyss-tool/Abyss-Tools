@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,12 +19,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +59,12 @@ import kotlinx.coroutines.launch
  * 链路：Shizuku 授权本 App 为模拟位置源（appops mock_location）→
  * 前台服务对 gps / network / fused 三源注入测试坐标 → 任何读取定位
  * 的 App（地图 / 打卡 / 网约车）都拿到伪装位置。
+ *
+ * 完善能力：
+ *  - 移动模式：静止 / 微漂移 / 步行 / 骑行 / 驾车（轨迹 + 速度 +
+ *    航向 + 精度自然化，对抗轨迹风控）；
+ *  - 漂移幅度：±1 / ±3 / ±10 米三档；
+ *  - 坐标收藏夹：保存常用点位（如打卡点），一键带入。
  */
 private data class CityPreset(val name: String, val lat: Double, val lng: Double)
 
@@ -68,11 +79,26 @@ private val cityPresets = listOf(
     CityPreset("武汉", 30.5928, 114.3055),
     CityPreset("西安", 34.3416, 108.9398),
     CityPreset("南京", 32.0603, 118.7969),
+    CityPreset("香港", 22.3193, 114.1694),
+    CityPreset("台北", 25.0330, 121.5654),
+    CityPreset("拉萨", 29.6520, 91.1721),
+    CityPreset("乌鲁木齐", 43.8256, 87.6168),
+    CityPreset("哈尔滨", 45.8038, 126.5349),
     CityPreset("纽约", 40.7128, -74.0060),
+    CityPreset("旧金山", 37.7749, -122.4194),
     CityPreset("东京", 35.6762, 139.6503),
+    CityPreset("首尔", 37.5665, 126.9780),
+    CityPreset("新加坡", 1.3521, 103.8198),
+    CityPreset("悉尼", -33.8688, 151.2093),
     CityPreset("伦敦", 51.5074, -0.1278),
     CityPreset("巴黎", 48.8566, 2.3522),
+    CityPreset("柏林", 52.5200, 13.4050),
+    CityPreset("莫斯科", 55.7558, 37.6173),
+    CityPreset("迪拜", 25.2048, 55.2708),
 )
+
+/** 漂移幅度三档（米）。 */
+private val driftOptions = listOf(1, 3, 10)
 
 @Composable
 fun LocationSpoofScreen(
@@ -101,6 +127,7 @@ fun LocationSpoofScreen(
     var feedback by remember { mutableStateOf<String?>(null) }
     var feedbackError by remember { mutableStateOf(false) }
     var feedbackDetail by remember { mutableStateOf<String?>(null) }
+    var spotName by remember { mutableStateOf(settings.locationLabel) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -184,11 +211,7 @@ fun LocationSpoofScreen(
         SpoofHeader(title = "定位伪装", onBack = onBack)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                bottom = 32.dp,
-            ),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { ShizukuGuardBanner(shizukuStatus, onRequestShizukuPermission, onOpenShizuku) }
@@ -204,6 +227,13 @@ fun LocationSpoofScreen(
                             null -> "未知（Shizuku 就绪后可查询）"
                         },
                         "注入引擎" to if (spoofing) "运行中 · 每秒供给伪装坐标" else "未运行",
+                        "当前模式" to if (spoofing) {
+                            LocationSpoofService.movementMode.let { m ->
+                                m.label + if (m == MovementMode.JITTER) "（±${LocationSpoofService.driftMeters}米）" else ""
+                            }
+                        } else {
+                            "—"
+                        },
                         "注入源" to if (spoofing) "gps / network / fused 三源" else "—",
                     ),
                 )
@@ -240,14 +270,17 @@ fun LocationSpoofScreen(
                     }
                     Spacer(Modifier.size(8.dp))
                     OutlinedTextField(
-                        value = settings.locationLabel,
-                        onValueChange = { settings.locationLabel = it },
-                        label = { Text("位置备注（仅本地记录，如「公司打卡点」）") },
+                        value = spotName,
+                        onValueChange = {
+                            spotName = it
+                            settings.locationLabel = it
+                        },
+                        label = { Text("位置备注（如「公司打卡点」，收藏时用作名称）") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.size(10.dp))
-                    Text(text = "常用城市", style = MaterialTheme.typography.labelLarge)
+                    Text(text = "常用城市（${cityPresets.size} 个）", style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.size(6.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(cityPresets.size) { index ->
@@ -258,25 +291,11 @@ fun LocationSpoofScreen(
                                 onClick = {
                                     settings.latText = String.format(Locale.US, "%.6f", city.lat)
                                     settings.lngText = String.format(Locale.US, "%.6f", city.lng)
+                                    spotName = city.name
                                     settings.locationLabel = city.name
                                 },
                             )
                         }
-                    }
-                    Spacer(Modifier.size(10.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = "微漂移（±3 米随机游走）",
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                text = "对抗「位置完全静止」类检测",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(checked = settings.jitter, onCheckedChange = { settings.jitter = it })
                     }
                     Spacer(Modifier.size(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -309,7 +328,187 @@ fun LocationSpoofScreen(
                                     }
                                 }
                             },
+                            modifier = Modifier.weight(1f),
                         ) { Text(if (hasLocationPermission) "以当前位置为基准" else "授权定位并带入当前") }
+                        OutlinedButton(
+                            onClick = {
+                                val coords = parseCoordinates() ?: return@OutlinedButton
+                                if (spotName.isBlank()) {
+                                    feedbackError = true
+                                    feedback = "先填位置备注作为收藏名（如「公司打卡点」）"
+                                    feedbackDetail = null
+                                    return@OutlinedButton
+                                }
+                                settings.savedSpots = settings.savedSpots +
+                                    SavedSpot(spotName.trim(), coords.first, coords.second)
+                                feedbackError = false
+                                feedback = "已收藏「${spotName.trim()}」"
+                                feedbackDetail = null
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.size(4.dp))
+                            Text("收藏当前坐标")
+                        }
+                    }
+                }
+            }
+
+            // ── 坐标收藏夹 ─────────────────────────────────────────────
+            if (settings.savedSpots.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        title = "坐标收藏夹（${settings.savedSpots.size}）",
+                        subtitle = "点击带入坐标 · 星标旁的删除图标移除",
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        settings.savedSpots.forEach { spot ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Star,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.size(8.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .padding(vertical = 2.dp),
+                                ) {
+                                    Text(
+                                        text = spot.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = String.format(Locale.US, "%.6f, %.6f", spot.lat, spot.lng),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        settings.savedSpots = settings.savedSpots - spot
+                                    },
+                                    modifier = Modifier.size(32.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Delete,
+                                        contentDescription = "删除收藏 ${spot.name}",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                        }
+                        // 点击行带入坐标（整行可点）
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            settings.savedSpots.take(3).forEach { spot ->
+                                SelectableChip(
+                                    text = spot.name,
+                                    selected = false,
+                                    onClick = {
+                                        settings.latText = String.format(Locale.US, "%.6f", spot.lat)
+                                        settings.lngText = String.format(Locale.US, "%.6f", spot.lng)
+                                        spotName = spot.name
+                                        settings.locationLabel = spot.name
+                                        feedbackError = false
+                                        feedback = "已带入「${spot.name}」"
+                                        feedbackDetail = null
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 移动模式 ───────────────────────────────────────────────
+            item {
+                SectionHeader(
+                    title = "移动模式",
+                    subtitle = "轨迹 + 速度 + 航向 + 精度自然化 —— 对抗轨迹风控",
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        .padding(16.dp),
+                ) {
+                    MovementMode.entries.chunked(3).forEach { rowModes ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 3.dp),
+                        ) {
+                            rowModes.forEach { m ->
+                                SelectableChip(
+                                    text = m.label,
+                                    selected = settings.movementMode == m,
+                                    onClick = { settings.movementMode = m },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    when (settings.movementMode) {
+                        MovementMode.STATIC -> Text(
+                            text = "固定坐标注入（speed=0）。适合打卡类场景；" +
+                                "长时间完全静止可能被「位置无抖动」类检测识别。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        MovementMode.JITTER -> {
+                            Text(
+                                text = "微漂移幅度（随机游走半径）：",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Spacer(Modifier.size(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                driftOptions.forEach { meters ->
+                                    SelectableChip(
+                                        text = "±${meters}米",
+                                        selected = settings.driftMeters == meters,
+                                        onClick = { settings.driftMeters = meters },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.size(6.dp))
+                            Text(
+                                text = "坐标在半径内随机游走，带微速度与随机航向 ——" +
+                                    "形态最接近真实手机静止放置的 GPS 读数。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        MovementMode.WALK, MovementMode.RIDE, MovementMode.DRIVE -> Text(
+                            text = "以 ${settings.movementMode.speedMps} m/s 沿缓慢变化的航向持续移动，" +
+                                "speed / bearing / accuracy 按出行方式自然化 ——" +
+                                "轨迹形态贴近真实行程，对抗网约车 / 打卡的轨迹风控。" +
+                                "注意：坐标会持续前进，停止后从停点继续。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -351,9 +550,19 @@ fun LocationSpoofScreen(
                     Button(
                         onClick = {
                             val coords = parseCoordinates() ?: return@Button
-                            LocationSpoofService.start(context, coords.first, coords.second, settings.jitter)
+                            LocationSpoofService.start(
+                                context,
+                                coords.first,
+                                coords.second,
+                                settings.movementMode,
+                                settings.driftMeters,
+                            )
                             feedbackError = false
-                            feedback = if (spoofing) "坐标已热更新（引擎不重启）" else "注入引擎已启动"
+                            feedback = if (spoofing) {
+                                "坐标已热更新（引擎不重启 · ${settings.movementMode.label}）"
+                            } else {
+                                "注入引擎已启动（${settings.movementMode.label}）"
+                            }
                             feedbackDetail = "lat=${coords.first}, lng=${coords.second}"
                         },
                         enabled = appopAllowed == true,
@@ -363,7 +572,7 @@ fun LocationSpoofScreen(
                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.size(8.dp))
                         }
-                        Text(if (spoofing) "② 更新坐标（引擎运行中）" else "② 开始伪装")
+                        Text(if (spoofing) "② 更新坐标与模式（引擎运行中）" else "② 开始伪装")
                     }
                     Spacer(Modifier.size(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

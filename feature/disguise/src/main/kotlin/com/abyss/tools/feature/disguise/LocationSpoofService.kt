@@ -13,6 +13,9 @@ import android.location.LocationManager
 import android.os.IBinder
 import android.os.SystemClock
 import kotlin.concurrent.thread
+import kotlin.math.cos
+import kotlin.math.PI
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
@@ -24,11 +27,17 @@ import kotlin.random.Random
  *  2. 本服务对 gps / network / fused 三个位置源调用
  *     LocationManager.addTestProvider —— 测试源生效后，全系统读取该源
  *     的 App（地图 / 打卡 / 网约车）拿到的都是我们注入的坐标；
- *  3. 前台服务每秒 setTestProviderLocation 持续供给，可选微漂移
- *     （±3 米随机游走）对抗「位置静止」检测。
+ *  3. 前台服务每秒 setTestProviderLocation 持续供给。
+ *
+ * 移动模式（[MovementMode]）：
+ *  - 静止：固定坐标（speed=0）；
+ *  - 微漂移：±driftMeters 随机游走，对抗「位置完全静止」类检测；
+ *  - 步行 / 骑行 / 驾车：航向缓慢随机变化（±0.15 rad/s），坐标按真实
+ *    速度推进，speed / bearing / accuracy 相应自然化 —— 轨迹与传感器
+ *    读数形态贴近真实出行，对抗轨迹风控。
  *
  * 生命周期：START_NOT_STICKY —— 系统不复活伪装（诚实语义：用户关掉的
- * 就是关掉的）；坐标经 companion 热更新（运行中改坐标不重启服务）。
+ * 就是关掉的）；坐标经 companion 热更新（运行中改坐标 / 模式不重启服务）。
  */
 class LocationSpoofService : Service() {
 
@@ -41,6 +50,9 @@ class LocationSpoofService : Service() {
     private var loopRunning = false
 
     private var loopThread: Thread? = null
+
+    /** 运动航向（弧度，0 = 正北，顺时针）。 */
+    private var heading = Random.nextDouble(2 * PI)
 
     override fun onCreate() {
         super.onCreate()
@@ -118,16 +130,64 @@ class LocationSpoofService : Service() {
         if (!isSpoofing) stopSelf()
     }
 
+    /**
+     * 单帧注入：按移动模式计算本 tick 坐标 / 速度 / 航向 / 精度。
+     * 每源独立注入（同一坐标多源读数完全一致反而可疑 —— 加每源微扰）。
+     */
     private fun injectOnce() {
+        val mode = movementMode
         val baseLat = currentLat
         val baseLng = currentLng
-        val jitterOn = jitterEnabled
+        var lat = baseLat
+        var lng = baseLng
+        var speed = 0f
+        var bearing = 0f
+        var accuracy = 1.5f
+
+        when (mode) {
+            MovementMode.STATIC -> Unit // 固定坐标，speed/bearing 恒 0
+
+            MovementMode.JITTER -> {
+                // ±driftMeters 随机游走 + 微速度（真实 GPS 静止读数也在抖）
+                val driftDeg = driftMeters / METERS_PER_DEGREE
+                lat = baseLat + Random.nextDouble(-driftDeg, driftDeg)
+                lng = baseLng + Random.nextDouble(-driftDeg, driftDeg)
+                speed = Random.nextFloat() * 0.3f
+                bearing = Random.nextFloat() * 360f
+                accuracy = 3f + Random.nextFloat() * 5f
+            }
+
+            MovementMode.WALK, MovementMode.RIDE, MovementMode.DRIVE -> {
+                // 航向缓慢变化（±0.15 rad/tick，避免直角转弯的不自然轨迹）
+                heading = (heading + Random.nextDouble(-0.15, 0.15) + 2 * PI) % (2 * PI)
+                val meters = mode.speedMps * (TICK_INTERVAL_MS / 1000.0)
+                val dNorth = meters * cos(heading)
+                val dEast = meters * sin(heading)
+                lat = (baseLat + dNorth / METERS_PER_DEGREE).coerceIn(-90.0, 90.0)
+                lng = (baseLng + dEast / (METERS_PER_DEGREE * cos(Math.toRadians(baseLat))))
+                    .coerceIn(-180.0, 180.0)
+                // 推进后的坐标回写（下一 tick 从新位置继续 —— 真实轨迹）
+                currentLat = lat
+                currentLng = lng
+                speed = mode.speedMps.toFloat() * (0.9f + Random.nextFloat() * 0.2f)
+                bearing = ((Math.toDegrees(heading) % 360) + 360f) % 360f
+                accuracy = when (mode) {
+                    MovementMode.WALK -> 4f + Random.nextFloat() * 4f
+                    MovementMode.RIDE -> 3f + Random.nextFloat() * 3f
+                    else -> 3f + Random.nextFloat() * 5f
+                }
+            }
+        }
+
         activeProviders.forEach { provider ->
-            // 每源独立微漂移（同一坐标多源读数完全一致反而可疑）
-            val lat = if (jitterOn) baseLat + Random.nextDouble(-JITTER_DEG, JITTER_DEG) else baseLat
-            val lng = if (jitterOn) baseLng + Random.nextDouble(-JITTER_DEG, JITTER_DEG) else baseLng
+            // 每源亚米级微扰（多源读数完全一致是模拟痕迹）
+            val pLat = if (mode == MovementMode.STATIC) lat else lat + Random.nextDouble(-0.000001, 0.000001)
+            val pLng = if (mode == MovementMode.STATIC) lng else lng + Random.nextDouble(-0.000001, 0.000001)
             runCatching {
-                locationManager.setTestProviderLocation(provider, buildLocation(provider, lat, lng))
+                locationManager.setTestProviderLocation(
+                    provider,
+                    buildLocation(provider, pLat, pLng, speed, bearing, accuracy),
+                )
             }.onFailure { e ->
                 lastError = "位置注入中断：${e.message ?: e.javaClass.simpleName}"
                 loopRunning = false
@@ -137,17 +197,23 @@ class LocationSpoofService : Service() {
         }
     }
 
-    private fun buildLocation(provider: String, lat: Double, lng: Double): Location =
-        Location(provider).apply {
-            latitude = lat
-            longitude = lng
-            accuracy = 1.5f
-            altitude = 50.0
-            speed = 0f
-            bearing = 0f
-            time = System.currentTimeMillis()
-            elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-        }
+    private fun buildLocation(
+        provider: String,
+        lat: Double,
+        lng: Double,
+        speedMps: Float,
+        bearingDeg: Float,
+        accuracyMeters: Float,
+    ): Location = Location(provider).apply {
+        latitude = lat
+        longitude = lng
+        accuracy = accuracyMeters
+        altitude = 50.0
+        speed = speedMps
+        bearing = bearingDeg
+        time = System.currentTimeMillis()
+        elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+    }
 
     // ── 前台通知 ──────────────────────────────────────────────────────
 
@@ -174,7 +240,7 @@ class LocationSpoofService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_location)
             .setContentTitle("定位伪装运行中")
-            .setContentText("正在向系统注入伪装坐标 · 点击通知内「停止」归还真实定位")
+            .setContentText("模式：${movementMode.label} · 点击通知内「停止」归还真实定位")
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
@@ -200,8 +266,8 @@ class LocationSpoofService : Service() {
         private const val ACTION_STOP = "com.abyss.tools.action.STOP_LOCATION_SPOOF"
         private const val TICK_INTERVAL_MS = 1000L
 
-        /** ±0.00003° ≈ ±3 米（微漂移幅度）。 */
-        private const val JITTER_DEG = 0.00003
+        /** 纬度 1° ≈ 111320 米（赤道经度同值，纬度越高经线圈越短）。 */
+        private const val METERS_PER_DEGREE = 111_320.0
 
         // ── 进程级运行态（UI 侧读取，volatile 直读）────────────────────
 
@@ -220,12 +286,22 @@ class LocationSpoofService : Service() {
         var currentLng: Double = 0.0
 
         @Volatile
-        var jitterEnabled: Boolean = true
+        var movementMode: MovementMode = MovementMode.JITTER
 
-        fun start(context: Context, lat: Double, lng: Double, jitter: Boolean) {
+        @Volatile
+        var driftMeters: Int = 3
+
+        fun start(
+            context: Context,
+            lat: Double,
+            lng: Double,
+            mode: MovementMode,
+            drift: Int,
+        ) {
             currentLat = lat
             currentLng = lng
-            jitterEnabled = jitter
+            movementMode = mode
+            driftMeters = drift
             context.startForegroundService(
                 Intent(context, LocationSpoofService::class.java),
             )
