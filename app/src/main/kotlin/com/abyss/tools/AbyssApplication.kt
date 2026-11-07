@@ -6,8 +6,11 @@ import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.plugin.PluginChannelClient
 import com.abyss.tools.core.plugin.PluginInstaller
 import com.abyss.tools.core.plugin.PluginRepository
+import com.abyss.tools.core.shell.ShellGateway
+import com.abyss.tools.core.shell.ShizukuShellGateway
 import com.abyss.tools.core.update.OkHttpTransport
 import com.abyss.tools.core.update.UpdateManager
+import com.abyss.tools.feature.disguise.DisguiseSettings
 import com.abyss.tools.feature.settings.SettingsRepository
 import com.abyss.tools.install.PackageInstallerApkGateway
 import com.abyss.tools.plugin.api.PluginContract
@@ -25,14 +28,22 @@ object ServiceRegistry {
     lateinit var pluginInstaller: PluginInstaller
     lateinit var updateManager: UpdateManager
 
+    /** 伪装四件套 / 内置工具的系统级指令通道（Shizuku adb shell 上下文）。 */
+    val shellGateway: ShellGateway = ShizukuShellGateway()
+
+    /** 伪装四件套的本地状态（用户上次的伪装配置）。 */
+    lateinit var disguiseSettings: DisguiseSettings
+
     val ready: Boolean
         get() = ::settings.isInitialized
 
     fun init(context: Context) {
         val appContext = context.applicationContext
         val transport = OkHttpTransport()
+        appContextRef = appContext
 
         settings = SettingsRepository(appContext)
+        disguiseSettings = DisguiseSettings(appContext)
 
         // APK 安装网关（真实实现）：宿主自更新与 APK 插件共用同一条
         // PackageInstaller 通道（同签名门禁 + 用户确认页转发 + 结果广播等待）。
@@ -56,6 +67,13 @@ object ServiceRegistry {
             apkGateway = apkGateway,
         )
     }
+
+    /** 「安装未知应用」授权态（新手引导 / 仪表盘徽章共用）。 */
+    fun installPermGranted(): Boolean = runCatching {
+        appContextRef?.packageManager?.canRequestPackageInstalls() ?: false
+    }.getOrDefault(false)
+
+    private var appContextRef: Context? = null
 }
 
 class AbyssApplication : Application() {

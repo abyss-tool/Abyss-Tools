@@ -9,6 +9,19 @@
          系统确认页授权，网关自动转发 STATUS_PENDING_USER_ACTION 的确认意图） -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 定位伪装：前台服务持续供给测试坐标（targetSdk 28 同 Termux 语义，
+         无 FGS type 强制） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- 定位伪装「以当前位置为基准」（可选授权，新手引导第三步） -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- Shizuku 可见性（targetSdk 28 暂不受限，预留给未来升 target） -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
     <application
         android:name=".AbyssApplication"
         android:allowBackup="true"
@@ -26,5 +39,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 定位伪装引擎：mock_location 测试源注入（前台服务） -->
+        <service
+            android:name="com.abyss.tools.feature.disguise.LocationSpoofService"
+            android:exported="false" />
     </application>
 </manifest>

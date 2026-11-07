@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.QrCode2
@@ -25,6 +27,8 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Update
@@ -56,6 +60,10 @@ object AbyssIcons {
         "layers" -> Icons.Rounded.Layers
         "copy" -> Icons.Rounded.ContentCopy
         "theater" -> Icons.Rounded.TheaterComedy
+        "battery" -> Icons.Rounded.BatteryFull
+        "location" -> Icons.Rounded.LocationOn
+        "signal" -> Icons.Rounded.SignalCellularAlt
+        "smartphone" -> Icons.Rounded.Smartphone
         "visibility_off" -> Icons.Rounded.VisibilityOff
         "movie" -> Icons.Rounded.Movie
         "qr" -> Icons.Rounded.QrCode2

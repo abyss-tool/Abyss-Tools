@@ -8,7 +8,7 @@ package com.abyss.tools.core.common
  *  - abyss-tool/Abyss-Tools-Release    发布仓库：version.json / patches.json /
  *                                       changelog.json + GitHub Releases 资产
  *  - abyss-tool/Abyss-Plugins          插件中心：plugins.json 索引 + 插件规范
- *  - abyss-tool/abyss-plugin-*         八个大插件仓库（小功能内置主壳，只有重型能力独立成仓，
+ *  - abyss-tool/abyss-plugin-*         七个大插件仓库（小功能内置主壳，只有重型能力独立成仓，
  *                                       独立 CI + 独立补丁通道）
  *
  * App 侧与插件侧只认这里的 URL —— 渠道迁移时改一处。

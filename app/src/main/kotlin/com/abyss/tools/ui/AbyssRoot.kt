@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.ServiceRegistry
 import com.abyss.tools.core.common.AppInfo
+import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.glass.AbyssBottomBarHeight
 import com.abyss.tools.core.designsystem.glass.AbyssGlassBottomBar
@@ -25,8 +26,13 @@ import com.abyss.tools.core.designsystem.glass.AbyssNavItem
 import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
 import com.abyss.tools.core.designsystem.glass.abyssBackdropSource
 import com.abyss.tools.core.designsystem.glass.rememberAbyssBackdrop
-import com.abyss.tools.core.designsystem.theme.AbyssTheme
+import com.abyss.tools.core.shell.ShizukuStatus
 import com.abyss.tools.feature.dashboard.DashboardScreen
+import com.abyss.tools.feature.dashboard.ShizukuUi
+import com.abyss.tools.feature.disguise.BatterySpoofScreen
+import com.abyss.tools.feature.disguise.LocationSpoofScreen
+import com.abyss.tools.feature.disguise.ModelSpoofScreen
+import com.abyss.tools.feature.disguise.SignalSpoofScreen
 import com.abyss.tools.feature.navhub.NavHubScreen
 import com.abyss.tools.feature.navhub.ToolScreen
 import com.abyss.tools.feature.plugins.PluginDetailScreen
@@ -50,7 +56,7 @@ sealed interface Screen {
  * 深渊工具主壳：
  *
  *  ┌────────────────────────────┐
- *  │ 内容层（玻璃采样源）        │  ← 仪表盘 / 导航 / 设置 / 插件页
+ *  │ 内容层（玻璃采样源）        │  ← 仪表盘 / 导航 / 设置 / 插件页 / 伪装四件套
  *  │ …内容从玻璃件下方滚过…      │
  *  ├────────────────────────────┤
  *  │ ╭─ 液态玻璃 Dark 底栏 ╮    │  ← blur + lens 真实折射背后内容
@@ -58,6 +64,8 @@ sealed interface Screen {
  *  └────────────────────────────┘
  *
  * 底栏仅在顶层 tab（stack.size == 1）显示；推入详情页后沉浸全屏。
+ * 主题（AbyssTheme）在 MainActivity 层统一包裹 —— 首启新手引导与
+ * 主壳共享同一套色彩体系。
  */
 class AbyssBackStack(initial: Screen) {
 
@@ -99,7 +107,12 @@ private val bottomItems = listOf(
 )
 
 @Composable
-fun AbyssRoot() {
+fun AbyssRoot(
+    shizukuStatus: ShizukuStatus,
+    onRequestShizukuPermission: () -> Unit,
+    onOpenShizuku: () -> Unit,
+    onReopenOnboarding: () -> Unit,
+) {
     val registry = ServiceRegistry
     val backdrop = rememberAbyssBackdrop()
     val backStack = remember { AbyssBackStack(Screen.Dashboard) }
@@ -117,69 +130,109 @@ fun AbyssRoot() {
 
     val bottomClearance = AbyssBottomBarHeight + 24.dp
 
-    AbyssTheme {
-        CompositionLocalProvider(LocalGlassIntensity provides settings.glassIntensity) {
+    CompositionLocalProvider(LocalGlassIntensity provides settings.glassIntensity) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(androidx.compose.material3.MaterialTheme.colorScheme.background),
+        ) {
+            // 内容层 = 玻璃采样源：内容滚过底栏 / 玻璃卡下方时被真实采样
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(androidx.compose.material3.MaterialTheme.colorScheme.background),
+                    .abyssBackdropSource(backdrop),
             ) {
-                // 内容层 = 玻璃采样源：内容滚过底栏 / 玻璃卡下方时被真实采样
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .abyssBackdropSource(backdrop),
-                ) {
-                    Crossfade(
-                        targetState = backStack.current,
-                        label = "abyss-screen",
-                    ) { screen ->
-                        when (screen) {
-                            Screen.Dashboard -> DashboardScreen(
-                                backdrop = backdrop,
-                                pluginRepository = registry.pluginRepository,
-                                updateManager = registry.updateManager,
-                                onOpenTool = { backStack.push(Screen.Tool(it)) },
-                                onOpenPlugins = { backStack.push(Screen.PluginHub) },
-                                bottomClearance = bottomClearance,
-                                installedPluginCount = installedPluginCount,
-                                autoCheckUpdates = settings.checkOnLaunch,
-                            )
+                Crossfade(
+                    targetState = backStack.current,
+                    label = "abyss-screen",
+                ) { screen ->
+                    when (screen) {
+                        Screen.Dashboard -> DashboardScreen(
+                            backdrop = backdrop,
+                            pluginRepository = registry.pluginRepository,
+                            updateManager = registry.updateManager,
+                            onOpenTool = { backStack.push(Screen.Tool(it)) },
+                            onOpenPlugins = { backStack.push(Screen.PluginHub) },
+                            bottomClearance = bottomClearance,
+                            installedPluginCount = installedPluginCount,
+                            autoCheckUpdates = settings.checkOnLaunch,
+                            shizukuUi = shizukuStatus.toShizukuUi(),
+                            installPermGranted = registry.installPermGranted(),
+                        )
 
-                            Screen.NavHub -> NavHubScreen(
-                                bottomClearance = bottomClearance,
-                                onOpenTool = { backStack.push(Screen.Tool(it)) },
-                                onOpenPluginHub = { backStack.push(Screen.PluginHub) },
-                            )
+                        Screen.NavHub -> NavHubScreen(
+                            bottomClearance = bottomClearance,
+                            onOpenTool = { backStack.push(Screen.Tool(it)) },
+                            onOpenPluginHub = { backStack.push(Screen.PluginHub) },
+                        )
 
-                            Screen.Settings -> SettingsScreen(
-                                settings = registry.settings,
-                                updateManager = registry.updateManager,
-                                versionName = AppInfo.VERSION_NAME,
-                                onClearPluginCache = { registry.pluginInstaller.clearCache() },
-                                bottomClearance = bottomClearance,
-                            )
+                        Screen.Settings -> SettingsScreen(
+                            settings = registry.settings,
+                            updateManager = registry.updateManager,
+                            versionName = AppInfo.VERSION_NAME,
+                            onClearPluginCache = { registry.pluginInstaller.clearCache() },
+                            bottomClearance = bottomClearance,
+                            onRestartOnboarding = onReopenOnboarding,
+                        )
 
-                            Screen.PluginHub -> PluginHubScreen(
-                                repository = registry.pluginRepository,
-                                installer = registry.pluginInstaller,
+                        Screen.PluginHub -> PluginHubScreen(
+                            repository = registry.pluginRepository,
+                            installer = registry.pluginInstaller,
+                            onBack = { backStack.pop() },
+                            onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
+                            stateVersion = pluginStateVersion,
+                            onPluginsChanged = bumpPluginState,
+                        )
+
+                        is Screen.PluginDetail -> PluginDetailScreen(
+                            pluginId = screen.pluginId,
+                            repository = registry.pluginRepository,
+                            channelClient = registry.channelClient,
+                            installer = registry.pluginInstaller,
+                            backdrop = backdrop,
+                            onBack = { backStack.pop() },
+                            onPluginsChanged = bumpPluginState,
+                        )
+
+                        is Screen.Tool -> when (screen.toolId) {
+                            // ── 伪装四件套（v0.3 内置化：真实功能页）──────────
+                            ToolCatalog.ID_BATTERY_DISGUISE -> BatterySpoofScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                settings = registry.disguiseSettings,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
                                 onBack = { backStack.pop() },
-                                onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
-                                stateVersion = pluginStateVersion,
-                                onPluginsChanged = bumpPluginState,
                             )
 
-                            is Screen.PluginDetail -> PluginDetailScreen(
-                                pluginId = screen.pluginId,
-                                repository = registry.pluginRepository,
-                                channelClient = registry.channelClient,
-                                installer = registry.pluginInstaller,
-                                backdrop = backdrop,
+                            ToolCatalog.ID_MODEL_DISGUISE -> ModelSpoofScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                settings = registry.disguiseSettings,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
                                 onBack = { backStack.pop() },
-                                onPluginsChanged = bumpPluginState,
                             )
 
-                            is Screen.Tool -> ToolScreen(
+                            ToolCatalog.ID_SIGNAL_DISGUISE -> SignalSpoofScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_LOCATION_DISGUISE -> LocationSpoofScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                settings = registry.disguiseSettings,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            // ── 其余工具：通用占位页（内置卡 / 插件卡 / 路线图卡）──
+                            else -> ToolScreen(
                                 toolId = screen.toolId,
                                 onOpenPlugin = { pluginId ->
                                     if (pluginId.isBlank()) {
@@ -193,21 +246,28 @@ fun AbyssRoot() {
                         }
                     }
                 }
+            }
 
-                // 液态玻璃 Dark 底栏（悬浮于内容之上，真实折射背后内容）
-                if (backStack.showBottomBar) {
-                    AbyssGlassBottomBar(
-                        backdrop = backdrop,
-                        items = bottomItems,
-                        selectedIndex = backStack.tabIndex,
-                        onSelect = { backStack.selectTab(it) },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .navigationBarsPadding()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
-                }
+            // 液态玻璃 Dark 底栏（悬浮于内容之上，真实折射背后内容）
+            if (backStack.showBottomBar) {
+                AbyssGlassBottomBar(
+                    backdrop = backdrop,
+                    items = bottomItems,
+                    selectedIndex = backStack.tabIndex,
+                    onSelect = { backStack.selectTab(it) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
             }
         }
     }
+}
+
+/** core:shell 状态 → 仪表盘徽章语义。 */
+private fun ShizukuStatus.toShizukuUi(): ShizukuUi = when (val s = this) {
+    ShizukuStatus.NotRunning -> ShizukuUi.NotRunning
+    is ShizukuStatus.Running ->
+        if (s.authorized) ShizukuUi.Authorized else ShizukuUi.RunningUnauthorized
 }

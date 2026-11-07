@@ -3,19 +3,20 @@ package com.abyss.tools.core.common
 /**
  * 工具目录（导航页的数据底座）。
  *
- * 承载形态三分法（v0.2 起定型）：
+ * 承载形态三分法（v0.3 起定型）：
  *  - [ToolStatus.READY]      壳内已可用（当前为插件中心入口）
  *  - [ToolStatus.BUILT_IN]   主壳内置功能 —— 轻量能力直接写进主仓库，
  *                            随版本更新获得，无需安装插件（v0.2 起：
  *                            应用管理 / Shizuku 面板 / 自动化 / 灵动岛 /
- *                            壁纸 / 二维码 / 任务蓝图）
+ *                            壁纸 / 二维码 / 任务蓝图；v0.3 起：伪装四件套
+ *                            —— 机型 / 电量 / 信号 / 定位，Shizuku 免 Root）
  *  - [ToolStatus.PLUGIN]     由大插件承载（重型能力：独立仓库 / 独立 CI /
  *                            独立补丁通道，点击跳到对应插件详情页安装）
  *  - [ToolStatus.FRAMEWORK]  框架占位（路线图内排期，当前不可用）
  *
  * 分界纪律：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 /
- * 大型框架 —— 终端 / Python / 沙箱 / 伪装 / 媒体 / 网络 / 备份 / 构建
- * 器）；轻量功能一律内置，避免插件中心的碎片化。
+ * 大型框架 —— 终端 / Python / 沙箱 / 媒体 / 网络 / 备份 / 构建器）；
+ * 轻量功能一律内置，避免插件中心的碎片化。
  *
  * 插件永远是导航页的第一个分类 —— 这是深渊工具「主壳轻、能力重」的
  * 产品结构表达。
@@ -25,12 +26,12 @@ enum class ToolCategory(
     val title: String,
     val description: String,
 ) {
-    PLUGINS("plugins", "插件", "八个大插件仓库构成的重型能力生态：终端 / Python / 沙箱 / 伪装 / 媒体 / 网络 / 备份 / 构建器 —— 小功能内置，大功能插件化"),
+    PLUGINS("plugins", "插件", "七个大插件仓库构成的重型能力生态：终端 / Python / 沙箱 / 媒体 / 网络 / 备份 / 构建器 —— 小功能内置，大功能插件化"),
     SYSTEM("system", "系统工具", "基于 Shizuku 的免 Root 系统管控：冻结 / 隐藏 / 提取 / 优化"),
     TERMINAL("terminal", "终端与脚本", "内置 Linux 终端环境与 IDE 级代码编辑，任务蓝图驱动执行"),
     DEV("dev", "开发与构建", "手机端 APK 构建器：Alpine + PRoot 底座 + 三条构建路径（大插件承载）"),
     SANDBOX("sandbox", "沙箱与多开", "VirtualApp 血统的虚拟空间：免安装运行 / 应用双开 / 隔离管控"),
-    DISGUISE("disguise", "伪装与隐私", "机型 / 定位 / 电量 / 图标伪装与防截屏等隐私增强"),
+    DISGUISE("disguise", "伪装与隐私", "伪装四件套（v0.3 内置）：机型 / 电量 / 信号 / 定位，Shizuku 免 Root 实时生效；隐私守卫路线图中"),
     MEDIA("media", "媒体工具", "FFmpeg 级音视频处理：批量剪辑 / 提取 / 无痕导出"),
     AUTOMATION("automation", "自动化", "任务蓝图 JSON 编排：步骤 / 重试 / 通知一站式"),
     DESKTOP("desktop", "桌面美化", "灵动岛 / 悬浮球 / 动态壁纸与桌面组件"),
@@ -58,6 +59,12 @@ data class ToolDef(
 )
 
 object ToolCatalog {
+
+    /** 伪装四件套的稳定 id（AbyssRoot 路由消费，避免散落字符串）。 */
+    const val ID_BATTERY_DISGUISE = "battery-disguise"
+    const val ID_MODEL_DISGUISE = "model-disguise"
+    const val ID_SIGNAL_DISGUISE = "signal-disguise"
+    const val ID_LOCATION_DISGUISE = "location-disguise"
 
     val categories: List<ToolCategory> = ToolCategory.entries.toList()
 
@@ -174,15 +181,38 @@ object ToolCatalog {
             iconKey = "copy",
         ),
 
-        // ── 伪装与隐私 ────────────────────────────────────────────────
+        // ── 伪装与隐私（v0.3：四件套内置，Shizuku 免 Root）────────────
         ToolDef(
-            id = "device-disguise",
-            title = "设备伪装",
-            summary = "机型 / 定位 / 电量 / 信号伪装（沙箱 Hook 层返回伪造数据）。",
+            id = ID_BATTERY_DISGUISE,
+            title = "电量伪装",
+            summary = "dumpsys battery 引擎：等级 / 充电状态 / 拔电一键伪装，全系统生效、重启自恢复。",
             category = ToolCategory.DISGUISE,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-disguise",
-            iconKey = "theater",
+            status = ToolStatus.BUILT_IN,
+            iconKey = "battery",
+        ),
+        ToolDef(
+            id = ID_LOCATION_DISGUISE,
+            title = "定位伪装",
+            summary = "Fake GPS 同款官方通道：模拟位置源 + 三源注入 + 微漂移，全系统免 Root。",
+            category = ToolCategory.DISGUISE,
+            status = ToolStatus.BUILT_IN,
+            iconKey = "location",
+        ),
+        ToolDef(
+            id = ID_SIGNAL_DISGUISE,
+            title = "信号伪装",
+            summary = "飞行模式 / 移动数据 / Wi-Fi 真实开关（svc / cmd connectivity），含旧系统回退。",
+            category = ToolCategory.DISGUISE,
+            status = ToolStatus.BUILT_IN,
+            iconKey = "signal",
+        ),
+        ToolDef(
+            id = ID_MODEL_DISGUISE,
+            title = "机型伪装",
+            summary = "真机信息一览 + 十款旗舰档案库 + 系统设备名改写 + 档案导出（沙箱 Hook 消费）。",
+            category = ToolCategory.DISGUISE,
+            status = ToolStatus.BUILT_IN,
+            iconKey = "smartphone",
         ),
         ToolDef(
             id = "privacy-guard",
