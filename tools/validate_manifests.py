@@ -131,30 +131,37 @@ def check_changelog_fixture() -> None:
 
 
 def check_version_sync() -> None:
-    """版本三处一致（单一事实源纪律）：app/build.gradle.kts ↔ AppInfo。
+    """版本单一事实源纪律（v0.6.0 起，评审 #13）：AppInfo.kt。
 
-    发布流水线（release.yml）从 build.gradle.kts 推导 tag；客户端比对用
-    AppInfo —— 两处漂移会让「检查更新」语义错乱（tag 与实际版本号不符）。
+    build.gradle.kts 不再持有版本字面量 —— 从 AppInfo.kt 推导。本检查：
+      1. AppInfo.kt 的 VERSION_NAME / VERSION_CODE 可解析且合法；
+      2. build.gradle.kts 不存在版本字面量回潮（versionName = "x.y.z" /
+         versionCode = 数字），且确实引用推导变量 —— 防止有人把字面量加回去。
     """
     gradle = Path("app/build.gradle.kts")
     appinfo = Path("core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt")
     gradle_text = gradle.read_text(encoding="utf-8")
     appinfo_text = appinfo.read_text(encoding="utf-8")
 
-    m_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle_text)
-    m_code = re.search(r"versionCode\s*=\s*(\d+)", gradle_text)
     a_name = re.search(r'VERSION_NAME:\s*String\s*=\s*"([^"]+)"', appinfo_text)
     a_code = re.search(r"VERSION_CODE:\s*Int\s*=\s*(\d+)", appinfo_text)
-    if not (m_name and m_code and a_name and a_code):
-        fail("check_version_sync: 版本字段解析失败（build.gradle.kts / AppInfo 形态变更？）")
+    if not (a_name and a_code):
+        fail("check_version_sync: AppInfo.kt 版本字段解析失败（形态变更？）")
         return
-    if m_name.group(1) != a_name.group(1):
-        fail(f"check_version_sync: versionName 漂移 build.gradle={m_name.group(1)!r} AppInfo={a_name.group(1)!r}")
-    if m_code.group(1) != a_code.group(1):
-        fail(f"check_version_sync: versionCode 漂移 build.gradle={m_code.group(1)!r} AppInfo={a_code.group(1)!r}")
-    if not SEMVER.match(m_name.group(1)):
-        fail(f"check_version_sync: versionName 非 SemVer → {m_name.group(1)!r}")
-    print(f"[manifests] 版本同步：v{m_name.group(1)} ({m_code.group(1)}) 三处一致")
+    if not SEMVER.match(a_name.group(1)):
+        fail(f"check_version_sync: AppInfo VERSION_NAME 非 SemVer → {a_name.group(1)!r}")
+        return
+    # build.gradle.kts 必须引用 AppInfo 推导变量（结构断言）
+    if "versionName = appInfoVersionName" not in gradle_text:
+        fail("check_version_sync: build.gradle.kts 未从 AppInfo 推导 versionName（应引用 appInfoVersionName）")
+    if "versionCode = appInfoVersionCode" not in gradle_text:
+        fail("check_version_sync: build.gradle.kts 未从 AppInfo 推导 versionCode（应引用 appInfoVersionCode）")
+    # 防字面量回潮：任何硬编码版本形态都拒绝
+    if re.search(r'versionName\s*=\s*"[^"]+"', gradle_text):
+        fail("check_version_sync: build.gradle.kts 出现 versionName 字面量 —— 版本只允许住在 AppInfo.kt")
+    if re.search(r"versionCode\s*=\s*\d+", gradle_text):
+        fail("check_version_sync: build.gradle.kts 出现 versionCode 字面量 —— 版本只允许住在 AppInfo.kt")
+    print(f"[manifests] 版本单一事实源：AppInfo.kt v{a_name.group(1)} ({a_code.group(1)}) 一致")
 
 
 def check_scripts_compile() -> None:

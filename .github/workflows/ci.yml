@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# 最小权限（评审 #3）：CI 只读仓库内容即可
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -15,8 +19,9 @@ jobs:
   # ── 构建 + 单元测试 ────────────────────────────────────────────────────
   # 本仓库不做本地编译：全部编译验证走 GitHub Actions（ubuntu-latest 自带
   # Android SDK cmdline-tools，Gradle 8.14 wrapper 自动拉取发行版）。
-  # debug + release 双变体：release 用入库 keystore 签名（指纹恒定，发布
-  # 流水线复用同一配置 —— CI 绿即代表可发布）。
+  # debug + release 双变体：release 签名材料经 secrets 注入（主仓推送
+  # 恒有 → CI 绿即代表可发布）；fork PR 无 secrets 时 release 降级为
+  # 未签名产物（编译门禁照常，发布门禁由 release.yml 指纹校验兜底）。
   build:
     name: Build & Test
     runs-on: ubuntu-latest
@@ -37,11 +42,59 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # ── 发布签名材料注入（secrets → 临时文件 + 环境变量）────────────
+      # jks 出库（评审 P0-1）：keystore 以 base64 存 ABYSS_KEYSTORE_B64；
+      # fork PR 的 secrets 为空 → 跳过 → assembleRelease 产未签名包。
+      # 注：secrets 上下文不可直接用于 if，先探测写入 GITHUB_ENV 标志位。
+      - name: Detect signing secrets
+        env:
+          ABYSS_KEYSTORE_B64: ${{ secrets.ABYSS_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$ABYSS_KEYSTORE_B64" ]; then
+            echo "ABYSS_SIGNING_AVAILABLE=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning::未检测到签名 secrets（fork PR？）—— release 将产未签名包"
+          fi
+
+      - name: Decode release keystore (secrets)
+        if: env.ABYSS_SIGNING_AVAILABLE == '1'
+        env:
+          ABYSS_KEYSTORE_B64: ${{ secrets.ABYSS_KEYSTORE_B64 }}
+        run: |
+          SIGNING_DIR="$RUNNER_TEMP/abyss-signing"
+          mkdir -p "$SIGNING_DIR"
+          printf '%s' "$ABYSS_KEYSTORE_B64" | base64 -d > "$SIGNING_DIR/release.jks"
+          echo "ABYSS_KEYSTORE_FILE=$SIGNING_DIR/release.jks" >> "$GITHUB_ENV"
+          echo "release 签名材料已注入（未回显任何机密值）"
+
       - name: Assemble debug + release APK
+        env:
+          ABYSS_KEYSTORE_PASSWORD: ${{ secrets.ABYSS_KEYSTORE_PASSWORD }}
+          ABYSS_KEY_ALIAS: ${{ secrets.ABYSS_KEY_ALIAS }}
+          ABYSS_KEY_PASSWORD: ${{ secrets.ABYSS_KEY_PASSWORD }}
         run: ./gradlew assembleDebug assembleRelease --stacktrace
 
       - name: Unit tests
         run: ./gradlew test --stacktrace
+
+      - name: Verify release APK signature (when signed)
+        if: env.ABYSS_SIGNING_AVAILABLE == '1'
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::warning::未找到 apksigner，跳过指纹校验（发布流水线仍会强制校验）"
+            exit 0
+          fi
+          # apksigner 输出为无分隔符小写十六进制，归一后与发布者常量比对
+          FINGERPRINT=$("$APKSIGNER" verify --print-certs "$APK" | grep -oP 'SHA-256 digest:\s*\K[0-9a-f]+' | head -1 | tr 'a-f' 'A-F')
+          EXPECTED=$(echo "76:03:78:21:44:88:D6:20:79:78:BA:1E:37:E6:DC:82:AB:C2:DE:72:C9:F6:C6:7D:9B:44:95:15:8A:99:B7:69" | tr -d ':')
+          echo "实际指纹: $FINGERPRINT"
+          if [ "$FINGERPRINT" != "$EXPECTED" ]; then
+            echo "::error::release APK 签名指纹与发布者常量不符 —— CI 兜底门禁失败"
+            exit 1
+          fi
+          echo "✓ 指纹与发布者常量一致（PublisherSignatures.PINNED_SHA256）"
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
@@ -58,7 +111,7 @@ jobs:
           if-no-files-found: error
 
   # ── 更新通道清单校验（防手写 JSON 漂移）────────────────────────────────
-  # 夹具 schema / 插件索引完整性 / changelog 序 / 版本三处同步（build.gradle
+  # 夹具 schema / 插件索引完整性 / changelog 序 / 版本同步（build.gradle
   # ↔ AppInfo）/ tools 脚本语法。发布仓与插件中心仓另有同款校验，三处同构。
   manifests:
     name: Validate Manifests

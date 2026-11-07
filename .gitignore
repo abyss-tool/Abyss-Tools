@@ -23,3 +23,9 @@ outputs/
 # Python 构建产物
 __pycache__/
 *.pyc
+
+# 发布签名材料不入库（评审 P0-1：jks 经 GitHub Actions secrets 注入；
+# 历史提交中的旧 jks 已视为公开，指纹硬校验兜底，见 docs/SECURITY.md）
+keystore/
+*.jks
+*.keystore

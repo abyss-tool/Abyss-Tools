@@ -1,12 +1,13 @@
 package com.abyss.tools.core.common
 
 /**
- * App 版本单一事实源（与 app/build.gradle.kts 的 versionName/versionCode
- * 人工同步；发布流水线接入后由 CI 注入校验，防漂移）。
+ * App 版本单一事实源（v0.6.0 起全仓唯一持有处）：app/build.gradle.kts
+ * 经正则从本文件推导 versionName/versionCode，发布流水线（release.yml）
+ * 与 tools/validate_manifests.py 同源校验 —— 升版只改这里 + 打 tag。
  */
 object AppInfo {
-    const val VERSION_NAME: String = "0.5.0"
-    const val VERSION_CODE: Int = 6
+    const val VERSION_NAME: String = "0.6.0"
+    const val VERSION_CODE: Int = 7
 
     val version: SemVer
         get() = requireNotNull(SemVer.parse(VERSION_NAME)) {

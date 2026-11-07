@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.os.Build
 import android.os.Parcelable
 import com.abyss.tools.core.update.ApkInstallGateway
@@ -19,14 +20,20 @@ import java.util.concurrent.TimeUnit
 /**
  * 真实 APK 安装网关（PackageInstaller session 提交 + 结果广播等待）。
  *
- * 信任链（fail-closed 纪律）：
+ * 信任链（fail-closed 纪律，v0.6.0 起收紧）：
  *  1. 包信息可读 —— 无法解析的 APK 直接拒绝；
- *  2. 同签名门禁 —— 目标包已在设备上时，待装 APK 签名必须与在装版本一致
- *     （换签名覆盖一律 SecurityException 拒绝）；
- *  3. 会话写盘 → commit（PendingIntent 广播回报）→ 等待最终结果；
+ *  2. 签名信息可读且非空 —— 空 / 不可读的签名集一律 SecurityException
+ *     （不再放行，评审 #5：空数组门禁属 fail-open）；API 28+ 用
+ *     GET_SIGNING_CERTIFICATES + SigningInfo（GET_SIGNATURES 弃用，
+ *     多签名 / 密钥轮换场景会漏判），26/27 降级老常量；
+ *  3. 宿主自更新（包名 = 本包）额外硬校验发布者指纹 —— 待装签名
+ *     必须命中 [PublisherSignatures.PINNED_SHA256]；
+ *  4. 同签名门禁 —— 目标包已在设备上时，待装签名集与在装版本一致
+ *     （任一侧不可读 → 拒绝，绝不降级放行）；
+ *  5. 会话写盘 → commit（PendingIntent 广播回报）→ 等待最终结果；
  *     STATUS_PENDING_USER_ACTION 时自动转发系统确认页（未知来源安装的
  *     用户授权），并继续等待确认后的最终广播；
- *  4. 超时（120s）视作失败，会话 abandon。
+ *  6. 超时（120s）视作失败，会话 abandon。
  *
  * 本方法为阻塞调用 —— 调用方必须 withContext(Dispatchers.IO)。
  * targetSdk=28：registerReceiver 的 RECEIVER_* 导出标志仅对 targetSdk≥34
@@ -43,24 +50,43 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
 
         val pm = context.packageManager
 
-        @Suppress("DEPRECATION")
-        val archive: PackageInfo = pm.getPackageArchiveInfo(apk.path, PackageManager.GET_SIGNATURES)
+        val archive: PackageInfo = pm.getPackageArchiveInfo(apk.path, signatureFlags())
             ?: throw IOException("无法读取 APK 包信息（文件损坏或非有效安装包）：${apk.name}")
 
         val packageName = archive.packageName
             ?: throw IOException("APK 缺少包名：${apk.name}")
 
-        // ── 同签名门禁：目标包已安装时，签名必须一致 ─────────────────────
-        @Suppress("DEPRECATION")
+        // ── 门禁 1：待装签名集非空（fail-closed，空即拒）──────────────
+        val incoming = signaturesOf(archive)
+            ?: throw SecurityException("无法读取待装 APK 签名（fail-closed 拒绝）：${apk.name}")
+        if (incoming.isEmpty()) {
+            throw SecurityException("待装 APK 无签名信息（fail-closed 拒绝）：${apk.name}")
+        }
+
+        // ── 门禁 2：宿主自更新 → 发布者指纹硬校验 ──────────────────────
+        if (packageName == context.packageName) {
+            val hit = incoming.any { PublisherSignatures.matches(PublisherSignatures.sha256Fingerprint(it)) }
+            if (!hit) {
+                throw SecurityException(
+                    "宿主自更新签名指纹不符（期望 ${PublisherSignatures.PINNED_SHA256.substring(0, 17)}…）—— 拒绝安装",
+                )
+            }
+        }
+
+        // ── 门禁 3：目标包已安装 → 同签名门禁（两侧都可读才比对）──────
         val installedInfo: PackageInfo? = try {
-            pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            pm.getPackageInfo(packageName, signatureFlags())
         } catch (_: PackageManager.NameNotFoundException) {
             null
         }
         if (installedInfo != null) {
-            val current = installedInfo.signatures ?: emptyArray()
-            val incoming = archive.signatures ?: emptyArray()
-            if (current.isNotEmpty() && incoming.isNotEmpty() && !sameSignatures(current, incoming)) {
+            val current = signaturesOf(installedInfo)
+            if (current == null || current.isEmpty()) {
+                throw SecurityException(
+                    "在装版本 $packageName 签名不可读 —— 拒绝覆盖（fail-closed）",
+                )
+            }
+            if (!sameSignatures(current, incoming)) {
                 throw SecurityException("签名不一致：拒绝覆盖已安装的 $packageName（fail-closed）")
             }
         }
@@ -169,9 +195,37 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
     private fun extractParcelableIntent(intent: Intent): Intent? =
         intent.getParcelableExtra<Parcelable>(Intent.EXTRA_INTENT) as? Intent
 
+    // ── 签名读取（API 28+ SigningInfo / 26-27 老常量）────────────────
+
+    /** 读签名的 PackageManager 标志位：API 28+ 用 SigningInfo 系。 */
+    private fun signatureFlags(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION")
+            PackageManager.GET_SIGNATURES
+        }
+
+    /**
+     * 从 PackageInfo 抽签名集：多签名者取 apkContentsSigners；单签名者取
+     * 签名链历史（含轮换前任，覆盖安装比对语义正确）；不可读 → null。
+     */
+    private fun signaturesOf(info: PackageInfo): Array<Signature>? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signingInfo = info.signingInfo ?: return null
+            return if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners
+            } else {
+                signingInfo.signingCertificateHistory
+            }
+        }
+        @Suppress("DEPRECATION")
+        return info.signatures
+    }
+
     private fun sameSignatures(
-        a: Array<android.content.pm.Signature>,
-        b: Array<android.content.pm.Signature>,
+        a: Array<Signature>,
+        b: Array<Signature>,
     ): Boolean {
         if (a.size != b.size) return false
         val left = a.map { it.toCharsString() }.toSet()

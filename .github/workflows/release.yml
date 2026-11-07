@@ -1,17 +1,22 @@
 name: Release
 
 # 发布流水线（双仓库模式，对齐 Android-Guru-Agent 体系）：
-#   开发仓（本仓）tag → 构建 release APK（入库 keystore 签名，指纹恒定）→
+#   开发仓（本仓）tag → 构建 release APK（secrets 注入签名材料，指纹恒定）→
 #   发布仓（Abyss-Tools-Release）创建 GitHub Release + 上传 APK 资产 →
 #   同步 version.json / patches.json / changelog.json → 客户端「检查更新」
-#   即刻可发现并下载安装（PackageInstaller 网关同签名门禁恒定通过）。
+#   即刻可发现并下载安装（PackageInstaller 网关同签名门禁 + 发布者指纹
+#   硬校验恒定通过）。
 #
 # 触发：
-#   - push tag v*（推荐：先在 app/build.gradle.kts 与 AppInfo 同步升版）
-#   - workflow_dispatch（从 build.gradle.kts 读当前版本发布，tag 缺省推导）
+#   - push tag v*（推荐：版本号以 AppInfo.kt 为单一事实源，tag 必须等于
+#     v{AppInfo.VERSION_NAME}）
+#   - workflow_dispatch（从 AppInfo.kt 读当前版本发布，tag 缺省推导）
 #
-# 需要仓库 secret：RELEASE_TOKEN（具有 repo 权限的 PAT —— 发布仓写入 +
-# Release 创建）。设置方式见 README「发布与更新通道」。
+# 需要仓库 secrets：
+#   - ABYSS_KEYSTORE_B64 / ABYSS_KEYSTORE_PASSWORD / ABYSS_KEY_ALIAS /
+#     ABYSS_KEY_PASSWORD（发布签名材料，v0.6.0 起 jks 出库）
+#   - RELEASE_TOKEN（发布仓写入 + Release 创建；建议 fine-grained PAT
+#     只授目标发布仓 Contents 写权限）
 
 on:
   push:
@@ -55,33 +60,65 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ── 版本纪律：tag 必须与 build.gradle.kts / AppInfo 三处一致 ──────
-      # （单一事实源防漂移：升版只改这两处 + 打 tag，其余流水线自动推导）
+      # ── 版本纪律：AppInfo.kt 单一事实源，build.gradle.kts 由其推导 ──
+      # （tag 必须与 AppInfo.VERSION_NAME 一致；manifests job 另有结构性校验）
       - name: Verify version sync & resolve tag
         id: version
         run: |
-          GRADLE_VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
-          GRADLE_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts | head -1)
           APPINFO_VERSION=$(grep -oP 'VERSION_NAME:\s*String\s*=\s*"\K[^"]+' core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt)
           APPINFO_CODE=$(grep -oP 'VERSION_CODE:\s*Int\s*=\s*\K\d+' core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt)
-          echo "gradle: v$GRADLE_VERSION ($GRADLE_CODE)  appinfo: v$APPINFO_VERSION ($APPINFO_CODE)"
-          if [ "$GRADLE_VERSION" != "$APPINFO_VERSION" ] || [ "$GRADLE_CODE" != "$APPINFO_CODE" ]; then
-            echo "::error::版本三处不同步（app/build.gradle.kts vs AppInfo）—— 先同步再发布"; exit 1
-          fi
+          echo "appinfo: v$APPINFO_VERSION ($APPINFO_CODE)"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
-            if [ "$TAG" != "v$GRADLE_VERSION" ]; then
-              echo "::error::tag($TAG) 与 build.gradle.kts(v$GRADLE_VERSION) 不一致"; exit 1
+            if [ "$TAG" != "v$APPINFO_VERSION" ]; then
+              echo "::error::tag($TAG) 与 AppInfo.VERSION_NAME(v$APPINFO_VERSION) 不一致"; exit 1
             fi
           else
-            TAG="v$GRADLE_VERSION"
+            TAG="v$APPINFO_VERSION"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version_name=$GRADLE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "version_code=$GRADLE_CODE" >> "$GITHUB_OUTPUT"
+          echo "version_name=$APPINFO_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$APPINFO_CODE" >> "$GITHUB_OUTPUT"
+
+      # ── 发布签名材料注入（评审 P0-1：jks / 口令出库，经 secrets）────
+      - name: Decode release keystore (secrets)
+        env:
+          ABYSS_KEYSTORE_B64: ${{ secrets.ABYSS_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$ABYSS_KEYSTORE_B64" ]; then
+            echo "::error::缺少 ABYSS_KEYSTORE_B64 secret —— 发布流水线必须有签名材料（fail-closed）"
+            exit 1
+          fi
+          SIGNING_DIR="$RUNNER_TEMP/abyss-signing"
+          mkdir -p "$SIGNING_DIR"
+          printf '%s' "$ABYSS_KEYSTORE_B64" | base64 -d > "$SIGNING_DIR/release.jks"
+          echo "ABYSS_KEYSTORE_FILE=$SIGNING_DIR/release.jks" >> "$GITHUB_ENV"
+          echo "release 签名材料已注入（未回显任何机密值）"
 
       - name: Assemble release APK (signed)
+        env:
+          ABYSS_KEYSTORE_PASSWORD: ${{ secrets.ABYSS_KEYSTORE_PASSWORD }}
+          ABYSS_KEY_ALIAS: ${{ secrets.ABYSS_KEY_ALIAS }}
+          ABYSS_KEY_PASSWORD: ${{ secrets.ABYSS_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
+
+      # ── 发布前强制门禁：发布者指纹必须命中内置常量（fail-closed）────
+      - name: Enforce publisher fingerprint (apksigner)
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::runner 上未找到 apksigner —— 无法完成发布指纹门禁"
+            exit 1
+          fi
+          FINGERPRINT=$("$APKSIGNER" verify --print-certs "$APK" | grep -oP 'SHA-256 digest:\s*\K[0-9a-f]+' | head -1 | tr 'a-f' 'A-F')
+          EXPECTED=$(echo "76:03:78:21:44:88:D6:20:79:78:BA:1E:37:E6:DC:82:AB:C2:DE:72:C9:F6:C6:7D:9B:44:95:15:8A:99:B7:69" | tr -d ':')
+          echo "实际指纹: $FINGERPRINT"
+          if [ "$FINGERPRINT" != "$EXPECTED" ]; then
+            echo "::error::发布 APK 指纹与 PublisherSignatures.PINNED_SHA256 不符 —— 拒绝发布"
+            exit 1
+          fi
+          echo "✓ 发布指纹门禁通过"
 
       - name: Locate release APK
         id: apk
@@ -95,26 +132,28 @@ jobs:
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          NOTES_ARGS=""
+          # 参数化传参（评审 #3：删除 eval 拼接 —— 输入里的引号 / $(…) /
+          # 反引号原样进入 argv，不再进入 shell 求值上下文）
+          args=(
+            --tag "${{ steps.version.outputs.tag }}"
+            --version-code "${{ steps.version.outputs.version_code }}"
+            --apk "${{ steps.apk.outputs.path }}"
+            --channel "${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }}"
+            --commit-sha "${{ github.sha }}"
+          )
           NOTES_INPUT="${{ github.event_name == 'workflow_dispatch' && inputs.notes || '' }}"
           if [ -n "$NOTES_INPUT" ]; then
             IFS=';' read -ra NOTES <<< "$NOTES_INPUT"
             for n in "${NOTES[@]}"; do
-              [ -n "$n" ] && NOTES_ARGS="$NOTES_ARGS --notes \"$n\""
+              [ -n "$n" ] && args+=(--notes "$n")
             done
           elif [ -f "docs/release-notes/v${{ steps.version.outputs.version_name }}.md" ]; then
             # tag 发布：发布要点来自 docs/release-notes/v<version>.md（一行一条）
             while IFS= read -r n; do
-              [ -n "$n" ] && NOTES_ARGS="$NOTES_ARGS --notes \"$n\""
+              [ -n "$n" ] && args+=(--notes "$n")
             done < "docs/release-notes/v${{ steps.version.outputs.version_name }}.md"
           fi
-          eval "python3 tools/publish_release.py \
-            --tag ${{ steps.version.outputs.tag }} \
-            --version-code ${{ steps.version.outputs.version_code }} \
-            --apk ${{ steps.apk.outputs.path }} \
-            --channel ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }} \
-            --commit-sha ${{ github.sha }} \
-            $NOTES_ARGS"
+          python3 tools/publish_release.py "${args[@]}"
 
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
