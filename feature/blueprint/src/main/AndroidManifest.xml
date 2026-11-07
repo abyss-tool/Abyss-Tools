@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  任务蓝图 / 自动化编排 —— 模块 manifest。
+
+  只声明两个 receiver，不声明前台服务：
+   - ScheduleAlarmReceiver：AlarmManager 精确闹钟到期 → goAsync + 协程执行
+     蓝图 → 重排下一次 → finish()。常规命令链在 goAsync 窗口内完成；
+   - BootReceiver：RECEIVE_BOOT_COMPLETED → 重排所有带 schedule 的蓝图
+     （闹钟不随重启存活，纯 Context 操作，无 Compose 状态）。
+
+  权限说明：
+   - RECEIVE_BOOT_COMPLETED：BootReceiver 必需，在本库 manifest 声明，
+     合并进宿主 app manifest（merger 自动携带）；
+   - SCHEDULE_EXACT_ALARM：不声明。宿主 targetSdk 28（< 31），Android 12+
+     对 target<31 的应用自动授予精确闹钟权限；setExactAndAllowWhileIdle 的
+     SecurityException 已在代码里降级 setAndAllowWhileIdle（双保险）。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+
+        <receiver
+            android:name="com.abyss.tools.feature.blueprint.ScheduleAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="com.abyss.tools.feature.blueprint.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

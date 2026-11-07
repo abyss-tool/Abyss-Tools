@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  壁纸元数据（系统壁纸选择列表展示）。无 drawable 资源 —— 按纪律省略
+  android:thumbnail（选择列表回落到系统默认占位缩略图）。
+-->
+<wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/abyss_wallpaper_description" />

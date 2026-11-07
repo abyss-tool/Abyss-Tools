@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 灵动岛：前台服务声明由 manifest merger 自动并入宿主 app 的 <application>
+     （android:name 相对 namespace "com.abyss.tools.feature.island" 解析）。
+     SYSTEM_ALERT_WINDOW 权限与 FOREGROUND_SERVICE 权限在宿主 app manifest 声明。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <service
+            android:name=".FloatingBallService"
+            android:exported="false" />
+    </application>
+
+</manifest>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          深渊动态壁纸：BIND_WALLPAPER 为系统签名级权限，只有系统进程能绑定；
+          exported=false（系统 WallpaperManagerService 以 SYSTEM_UID 绑定，
+          不受导出限制），app manifest 无需任何变更即随本模块合并生效。
+        -->
+        <service
+            android:name=".AbyssWallpaperService"
+            android:exported="false"
+            android:label="深渊动态壁纸"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/abyss_wallpaper" />
+        </service>
+    </application>
+
+</manifest>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 灵动岛通知小图标：药丸形「岛」（状态栏单色渲染，系统自行着色）。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5,9 h14 a2.4,2.4 0 0 1 2.4,2.4 v1.2 a2.4,2.4 0 0 1 -2.4,2.4 h-14 a2.4,2.4 0 0 1 -2.4,-2.4 v-1.2 a2.4,2.4 0 0 1 2.4,-2.4 z" />
+</vector>

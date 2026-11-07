@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 系统壁纸选择列表里展示的壁纸描述（仅 manifest/资源侧文案，页面文案在 Compose 内联） -->
+    <string name="abyss_wallpaper_description">深渊液态玻璃动态壁纸：深色底上缓慢漂移的柔光光斑，随主页滑动产生轻微视差。</string>
+</resources>
