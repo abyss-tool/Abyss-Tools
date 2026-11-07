@@ -9,6 +9,19 @@
          系统确认页授权，网关自动转发 STATUS_PENDING_USER_ACTION 的确认意图） -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 应用管理器：全量应用列表（targetSdk 28 不强制，Android 11+ 部分
+         OEM 过滤行为下保持稳定；侧载分发不受 Play 政策审查约束） -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- 灵动岛悬浮球：WindowManager TYPE_APPLICATION_OVERLAY（特殊授权，
+         经 Settings.canDrawOverlays 引导，无运行时弹窗） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- 二维码工坊：API 26-28 保存到公共相册（API 29+ 走 MediaStore 免权限） -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <!-- 定位伪装：前台服务持续供给测试坐标（targetSdk 28 同 Termux 语义，
          无 FGS type 强制） -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -44,5 +57,17 @@
         <service
             android:name="com.abyss.tools.feature.disguise.LocationSpoofService"
             android:exported="false" />
+
+        <!-- 统一 FileProvider：应用管理器（提取 APK 分享）与二维码工坊
+             （PNG 分享）共用，路径映射见 res/xml/file_paths.xml -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.abyss.tools.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

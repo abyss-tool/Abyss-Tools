@@ -10,6 +10,8 @@ import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuShellGateway
 import com.abyss.tools.core.update.OkHttpTransport
 import com.abyss.tools.core.update.UpdateManager
+import com.abyss.tools.feature.appmgr.AppInfoProvider
+import com.abyss.tools.feature.appmgr.PackageManagerProvider
 import com.abyss.tools.feature.disguise.DisguiseSettings
 import com.abyss.tools.feature.settings.SettingsRepository
 import com.abyss.tools.install.PackageInstallerApkGateway
@@ -34,6 +36,9 @@ object ServiceRegistry {
     /** 伪装四件套的本地状态（用户上次的伪装配置）。 */
     lateinit var disguiseSettings: DisguiseSettings
 
+    /** 应用管理器的已装应用数据源（PackageManager 实现，内存缓存）。 */
+    lateinit var appInfoProvider: AppInfoProvider
+
     val ready: Boolean
         get() = ::settings.isInitialized
 
@@ -44,6 +49,7 @@ object ServiceRegistry {
 
         settings = SettingsRepository(appContext)
         disguiseSettings = DisguiseSettings(appContext)
+        appInfoProvider = PackageManagerProvider(appContext)
 
         // APK 安装网关（真实实现）：宿主自更新与 APK 插件共用同一条
         // PackageInstaller 通道（同签名门禁 + 用户确认页转发 + 结果广播等待）。

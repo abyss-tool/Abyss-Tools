@@ -19,8 +19,8 @@ android {
         // 将不可用。Termux 至今钉 targetSdk 28 正是同因。本项目经 GitHub
         // Releases 侧载分发，不受 Play targetSdk 政策约束。
         targetSdk = 28
-        versionCode = 4
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     // ── 发布签名：入库 keystore（GitHub Releases 侧载分发的标准做法，────
@@ -67,6 +67,17 @@ android {
         disable += "ExpiredTargetSdkVersion"
     }
 
+    // ── Android 15/16 适配声明 ────────────────────────────────────────────
+    // 16KB page size（Android 15 起部分设备强制）：本仓主壳无任何 native
+    // 库（纯 Kotlin/Compose，依赖链亦无 .so），自动满足 16KB 对齐要求；
+    // 显式声明 useLegacyPackaging=false 前向兼容（未来引入 .so 时，AGP
+    // 会按 16KB 对齐标准打包，见 docs/ANDROID_COMPAT.md 适配矩阵）。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -96,6 +107,12 @@ dependencies {
     implementation(project(":feature:disguise"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:appmgr"))
+    implementation(project(":feature:shizukukit"))
+    implementation(project(":feature:qrcraft"))
+    implementation(project(":feature:blueprint"))
+    implementation(project(":feature:island"))
+    implementation(project(":feature:wallpaper"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

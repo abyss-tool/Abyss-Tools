@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 统一 FileProvider 路径映射（authority = com.abyss.tools.fileprovider）：
+     · 应用管理器 —— 提取的 APK 导出目录（外部专属目录优先，内部兜底）
+     · 二维码工坊 —— 生成的 PNG 分享缓存目录 -->
+<paths>
+    <!-- 应用管理器：getExternalFilesDir(null)/extracted/ -->
+    <external-files-path
+        name="extracted"
+        path="extracted/" />
+    <!-- 应用管理器兜底：filesDir/extracted/（外部存储不可用时） -->
+    <files-path
+        name="extracted_internal"
+        path="extracted/" />
+    <!-- 二维码工坊：cacheDir/qr-craft/share/ -->
+    <cache-path
+        name="qrcraft_share"
+        path="qr-craft/share/" />
+</paths>

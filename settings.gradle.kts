@@ -66,3 +66,9 @@ include(":feature:plugins")
 include(":feature:disguise")
 include(":feature:onboarding")
 include(":feature:settings")
+include(":feature:appmgr")      // 应用管理器（列表 / 冻结 / 隐藏 / 提取 APK / 强停）
+include(":feature:shizukukit")  // Shizuku 工具箱（appops / settings / dumpsys 指令面板）
+include(":feature:qrcraft")     // 二维码工坊（ZXing 生成 / 相册解析）
+include(":feature:blueprint")   // 任务蓝图 + 自动化编排（JSON 步骤链 + 定时调度）
+include(":feature:island")      // 灵动岛与悬浮球（WindowManager overlay）
+include(":feature:wallpaper")   // 动态壁纸（WallpaperService 液态玻璃光斑引擎）

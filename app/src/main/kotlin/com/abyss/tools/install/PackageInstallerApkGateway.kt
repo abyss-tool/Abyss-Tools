@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Parcelable
 import com.abyss.tools.core.update.ApkInstallGateway
 import java.io.File
@@ -28,8 +29,10 @@ import java.util.concurrent.TimeUnit
  *  4. 超时（120s）视作失败，会话 abandon。
  *
  * 本方法为阻塞调用 —— 调用方必须 withContext(Dispatchers.IO)。
- * targetSdk=28：registerReceiver 无需 RECEIVER_NOT_EXPORTED 标志（该要求
- * 仅约束 targetSdk≥34 的应用）；PendingIntent 以 IMMUTABLE 提交。
+ * targetSdk=28：registerReceiver 的 RECEIVER_* 导出标志仅对 targetSdk≥34
+ * 的应用强制；但 Android 13+（含 15/16）上显式声明 RECEIVER_NOT_EXPORTED
+ * 可消除安全审计告警并前向兼容（本广播只收本应用 PendingIntent 的
+ * 定向回调，NOT_EXPORTED 即最小暴露面）。
  */
 class PackageInstallerApkGateway(private val context: Context) : ApkInstallGateway {
 
@@ -120,7 +123,7 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
             }
         }
 
-        context.registerReceiver(receiver, IntentFilter(action))
+        registerResultReceiver(action, receiver)
         try {
             val broadcast = Intent(action).setPackage(context.packageName)
             val pending = PendingIntent.getBroadcast(
@@ -144,6 +147,21 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
             }
         } finally {
             runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+
+    /** Android 13+ 显式 RECEIVER_NOT_EXPORTED（本广播仅收本应用定向回调）；
+     *  老系统无此重载，降级为默认注册。 */
+    private fun registerResultReceiver(action: String, receiver: BroadcastReceiver) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(
+                receiver,
+                IntentFilter(action),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, IntentFilter(action))
         }
     }
 

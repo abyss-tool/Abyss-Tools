@@ -27,17 +27,26 @@ import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
 import com.abyss.tools.core.designsystem.glass.abyssBackdropSource
 import com.abyss.tools.core.designsystem.glass.rememberAbyssBackdrop
 import com.abyss.tools.core.shell.ShizukuStatus
+import com.abyss.tools.feature.appmgr.AppDetailScreen
+import com.abyss.tools.feature.appmgr.AppManagerScreen
+import com.abyss.tools.feature.appmgr.AbyssAppInfo
+import com.abyss.tools.feature.blueprint.BlueprintScreen
+import com.abyss.tools.feature.blueprint.BlueprintTab
 import com.abyss.tools.feature.dashboard.DashboardScreen
 import com.abyss.tools.feature.dashboard.ShizukuUi
 import com.abyss.tools.feature.disguise.BatterySpoofScreen
 import com.abyss.tools.feature.disguise.LocationSpoofScreen
 import com.abyss.tools.feature.disguise.ModelSpoofScreen
 import com.abyss.tools.feature.disguise.SignalSpoofScreen
+import com.abyss.tools.feature.island.IslandScreen
 import com.abyss.tools.feature.navhub.NavHubScreen
 import com.abyss.tools.feature.navhub.ToolScreen
 import com.abyss.tools.feature.plugins.PluginDetailScreen
 import com.abyss.tools.feature.plugins.PluginHubScreen
+import com.abyss.tools.feature.qrcraft.QrCraftScreen
 import com.abyss.tools.feature.settings.SettingsScreen
+import com.abyss.tools.feature.shizukukit.ShizukuKitScreen
+import com.abyss.tools.feature.wallpaper.WallpaperScreen
 
 /**
  * 屏幕路由（自维护返回栈 —— 框架期不引 navigation-compose，跳转语义
@@ -50,6 +59,9 @@ sealed interface Screen {
     data object PluginHub : Screen
     data class PluginDetail(val pluginId: String) : Screen
     data class Tool(val toolId: String) : Screen
+
+    /** 应用管理器 → 应用详情（v0.4：冻结 / 强停 / 提取等真实动作）。 */
+    data class AppManagerDetail(val app: AbyssAppInfo) : Screen
 }
 
 /**
@@ -177,6 +189,7 @@ fun AbyssRoot(
 
                         Screen.PluginHub -> PluginHubScreen(
                             repository = registry.pluginRepository,
+                            channelClient = registry.channelClient,
                             installer = registry.pluginInstaller,
                             onBack = { backStack.pop() },
                             onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
@@ -192,6 +205,16 @@ fun AbyssRoot(
                             backdrop = backdrop,
                             onBack = { backStack.pop() },
                             onPluginsChanged = bumpPluginState,
+                        )
+
+                        is Screen.AppManagerDetail -> AppDetailScreen(
+                            app = screen.app,
+                            provider = registry.appInfoProvider,
+                            gateway = registry.shellGateway,
+                            shizukuStatus = shizukuStatus,
+                            onRequestShizukuPermission = onRequestShizukuPermission,
+                            onOpenShizuku = onOpenShizuku,
+                            onBack = { backStack.pop() },
                         )
 
                         is Screen.Tool -> when (screen.toolId) {
@@ -228,6 +251,54 @@ fun AbyssRoot(
                                 settings = registry.disguiseSettings,
                                 onRequestShizukuPermission = onRequestShizukuPermission,
                                 onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            // ── v0.4：七个内置工具落地真实功能页 ──────────────────
+                            ToolCatalog.ID_APP_MANAGER -> AppManagerScreen(
+                                provider = registry.appInfoProvider,
+                                gateway = registry.shellGateway,
+                                shizukuStatus = shizukuStatus,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                                onOpenApp = { backStack.push(Screen.AppManagerDetail(it)) },
+                            )
+
+                            ToolCatalog.ID_SHIZUKU_KIT -> ShizukuKitScreen(
+                                gateway = registry.shellGateway,
+                                shizukuStatus = shizukuStatus,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_QR_CRAFT -> QrCraftScreen(
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_TASK_BLUEPRINT -> BlueprintScreen(
+                                gateway = registry.shellGateway,
+                                shizukuStatus = shizukuStatus,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_AUTOMATION -> BlueprintScreen(
+                                gateway = registry.shellGateway,
+                                shizukuStatus = shizukuStatus,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                                initialTab = BlueprintTab.AUTOMATION,
+                            )
+
+                            ToolCatalog.ID_DYNAMIC_ISLAND -> IslandScreen(
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_LIVE_WALLPAPER -> WallpaperScreen(
                                 onBack = { backStack.pop() },
                             )
 
