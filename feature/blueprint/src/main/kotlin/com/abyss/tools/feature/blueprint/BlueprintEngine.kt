@@ -90,6 +90,9 @@ object BlueprintEngine {
             startedAt = startedAt,
             totalMs = elapsedMs(startedNanos),
             success = results.all { it.ok },
+            // 命名参数漏传会静默吃掉整份结果列表（默认 emptyList）—— 单测
+            // 以 results[x] 断言逐条守护，缺一不可
+            results = results,
         )
     }
 
