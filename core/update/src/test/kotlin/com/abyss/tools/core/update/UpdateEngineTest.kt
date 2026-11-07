@@ -162,6 +162,86 @@ class ZipPatchApplierTest {
         assertEquals(listOf("auto.txt"), report.added)
         assertEquals("implicit-replace", dir.resolve("auto.txt").readText())
     }
+
+    // ── zip bomb 防线与备份区纪律（评审 #9，v0.6.0 起）────────────────
+
+    @Test
+    fun `条目数超上限整包拒绝（zip bomb）`() {
+        val dir = tmp.newFolder("bomb-count")
+        val zip = tmp.newFile("bomb-count.zip")
+        ZipOutputStream(zip.outputStream().buffered()).use { out ->
+            out.putNextEntry(ZipEntry("patch-manifest.json"))
+            out.write(manifest(filesJson = """[{"path":"a.txt","action":"replace"}]""").toByteArray())
+            out.closeEntry()
+            repeat(600) { i ->
+                out.putNextEntry(ZipEntry("filler-$i.txt"))
+                out.write("x".toByteArray())
+                out.closeEntry()
+            }
+        }
+        try {
+            applier.apply(zip, dir)
+            throw AssertionError("条目数炸弹未被拒绝")
+        } catch (expected: PatchRejectedException) {
+            assertTrue(expected.message!!.contains("条目数"))
+        }
+        // 零触碰：目标目录没有新增任何文件
+        assertTrue(dir.resolve("a.txt").exists().not())
+    }
+
+    @Test
+    fun `单文件解压超上限整包拒绝（zip bomb）`() {
+        val dir = tmp.newFolder("bomb-size")
+        val zip = tmp.newFile("bomb-size.zip")
+        val big = ByteArray(9 * 1024 * 1024) // 超过 8 MB 单文件上限
+        ZipOutputStream(zip.outputStream().buffered()).use { out ->
+            out.putNextEntry(ZipEntry("patch-manifest.json"))
+            out.write(manifest(filesJson = """[{"path":"big.bin","action":"replace"}]""").toByteArray())
+            out.closeEntry()
+            out.putNextEntry(ZipEntry("big.bin"))
+            out.write(big)
+            out.closeEntry()
+        }
+        try {
+            applier.apply(zip, dir)
+            throw AssertionError("体量炸弹未被拒绝")
+        } catch (expected: PatchRejectedException) {
+            assertTrue(expected.message!!.contains("单文件"))
+        }
+    }
+
+    @Test
+    fun `补丁路径进入备份区被拒绝`() {
+        val dir = tmp.newFolder("backup-touch")
+        val patch = makePatch(
+            "patch-manifest.json" to manifest(
+                filesJson = """[{"path":".abyss-patch-backup-123/plugin.json","action":"replace"}]""",
+            ),
+            ".abyss-patch-backup-123/plugin.json" to "{}",
+        )
+        try {
+            applier.apply(patch, dir)
+            throw AssertionError("备份区路径未被拒绝")
+        } catch (expected: PatchRejectedException) {
+            assertTrue(expected.message!!.contains("备份区"))
+        }
+    }
+
+    @Test
+    fun `备份目录在目标目录外部`() {
+        val home = tmp.newFolder("backup-outside-home")
+        val dir = home.resolve("plugin").apply { mkdirs() }
+        val patch = makePatch(
+            "patch-manifest.json" to manifest(filesJson = """[{"path":"a.txt","action":"add"}]"""),
+            "a.txt" to "A",
+        )
+        val report = applier.apply(patch, dir)
+        // 备份区在 targetDir.parent，而不是 targetDir 内部
+        val backupCanonical = report.backupDir.canonicalFile
+        assertTrue(backupCanonical.path.startsWith(home.canonicalPath))
+        assertTrue(!backupCanonical.path.startsWith(dir.canonicalPath + java.io.File.separator))
+        assertEquals("A", dir.resolve("a.txt").readText())
+    }
 }
 
 class UpdateCheckerTest {

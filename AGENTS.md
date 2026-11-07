@@ -13,7 +13,9 @@
 3. **版本比较只用 `core:common` 的 `SemVer`** —— 全仓禁止手写
    `split(".")` 式版本比较。
 4. **渠道 URL 只认 `AbyssChannels`** —— 禁止在业务代码里硬编码
-   raw.githubusercontent 地址。
+   raw.githubusercontent 地址。**运行时 URL 一律过白名单**（拉取域走
+   `FetchHostPolicy`，插件索引 / 补丁条目走 `ChannelPolicy`）—— 不合规
+   URL 就地拒绝，绝不「拉到什么用什么」。
 5. `core:update` / `core:plugin` / `core:common` / `plugin-sdk` 保持
    **纯 JVM**（可单测、CI 零 Android 依赖）：Android 侧依赖（Context /
    PackageManager）一律隔离在接口后面（如 `ApkInstallGateway`）。

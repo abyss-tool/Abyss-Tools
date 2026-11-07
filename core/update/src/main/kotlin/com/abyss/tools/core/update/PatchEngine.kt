@@ -101,6 +101,10 @@ class ZipPatchApplier : PatchApplier {
         }
         val targetCanonical = targetDir.canonicalFile
         for (action in actions) {
+            // 备份区不可触碰（防补丁篡改回滚材料 / 老版本残留备份）
+            if (action.path.startsWith(BACKUP_PREFIX_OLD) || action.path.startsWith(BACKUP_PREFIX)) {
+                throw PatchRejectedException("补丁路径进入备份区（禁止）：${action.path}")
+            }
             val file = File(targetDir, action.path)
             val canonical = file.canonicalFile
             if (canonical != targetCanonical && !canonical.path.startsWith(targetCanonical.path + File.separator)) {
@@ -112,7 +116,9 @@ class ZipPatchApplier : PatchApplier {
         }
 
         // ── 备份 → 应用 → 失败回滚 ───────────────────────────────────
-        val backupDir = File(targetDir, ".patch-backup-${System.currentTimeMillis()}")
+        // 备份区在 targetDir **外部**（评审 #9：原置于内部时补丁条目可碰到
+        // 备份材料）；父目录不可写时如实失败，不降级回内部。
+        val backupDir = File(targetDir.parentFile, "$BACKUP_PREFIX${System.currentTimeMillis()}")
         val replaced = mutableListOf<String>()
         val added = mutableListOf<String>()
         val deleted = mutableListOf<String>()
@@ -172,14 +178,39 @@ class ZipPatchApplier : PatchApplier {
         return backupFile
     }
 
+    /** 解包带三重上限（评审 #9：zip bomb 防护 —— 条目数 / 单文件 / 总量）。 */
     private fun readZipEntries(patchFile: File): Map<String, ByteArray> {
         val entries = LinkedHashMap<String, ByteArray>()
+        var totalBytes = 0L
         ZipInputStream(patchFile.inputStream().buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (!entry.isDirectory) {
-                    entries[entry.name] = zip.readBytes()
+                if (entry.isDirectory) {
+                    zip.closeEntry()
+                    continue
                 }
+                if (entries.size >= MAX_ENTRIES) {
+                    throw PatchRejectedException("补丁条目数超过上限 $MAX_ENTRIES（疑似 zip bomb，整包拒绝）")
+                }
+                val buffer = java.io.ByteArrayOutputStream()
+                val chunk = ByteArray(64 * 1024)
+                var entryBytes = 0L
+                while (true) {
+                    val read = zip.read(chunk)
+                    if (read == -1) break
+                    entryBytes += read
+                    if (entryBytes > MAX_ENTRY_BYTES) {
+                        throw PatchRejectedException(
+                            "补丁单文件解压超过 ${MAX_ENTRY_BYTES / 1024 / 1024} MB 上限：${entry.name}",
+                        )
+                    }
+                    buffer.write(chunk, 0, read)
+                }
+                totalBytes += entryBytes
+                if (totalBytes > MAX_TOTAL_BYTES) {
+                    throw PatchRejectedException("补丁总解压量超过 ${MAX_TOTAL_BYTES / 1024 / 1024} MB 上限（疑似 zip bomb，整包拒绝）")
+                }
+                entries[entry.name] = buffer.toByteArray()
                 zip.closeEntry()
             }
         }
@@ -192,6 +223,14 @@ class ZipPatchApplier : PatchApplier {
         const val ACTION_REPLACE = "replace"
         const val ACTION_ADD = "add"
         const val ACTION_DELETE = "delete"
+        const val BACKUP_PREFIX = ".abyss-patch-backup-"
+        const val BACKUP_PREFIX_OLD = ".patch-backup-"
+
+        /** zip bomb 防线：数据层补丁的真实体量是 KB 级，三重上限极端冗余。 */
+        const val MAX_ENTRIES = 512
+        const val MAX_ENTRY_BYTES = 8L * 1024 * 1024
+        const val MAX_TOTAL_BYTES = 64L * 1024 * 1024
+
         private val json = Json { ignoreUnknownKeys = true }
     }
 }

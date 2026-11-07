@@ -35,9 +35,11 @@
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
+    <!-- allowBackup=false：伪装配置 / 指令历史 / 蓝图脚本不进云备份域
+         （评审 #16：换机自动恢复「上次的伪装状态」既泄露隐私也可能直接生效） -->
     <application
         android:name=".AbyssApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"

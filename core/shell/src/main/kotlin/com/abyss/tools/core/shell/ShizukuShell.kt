@@ -10,6 +10,7 @@ import moe.shizuku.server.IRemoteProcess
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import java.io.FileInputStream
+import kotlin.concurrent.thread
 
 /**
  * Shizuku 运行态（新手引导 / 仪表盘徽章 / 各伪装页共用一份数据源）。
@@ -123,11 +124,21 @@ object ShizukuMonitor {
  * 与 Shizuku 内置终端同源）→ IRemoteProcess 的 stdin/stdout/stderr
  * ParcelFileDescriptor。
  *
- * 输出量约束：伪装四件套的命令输出全部是小体量（dumpsys battery /
- * settings get / appops get），顺序读 stdout → stderr 不会撑爆管道
- * 缓冲；不适用于大输出命令（那是终端引擎插件的领域）。
+ * 管道纪律（v0.6.0 起，评审 #7 —— 原顺序读 + 无上限 + 假超时的重写）：
+ *  - stdout / stderr 各起一条读取线程**并发消费**（先读 stdout 再读
+ *    stderr 的顺序形态在大输出命令上会管道死锁：stderr 写满 ~64 KB 后
+ *    子进程阻塞，父进程还在等 stdout EOF，互等）；
+ *  - 每条流 [maxStreamBytes] 字节上限（截断并如实上报 truncated，
+ *    绝不无界读入内存）；
+ *  - 看门狗线程在 [timeoutMs] 后强杀进程 —— process.waitFor() 由此获得
+ *    真实上界（协程取消打不断的阻塞 IO，靠 destroy 兑底）；
+ *  - 读取线程 join 有界：流被孙进程继承等极端场景下放弃该流（守护
+ *    线程不阻进程退出），结果如实标注。
  */
-class ShizukuShellGateway : ShellGateway {
+class ShizukuShellGateway(
+    private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+    private val maxStreamBytes: Int = MAX_STREAM_BYTES,
+) : ShellGateway {
 
     override suspend fun exec(command: String): Result<ShellResult> =
         withContext(Dispatchers.IO) {
@@ -150,30 +161,86 @@ class ShizukuShellGateway : ShellGateway {
                 val process: IRemoteProcess =
                     service.newProcess(arrayOf("sh", "-c", command), null, null)
                 try {
-                    val stdout = readFd(process.inputStream)
-                    val stderr = readFd(process.errorStream)
-                    ShellResult(
-                        exitCode = process.waitFor(),
-                        stdout = stdout,
-                        stderr = stderr,
-                    )
+                    runWithGuards(process)
                 } finally {
                     runCatching { process.destroy() }
                 }
             }
         }
 
-    /** ParcelFileDescriptor → 全量文本（流与描述符都确定性归还）。 */
-    private fun readFd(pfd: ParcelFileDescriptor?): String {
-        if (pfd == null) return ""
-        return runCatching {
-            val input = FileInputStream(pfd.fileDescriptor)
-            try {
-                input.readBytes().decodeToString()
-            } finally {
-                runCatching { input.close() }
-                runCatching { pfd.close() }
+    /** 并发读双流 + 看门狗超时 + 有界 join。 */
+    private fun runWithGuards(process: IRemoteProcess): ShellResult {
+        val stdoutReader = CappedFdReader(process.inputStream, "abyss-sh-stdout")
+        val stderrReader = CappedFdReader(process.errorStream, "abyss-sh-stderr")
+        stdoutReader.start()
+        stderrReader.start()
+
+        // 看门狗：超时强杀（对已完成进程的 destroy 是无害 no-op）
+        val watchdog = thread(isDaemon = true, name = "abyss-sh-watchdog") {
+            runCatching { Thread.sleep(timeoutMs) }
+                .onFailure { return@thread } // 正常完成被打断：不杀
+            runCatching { process.destroy() }
+        }
+
+        val exitCode: Int
+        try {
+            exitCode = process.waitFor()
+        } finally {
+            watchdog.interrupt()
+        }
+
+        // 进程退出 → 流应 EOF；孙进程继承管道等极端场景给有界 join
+        val stdout = stdoutReader.await()
+        val stderr = stderrReader.await()
+        return ShellResult(
+            exitCode = exitCode,
+            stdout = stdout.text,
+            stderr = stderr.text,
+            truncated = stdout.truncated || stderr.truncated,
+        )
+    }
+
+    /** 单流读取线程（守护线程 + 有界 join 语义；描述符确定性归还）。 */
+    private inner class CappedFdReader(
+        pfd: ParcelFileDescriptor?,
+        name: String,
+    ) : Thread(name) {
+
+        private val latch = java.util.concurrent.CountDownLatch(1)
+        private val pfdRef = pfd
+
+        @Volatile
+        private var result: CappedText = CappedText("", false)
+
+        override fun run() {
+            result = if (pfdRef == null) {
+                CappedText("", false)
+            } else {
+                runCatching {
+                    FileInputStream(pfdRef.fileDescriptor).use { input ->
+                        StreamGuards.readTextCapped(input, maxStreamBytes)
+                    }
+                }.getOrDefault(CappedText("", false))
             }
-        }.getOrDefault("")
+            runCatching { pfdRef?.close() }
+            latch.countDown()
+        }
+
+        /** 有界等待（读取卡死时放弃该流，返回空文本 —— 结果仍会标注）。 */
+        fun await(): CappedText {
+            latch.await(STREAM_JOIN_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            return result
+        }
+    }
+
+    companion object {
+        /** 命令硬超时：伪装命令 / 蓝图步骤的兜底上界（30s）。 */
+        const val DEFAULT_TIMEOUT_MS: Long = 30_000
+
+        /** 单流上限：1 MB（dumpsys package 全量 ~ 数百 KB，截断即提示）。 */
+        const val MAX_STREAM_BYTES: Int = 1024 * 1024
+
+        /** 读取线程 join 上界（进程已退出后流的收尾时间）。 */
+        private const val STREAM_JOIN_MS: Long = 3_000
     }
 }

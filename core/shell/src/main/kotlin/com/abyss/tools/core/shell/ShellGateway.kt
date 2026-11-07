@@ -12,6 +12,8 @@ data class ShellResult(
     val exitCode: Int,
     val stdout: String,
     val stderr: String,
+    /** 输出超过单流上限被截断（StreamGuards 上报，UI 如实提示）。 */
+    val truncated: Boolean = false,
 ) {
     val isSuccess: Boolean get() = exitCode == 0
 }
