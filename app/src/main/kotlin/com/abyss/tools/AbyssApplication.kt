@@ -3,11 +3,14 @@ package com.abyss.tools
 import android.app.Application
 import android.content.Context
 import com.abyss.tools.core.common.AbyssChannels
+import com.abyss.tools.core.common.CrashGuard
 import com.abyss.tools.core.plugin.PluginChannelClient
 import com.abyss.tools.core.plugin.PluginInstaller
 import com.abyss.tools.core.plugin.PluginRepository
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuShellGateway
+import com.abyss.tools.core.update.MirrorRouter
+import com.abyss.tools.core.update.MirroredTransport
 import com.abyss.tools.core.update.OkHttpTransport
 import com.abyss.tools.core.update.UpdateManager
 import com.abyss.tools.feature.appmgr.AppInfoProvider
@@ -30,6 +33,12 @@ object ServiceRegistry {
     lateinit var pluginInstaller: PluginInstaller
     lateinit var updateManager: UpdateManager
 
+    /**
+     * 镜像路由器（v0.7.0）：插件中心 / 设置页「测速」共享同一份探测缓存，
+     * 所有下载经 [MirroredTransport] 按路由顺序自动择优 + 回退。
+     */
+    val mirrorRouter = MirrorRouter()
+
     /** 伪装四件套 / 内置工具的系统级指令通道（Shizuku adb shell 上下文）。 */
     val shellGateway: ShellGateway = ShizukuShellGateway()
 
@@ -44,12 +53,17 @@ object ServiceRegistry {
 
     fun init(context: Context) {
         val appContext = context.applicationContext
-        val transport = OkHttpTransport()
         appContextRef = appContext
 
         settings = SettingsRepository(appContext)
         disguiseSettings = DisguiseSettings(appContext)
         appInfoProvider = PackageManagerProvider(appContext)
+
+        // 传输层（v0.7.0）：镜像感知装饰器包住 OkHttp —— 更新检查 / 插件
+        // 索引 / APK 与补丁下载全链路按「用户偏好 / 延迟实测」择优镜像，
+        // 单镜像失败自动回退下一镜像（国内网络下载可用性的一揽子修复）。
+        mirrorRouter.preferenceProvider = { settings.downloadMirror }
+        val transport = MirroredTransport(OkHttpTransport(), mirrorRouter)
 
         // APK 安装网关（真实实现）：宿主自更新与 APK 插件共用同一条
         // PackageInstaller 通道（同签名门禁 + 用户确认页转发 + 结果广播等待）。
@@ -85,6 +99,10 @@ object ServiceRegistry {
 class AbyssApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // 崩溃防护网必须最先挂载（比任何服务初始化都早）：此后任何未捕获
+        // 异常都会落盘 files/crash/last-crash.txt，设置页「诊断」可查看 ——
+        // 侧载渠道无 Play 统计，闪退现场全靠本地取证（v0.7.0）。
+        CrashGuard.install(filesDir)
         ServiceRegistry.init(this)
     }
 }

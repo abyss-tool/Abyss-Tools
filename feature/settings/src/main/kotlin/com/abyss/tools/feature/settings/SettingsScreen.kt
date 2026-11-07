@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.AppInfo
+import com.abyss.tools.core.common.CrashGuard
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
@@ -122,12 +124,29 @@ class SettingsRepository(context: Context) {
             prefs.edit().putBoolean(KEY_ONBOARDING_DONE, value).apply()
         }
 
+    private var _downloadMirror by mutableStateOf(
+        prefs.getString(KEY_DOWNLOAD_MIRROR, com.abyss.tools.core.common.MIRROR_AUTO)
+            ?: com.abyss.tools.core.common.MIRROR_AUTO,
+    )
+
+    /**
+     * 下载镜像偏好（v0.7.0）：镜像 id 或 "auto"（延迟择优）。
+     * 插件中心与更新通道共用；MirrorRouter 实时读取。
+     */
+    var downloadMirror: String
+        get() = _downloadMirror
+        set(value) {
+            _downloadMirror = value
+            prefs.edit().putString(KEY_DOWNLOAD_MIRROR, value).apply()
+        }
+
     private companion object {
         const val KEY_GLASS_INTENSITY = "glass_intensity"
         const val KEY_CHECK_ON_LAUNCH = "check_updates_on_launch"
         const val KEY_LAST_CHECK = "last_check_summary"
         const val KEY_LAST_CHECK_AT = "last_check_at"
         const val KEY_ONBOARDING_DONE = "onboarding_completed"
+        const val KEY_DOWNLOAD_MIRROR = "download_mirror"
     }
 }
 
@@ -285,6 +304,12 @@ fun SettingsScreen(
             item {
                 SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
                 PluginSectionCard(onClearPluginCache = onClearPluginCache)
+            }
+
+            // ── 诊断（v0.7.0：崩溃防护网本地取证）────────────────────
+            item {
+                SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
+                DiagnosticsCard()
             }
 
             // ── 权限与新手引导 ──────────────────────────────────────
@@ -721,5 +746,100 @@ private fun AboutCard(versionName: String, onShowLicense: () -> Unit) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.size(10.dp))
         TextButton(onClick = onShowLicense) { Text("许可与免责声明（UGRL）") }
+    }
+}
+
+
+/**
+ * 诊断卡片（v0.7.0）：崩溃防护网（CrashGuard）本地取证入口。
+ *
+ *  - 无崩溃：显示「运行稳定」状态徽章；
+ *  - 有崩溃：最近一次崩溃摘要（时间 / 版本 / 异常首行）+「查看完整报告」
+ *    （AlertDialog 展示全文，可长按选择复制）+「清除全部诊断记录」。
+ *
+ * 纯读文件（files/crash/），不触网、不申请权限 —— 侧载渠道闪退排障的
+ * 唯一现场来源。
+ */
+@Composable
+private fun DiagnosticsCard() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val crashRoot = remember { context.filesDir }
+    var lastReport by remember { mutableStateOf(CrashGuard.lastReport(crashRoot)) }
+    var reportCount by remember { mutableStateOf(CrashGuard.allReports(crashRoot).size) }
+    var showFullReport by remember { mutableStateOf(false) }
+
+    AbyssGlassSurface(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = "崩溃报告",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (lastReport == null) {
+                    StatusChip("运行稳定", ChipTone.OK)
+                } else {
+                    StatusChip("$reportCount 份记录", ChipTone.WARN)
+                }
+            }
+
+            if (lastReport == null) {
+                Text(
+                    text = "自本版本安装以来未捕获到崩溃。若发生闪退，重启后此处会出现完整堆栈，" +
+                        "可截图反馈给开发者。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                // 摘要：报告头五行（时间 / 版本 / 线程 / 设备 / 分隔线前）
+                val summary = lastReport!!.lines()
+                    .filter { it.isNotBlank() && !it.startsWith("═") }
+                    .take(4)
+                    .joinToString("\n")
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { showFullReport = true }) {
+                        Text("查看完整报告")
+                    }
+                    TextButton(
+                        onClick = {
+                            if (CrashGuard.clear(crashRoot)) {
+                                lastReport = null
+                                reportCount = 0
+                            }
+                        },
+                    ) {
+                        Text("清除记录", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showFullReport && lastReport != null) {
+        AlertDialog(
+            onDismissRequest = { showFullReport = false },
+            title = { Text("崩溃报告全文") },
+            text = {
+                Text(
+                    text = lastReport!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showFullReport = false }) { Text("关闭") }
+            },
+        )
     }
 }

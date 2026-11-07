@@ -46,6 +46,18 @@
 3. 发布仓 `version.json` 标记 breaking，客户端提示卸载重装；
 4. 新旧 jks 的 `minApp` / 补丁通道 from 链全部重新起链。
 
+## 下载镜像（v0.7.0 起）
+
+国内网络直连 GitHub 极不稳定，v0.7.0 引入镜像链（ghfast.top /
+ghproxy.net / gh-proxy.com / ghproxy.cn / raw.gitmirror.com）。信任模型：
+
+- **通路而非信任源**：镜像只承担「搬运」，全部资产仍强制 SHA-256 校验
+  （fail-closed）—— 镜像被劫持最多造成下载失败 / 校验不过，不可能植入
+  被篡改的载荷；
+- **域白名单收敛**：`FetchHostPolicy` 只放行注册镜像域，且 PREFIX 形态
+  递归校验内嵌的 GitHub 白名单 URL —— 镜像域不能被借道外传任意域载荷；
+- **目录可演进**：镜像死亡是常态，`MirrorCatalog` 单点维护，删除即下线。
+
 ## 更新通道（version.json / patches.json / plugins.json）
 
 - 拉取域白名单：`raw.githubusercontent.com` / `github.com` /

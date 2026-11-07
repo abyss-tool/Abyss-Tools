@@ -272,6 +272,9 @@ fun AbyssRoot(
                             onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
                             stateVersion = pluginStateVersion,
                             onPluginsChanged = bumpPluginState,
+                            mirrorRouter = registry.mirrorRouter,
+                            mirrorPreference = settings.downloadMirror,
+                            onMirrorPreference = { settings.downloadMirror = it },
                         )
 
                         is Screen.PluginDetail -> PluginDetailScreen(

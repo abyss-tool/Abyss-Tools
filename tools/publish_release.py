@@ -117,6 +117,52 @@ def sha256_of(path: str) -> str:
     return h.hexdigest()
 
 
+def ensure_release_with_apk(
+    repo: str,
+    tag: str,
+    title: str | None,
+    notes: list[str],
+    apk_path: str,
+    asset_name: str,
+) -> int:
+    """在指定仓库幂等创建 Release 并上传 APK 资产，返回 release id。
+
+    （v0.7.0 抽取成函数：发布仓与主仓镜像发布共用同一套幂等逻辑 ——
+    Release 已存在则复用；同名资产先删后传。）
+    """
+    existing_release = api("GET", f"/repos/{repo}/releases/tags/{tag}", TOKEN, not_found_ok=True)
+    if "id" in existing_release:
+        release_id = existing_release["id"]
+        print(f"[publish] 复用既有 Release {tag}（{repo}，id={release_id}）")
+    else:
+        created = api(
+            "POST",
+            f"/repos/{repo}/releases",
+            TOKEN,
+            {
+                "tag_name": tag,
+                "target_commitish": "main",
+                "name": title or f"Abyss Tools {tag}",
+                "body": "\n".join(f"- {n}" for n in notes) or tag,
+                "draft": False,
+                "prerelease": False,
+            },
+        )
+        release_id = created.get("id")
+        if not release_id:
+            die(f"Release 创建失败（{repo} / {tag}）")
+        print(f"[publish] ✓ Release {tag} 已创建（{repo}，id={release_id}）")
+
+    existing_assets = {a["name"]: a for a in api("GET", f"/repos/{repo}/releases/{release_id}/assets", TOKEN)}
+    if asset_name in existing_assets:
+        api("DELETE", existing_assets[asset_name]["url"], TOKEN)
+        print(f"[publish] 已移除旧资产 {asset_name}（{repo}），重新上传")
+    upload_url = f"https://uploads.github.com/repos/{repo}/releases/{release_id}/assets?name={asset_name}"
+    with open(apk_path, "rb") as f:
+        api("POST", upload_url, TOKEN, raw=f.read(), base="https://uploads.github.com")
+    return release_id
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Abyss-Tools 发布流水线")
     parser.add_argument("--tag", required=True, help="git tag，如 v0.1.1（必须等于 v{versionName}）")
@@ -127,6 +173,13 @@ def main() -> None:
     parser.add_argument("--channel", default="stable")
     parser.add_argument("--commit-sha", default=None)
     parser.add_argument("--asset-name", default=None, help="资产文件名（缺省 abyss-tools-<tag>.apk）")
+    parser.add_argument(
+        "--mirror-to-repo",
+        default=None,
+        help="（v0.7.0）同步发布 APK 到第二个仓库（如主开发仓 abyss-tool/Abyss-Tools）："
+        "同 tag 建 Release + 上传同资产；通道清单（version.json 等）仍只写发布仓，"
+        "镜像仓不产生任何通道文件。",
+    )
     args = parser.parse_args()
 
     if not TOKEN:
@@ -144,40 +197,34 @@ def main() -> None:
     print(f"[publish] 版本 {version_name} (code {args.version_code}) · {asset_name}")
     print(f"[publish] sha256 = {apk_sha} · {apk_size} bytes")
 
-    # ── 1. 发布仓创建 Release（幂等：已存在则复用）───────────────────────
-    releases = api("GET", f"/repos/{RELEASE_REPO}/releases/tags/{args.tag}", TOKEN, not_found_ok=True)
-    if "id" in releases:
-        release_id = releases["id"]
-        print(f"[publish] 复用既有 Release {args.tag} (id={release_id})")
-    else:
-        created = api(
-            "POST",
-            f"/repos/{RELEASE_REPO}/releases",
-            TOKEN,
-            {
-                "tag_name": args.tag,
-                "target_commitish": "main",
-                "name": args.title or f"Abyss Tools {args.tag}",
-                "body": "\n".join(f"- {n}" for n in args.notes) or args.tag,
-                "draft": False,
-                "prerelease": False,
-            },
-        )
-        release_id = created.get("id")
-        if not release_id:
-            die("Release 创建失败")
-        print(f"[publish] ✓ Release {args.tag} 已创建 (id={release_id})")
-
-    # ── 2. 上传 APK 资产（幂等：同名先删）───────────────────────────────
-    existing = {a["name"]: a for a in api("GET", f"/repos/{RELEASE_REPO}/releases/{release_id}/assets", TOKEN)}
-    if asset_name in existing:
-        api("DELETE", existing[asset_name]["url"], TOKEN)
-        print(f"[publish] 已移除旧资产 {asset_name}，重新上传")
-    upload_url = f"https://uploads.github.com/repos/{RELEASE_REPO}/releases/{release_id}/assets?name={asset_name}"
-    with open(args.apk, "rb") as f:
-        api("POST", upload_url, TOKEN, raw=f.read(), base="https://uploads.github.com")
+    # ── 1. 发布仓创建 Release + 上传 APK（幂等，双仓复用）─────────────
+    release_id = ensure_release_with_apk(
+        repo=RELEASE_REPO,
+        tag=args.tag,
+        title=args.title,
+        notes=args.notes,
+        apk_path=args.apk,
+        asset_name=asset_name,
+    )
     download_url = f"https://github.com/{RELEASE_REPO}/releases/download/{args.tag}/{asset_name}"
     print(f"[publish] ✓ APK 资产已上传 → {download_url}")
+
+    # ── 1b.（v0.7.0）主开发仓镜像发布：同 tag Release + 同 APK 资产─────
+    # 双仓留存（APK 不单点在发布仓）：通道清单依旧只写发布仓 —— 客户端
+    # 固定读发布仓，镜像仓仅供直接访问 / 备灾。
+    if args.mirror_to_repo:
+        ensure_release_with_apk(
+            repo=args.mirror_to_repo,
+            tag=args.tag,
+            title=args.title,
+            notes=args.notes,
+            apk_path=args.apk,
+            asset_name=asset_name,
+        )
+        print(
+            f"[publish] ✓ 主仓镜像发布完成 → "
+            f"https://github.com/{args.mirror_to_repo}/releases/tag/{args.tag}"
+        )
 
     # ── 3. version.json ────────────────────────────────────────────────
     cur = get_contents(TOKEN, "version.json", not_found_ok=True)

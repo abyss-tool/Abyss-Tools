@@ -60,6 +60,39 @@
 `entries`（latest 置顶 + history）。`markdown` 与 `notes` 内容一致，渲染端
 按能力选择。
 
+## 下载镜像系统（v0.7.0 起）
+
+国内裸连 GitHub（Release 资产 / raw 文本）极不稳定。v0.7.0 起所有远端
+拉取（更新检查 / 插件索引 / APK 与补丁下载）经 `MirroredTransport` 走
+镜像链：
+
+- **镜像目录**（`core:common MirrorCatalog`）：ghfast.top / ghproxy.net /
+  gh-proxy.com / ghproxy.cn（PREFIX 反代，双形态）+ raw.gitmirror.com
+  （raw 域等价替换）+ GitHub 直连（恒为兜底）。
+- **延迟实测**（插件中心「测速」）：对真实资产路径 HEAD + Range 探测
+  TTFB，全镜像并发，结果驱动「自动（延迟择优）」排序。
+- **回退链**：下载按镜像序逐个尝试，单镜像失败自动换下一个（2 分钟
+  失败冷却记忆防全链重复超时）；直连恒在链尾兜底。
+- **信任锚不松动**：镜像域收敛在 `FetchHostPolicy` 白名单（PREFIX 形态
+  递归校验内嵌的 GitHub 白名单 URL）；一切资产仍强制 SHA-256 校验
+  （fail-closed）—— 镜像被劫持最多表现为「下载失败 / 校验不过」，
+  不可能植入被篡改的载荷。
+
+## 自动发布（v0.7.0 起，auto-release.yml）
+
+每次 PR 合并（push 到 main）自动发版：版本推进（AppInfo 未发布的新
+VERSION_NAME 原样采用；已发布过则 patch 自动递增，versionCode 恒 =
+通道现值 + 1）→ 写回 AppInfo.kt 提交（`[skip ci]` 防自触发）→ 签名
+构建 → 发布者指纹门禁 → **双仓发布**：
+
+- 发布仓（Abyss-Tools-Release）：Release + APK 资产 + version.json /
+  patches.json / changelog.json 通道三件套（客户端检查更新的固定读取点）；
+- 主仓（Abyss-Tools）：同 tag Release + 同 APK 资产（APK 双仓留存，
+  不单点在发布仓）。
+
+跳过语义：commit message 含 `[skip release]` → 本次不发布。tag 触发的
+手工稳定发布（release.yml）继续并存。
+
 ## 发布流水线（v0.1.1 起全自动）
 
 ```

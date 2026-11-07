@@ -1,0 +1,221 @@
+name: Auto Release
+
+# ═══════════════════════════════════════════════════════════════════════
+#  自动发布流水线（v0.7.0）：每次 PR 合并（push 到 main）→ 自动发版。
+#
+#  版本纪律（与仓库既有纪律协同）：
+#   - AppInfo.kt 依旧是单一事实源，但版本**推进**由本流水线自动完成：
+#     · PR 带来的 VERSION_NAME 若从未发布过 → 按其发布（保留开发者的
+#       主/次版本意图，如 0.6.0 → 0.7.0）；
+#     · 若 VERSION_NAME 已发布过（连续多次合并）→ 自动 patch 递增
+#       （0.7.0 → 0.7.1 → …），versionCode 恒 = 通道现值 + 1（严格单调）。
+#   - 推进结果写回 AppInfo.kt 并提交到 main（[skip ci] 防自触发；且
+#     GITHUB_TOKEN 推送本身不触发新工作流 —— 双保险防死循环）。
+#
+#  发布动作（三件事）：
+#   1. 发布仓（Abyss-Tools-Release）：Release + APK 资产 + version.json /
+#      patches.json / changelog.json 通道清单（客户端检查更新的固定读取点）；
+#   2. 主仓（Abyss-Tools，本仓）：同 tag Release + 同 APK 资产（双仓留存，
+#      APK 不单点在发布仓）；
+#   3. 发布前指纹门禁：APK 签名证书必须命中 PublisherSignatures.PINNED_SHA256
+#      （fail-closed，与 release.yml 同一道门）。
+#
+#  跳过语义：commit message 含 [skip release] → 本次不发布；本流水线自己的
+#  版本推进提交（chore(release) 前缀）也跳过（理论不会触发，防御性兜底）。
+# ═══════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false   # 连续合并的 PR 排队发布，绝不互相取消（versionCode 单调性依赖串行）
+
+permissions:
+  contents: write             # 版本推进提交（main）+ 主仓 Release 创建
+
+jobs:
+  auto-release:
+    name: Version → Build → Publish (dual-repo)
+    if: >-
+      !startsWith(github.event.head_commit.message, 'chore(release):') &&
+      !contains(github.event.head_commit.message, '[skip release]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 版本推进需要 push 回 main：fetch 深度足够 rebase 竞态
+          fetch-depth: 5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle (caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # ── 版本推进决策 ────────────────────────────────────────────────
+      # 读 AppInfo（本地）+ version.json（发布仓通道现值）→ 决定下一版本：
+      #   AppInfo 版本 > 通道版本（从未发布）→ 用 AppInfo 版本
+      #   其余（已发布过 / 通道更新）       → 通道版本 patch + 1
+      # versionCode 恒 = max(通道 code + 1, AppInfo code)（严格单调门禁对齐）。
+      - name: Resolve next version
+        id: version
+        run: |
+          APPINFO_FILE="core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt"
+          APPINFO_VERSION=$(grep -oP 'VERSION_NAME:\s*String\s*=\s*"\K[^"]+' "$APPINFO_FILE")
+          APPINFO_CODE=$(grep -oP 'VERSION_CODE:\s*Int\s*=\s*\K\d+' "$APPINFO_FILE")
+
+          CHANNEL_JSON=$(curl -fsSL --max-time 30 \
+            "https://raw.githubusercontent.com/abyss-tool/Abyss-Tools-Release/main/version.json" || echo '')
+          if [ -n "$CHANNEL_JSON" ]; then
+            CHANNEL_VERSION=$(echo "$CHANNEL_JSON" | jq -r '.versionName // empty')
+            CHANNEL_CODE=$(echo "$CHANNEL_JSON" | jq -r '.versionCode // 0')
+          else
+            echo "::error::发布仓 version.json 读取失败（网络 / 仓库状态）—— 拒绝盲发（fail-closed）"
+            exit 1
+          fi
+          [ -z "$CHANNEL_CODE" ] && CHANNEL_CODE=0
+
+          echo "appinfo: v$APPINFO_VERSION ($APPINFO_CODE) / channel: v$CHANNEL_VERSION ($CHANNEL_CODE)"
+
+          # SemVer 比较：AppInfo 版本严格大于通道版本 → 采用（开发者显式升版）
+          NEWER=$(python3 - "$APPINFO_VERSION" "$CHANNEL_VERSION" <<'PY'
+          import sys
+          def parse(v): return tuple(int(p) for p in v.split('.'))
+          a, b = parse(sys.argv[1]), parse(sys.argv[2])
+          print("yes" if a > b else "no")
+          PY
+          )
+
+          if [ "$NEWER" = "yes" ]; then
+            NEW_VERSION="$APPINFO_VERSION"
+          else
+            NEW_VERSION=$(python3 - "$CHANNEL_VERSION" <<'PY'
+          import sys
+          parts = [int(p) for p in sys.argv[1].split('.')]
+          parts[2] += 1          # patch 递增（minor/major 由开发者经 PR 显式推进）
+          print('.'.join(str(p) for p in parts))
+          PY
+          )
+          fi
+
+          NEW_CODE=$(( CHANNEL_CODE + 1 ))
+          if [ "$NEW_CODE" -lt "$APPINFO_CODE" ]; then
+            NEW_CODE="$APPINFO_CODE"
+          fi
+
+          echo "next: v$NEW_VERSION ($NEW_CODE)"
+          echo "version_name=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$NEW_CODE" >> "$GITHUB_OUTPUT"
+
+      # ── 版本推进写回 AppInfo.kt（单一事实源不漂移）──────────────────
+      # 仅当与 AppInfo 现值不同才提交；提交后 APK 与通道版本恒一致。
+      - name: Commit version bump to main
+        id: bump
+        run: |
+          APPINFO_FILE="core/common/src/main/kotlin/com/abyss/tools/core/common/AppInfo.kt"
+          NEW_VERSION="${{ steps.version.outputs.version_name }}"
+          NEW_CODE="${{ steps.version.outputs.version_code }}"
+          CURRENT_VERSION=$(grep -oP 'VERSION_NAME:\s*String\s*=\s*"\K[^"]+' "$APPINFO_FILE")
+          CURRENT_CODE=$(grep -oP 'VERSION_CODE:\s*Int\s*=\s*\K\d+' "$APPINFO_FILE")
+
+          if [ "$NEW_VERSION" = "$CURRENT_VERSION" ] && [ "$NEW_CODE" = "$CURRENT_CODE" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "版本无推进（v$NEW_VERSION 已是 AppInfo 现值）—— 跳过提交"
+          else
+            sed -i "s/VERSION_NAME: String = \"[^\"]*\"/VERSION_NAME: String = \"$NEW_VERSION\"/" "$APPINFO_FILE"
+            sed -i "s/VERSION_CODE: Int = [0-9]*/VERSION_CODE: Int = $NEW_CODE/" "$APPINFO_FILE"
+            git config user.name "abyss-release-bot"
+            git config user.email "noreply@abyss-tool.github"
+            git add "$APPINFO_FILE"
+            # rebase 竞态防御：并发合并后 main 可能已前移
+            git pull --rebase origin main
+            git commit -m "chore(release): bump v$NEW_VERSION (code $NEW_CODE) [skip ci]"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "✓ 版本推进已提交：v$NEW_VERSION (code $NEW_CODE)"
+          fi
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # ── 发布签名材料注入（与 release.yml 同源同门）───────────────────
+      - name: Decode release keystore (secrets)
+        env:
+          ABYSS_KEYSTORE_B64: ${{ secrets.ABYSS_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$ABYSS_KEYSTORE_B64" ]; then
+            echo "::error::缺少 ABYSS_KEYSTORE_B64 secret —— 自动发布必须有签名材料（fail-closed）"
+            exit 1
+          fi
+          SIGNING_DIR="$RUNNER_TEMP/abyss-signing"
+          mkdir -p "$SIGNING_DIR"
+          printf '%s' "$ABYSS_KEYSTORE_B64" | base64 -d > "$SIGNING_DIR/release.jks"
+          echo "ABYSS_KEYSTORE_FILE=$SIGNING_DIR/release.jks" >> "$GITHUB_ENV"
+
+      - name: Assemble release APK (signed)
+        env:
+          ABYSS_KEYSTORE_PASSWORD: ${{ secrets.ABYSS_KEYSTORE_PASSWORD }}
+          ABYSS_KEY_ALIAS: ${{ secrets.ABYSS_KEY_ALIAS }}
+          ABYSS_KEY_PASSWORD: ${{ secrets.ABYSS_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      # ── 发布前强制门禁：发布者指纹必须命中内置常量（fail-closed）────
+      - name: Enforce publisher fingerprint (apksigner)
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::runner 上未找到 apksigner —— 无法完成发布指纹门禁"
+            exit 1
+          fi
+          FINGERPRINT=$("$APKSIGNER" verify --print-certs "$APK" | grep -oP 'SHA-256 digest:\s*\K[0-9a-f]+' | head -1 | tr 'a-f' 'A-F')
+          EXPECTED=$(echo "76:03:78:21:44:88:D6:20:79:78:BA:1E:37:E6:DC:82:AB:C2:DE:72:C9:F6:C6:7D:9B:44:95:15:8A:99:B7:69" | tr -d ':')
+          echo "实际指纹: $FINGERPRINT"
+          if [ "$FINGERPRINT" != "$EXPECTED" ]; then
+            echo "::error::发布 APK 指纹与 PublisherSignatures.PINNED_SHA256 不符 —— 拒绝发布"
+            exit 1
+          fi
+          echo "✓ 发布指纹门禁通过"
+
+      - name: Locate release APK
+        id: apk
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          ls -la "$APK"
+          sha256sum "$APK"
+
+      # ── 发布：发布仓（通道三件套 + APK）+ 主仓（同 tag APK 镜像）────
+      # 更新要点：合并提交 message 的首行（自动发版没有手写 release-notes
+      # 文件，诚实使用合并上下文；经 env 传递杜绝 shell 内插注入）。
+      - name: Publish (release repo + main repo mirror)
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          NOTES_STR=$(echo "$HEAD_COMMIT_MESSAGE" | head -1)
+          args=(
+            --tag "v${{ steps.version.outputs.version_name }}"
+            --version-code "${{ steps.version.outputs.version_code }}"
+            --apk "${{ steps.apk.outputs.path }}"
+            --channel "stable"
+            --commit-sha "${{ steps.bump.outputs.commit_sha }}"
+            --mirror-to-repo "abyss-tool/Abyss-Tools"
+            --notes "$NOTES_STR"
+          )
+          python3 tools/publish_release.py "${args[@]}"
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: abyss-tools-auto-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

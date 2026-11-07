@@ -82,5 +82,22 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- ════════════════════════════════════════════════════════════
+             ShizukuProvider —— v0.7.0 闪退修复（P0）：
+             dev.rikka.shizuku:provider 13.1.5 的 AAR 清单【只携带
+             V3_SUPPORT meta-data 与 API_V23 权限，不含 provider 声明】
+             （上游设计：宿主必须自行声明）。此前版本漏声明导致 Shizuku
+             binder 永远收不到 —— 伪装四件套（机型/电量/信号/定位）在
+             已发布版本上全部实际不可用，且部分机型首启请求 binder 时
+             ContentResolver 抛 IllegalArgumentException 叠加成闪退。
+             ══════════════════════════════════════════════════════════ -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 </manifest>

@@ -1,5 +1,6 @@
 package com.abyss.tools.core.update
 
+import com.abyss.tools.core.common.MirrorCatalog
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -34,6 +35,13 @@ interface HttpTransport {
  * GitHub 官方域 —— 清单（raw）、Release 页（github.com）与 Release 资产
  * 302 落点（objects / release-assets）。白名单外（含重定向后的最终落点）
  * 一律拒绝：即便索引 / 清单被篡改，也拉不走任意域的载荷。
+ *
+ * v0.7.0 镜像扩展（不放松信任锚，只扩展通路）：
+ *  - [MirrorCatalog.MIRROR_HOSTS] 内的注册镜像域放行，但 PREFIX 形态
+ *    必须内嵌合法的 GitHub 白名单 URL（递归校验内层）；
+ *  - 镜像只承担「通路」角色：一切资产仍强制 SHA-256 校验（下载管线
+ *    fail-closed），镜像被劫持最多表现为下载失败 / 校验不过，不可能
+ *    植入被篡改的载荷。
  */
 object FetchHostPolicy {
 
@@ -54,10 +62,19 @@ object FetchHostPolicy {
         if (scheme != "https") {
             throw IOException("只允许 https 通道（当前 $scheme）：$url")
         }
-        if (host == null || host !in ALLOWED_HOSTS) {
-            throw IOException("拉取域不在白名单（$host）：$url —— 疑似通道被篡改，已拒绝")
+        if (host == null) {
+            throw IOException("URL 缺少 host：$url")
         }
-        return url
+        if (host in ALLOWED_HOSTS) {
+            return url
+        }
+        if (host in MirrorCatalog.MIRROR_HOSTS) {
+            // 镜像域：必须能还原出合法的 GitHub 白名单 URL（PREFIX 内层递归校验）
+            val original = MirrorCatalog.originalUrlOf(url)
+                ?: throw IOException("镜像 URL 结构非法（无法还原原始 GitHub URL）：$url")
+            return check(original)
+        }
+        throw IOException("拉取域不在白名单（$host）：$url —— 疑似通道被篡改，已拒绝")
     }
 }
 

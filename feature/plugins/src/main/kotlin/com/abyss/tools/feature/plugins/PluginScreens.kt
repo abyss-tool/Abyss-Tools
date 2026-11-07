@@ -43,6 +43,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import com.abyss.tools.core.common.AbyssChannels
+import com.abyss.tools.core.common.MIRROR_AUTO
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
 import com.abyss.tools.core.designsystem.component.ChipTone
@@ -60,6 +61,7 @@ import com.abyss.tools.core.plugin.PluginInstaller
 import com.abyss.tools.core.plugin.PluginPatch
 import com.abyss.tools.core.plugin.PluginPatchChannel
 import com.abyss.tools.core.plugin.PluginRepository
+import com.abyss.tools.core.update.MirrorRouter
 import com.abyss.tools.core.update.PatchReport
 import com.kyant.backdrop.Backdrop
 import kotlinx.coroutines.Dispatchers
@@ -75,9 +77,15 @@ import kotlinx.coroutines.withContext
  * 置顶展示；插件点击进入具体插件详情（APK / 数据双形态安装 AP 框架 +
  * 补丁通道应用闭环）。
  *
+ * v0.7.0 起「下载镜像」分区落地：国内反代 + 延迟实测 + 手动锁定 /
+ * 自动择优（见 [MirrorSection]）。
+ *
  * @param stateVersion 插件本机状态版本号（安装 / 卸载 / 补丁应用后自增，
  *   驱动「我的插件」与安装徽章重读磁盘）。
  * @param onPluginsChanged 插件本机状态变化回调（AbyssRoot 持有并自增版本号）。
+ * @param mirrorRouter 下载镜像路由器（探测缓存与下载管线共享）。
+ * @param mirrorPreference 当前镜像偏好（"auto" 或镜像 id）。
+ * @param onMirrorPreference 镜像偏好写回（持久化到设置存储）。
  */
 @Composable
 fun PluginHubScreen(
@@ -88,6 +96,9 @@ fun PluginHubScreen(
     onOpenPlugin: (String) -> Unit,
     stateVersion: Int = 0,
     onPluginsChanged: () -> Unit = {},
+    mirrorRouter: MirrorRouter? = null,
+    mirrorPreference: String = MIRROR_AUTO,
+    onMirrorPreference: (String) -> Unit = {},
 ) {
     var indexState by remember { mutableStateOf<UiState<PluginIndex>>(UiState.Loading) }
     var retryKey by remember { mutableStateOf(0) }
@@ -185,6 +196,17 @@ fun PluginHubScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    // ── 下载镜像（v0.7.0：国内反代 + 延迟实测）──────────
+                    if (mirrorRouter != null) {
+                        item {
+                            MirrorSection(
+                                mirrorRouter = mirrorRouter,
+                                preference = mirrorPreference,
+                                onPreference = onMirrorPreference,
+                            )
+                        }
+                    }
+
                     // ── 我的插件（本机已装）───────────────────────────────
                     if (installedPlugins.isNotEmpty()) {
                         item {

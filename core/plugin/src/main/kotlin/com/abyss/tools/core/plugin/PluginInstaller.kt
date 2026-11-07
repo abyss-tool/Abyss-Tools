@@ -64,7 +64,14 @@ class PluginInstaller(
 
     /** 已安装插件清单（目录内 plugin.json 反序列化；坏 manifest 跳过并保留目录待修复）。 */
     fun installed(): List<PluginManifest> =
-        pluginsRoot.listFiles { f -> f.isDirectory }
+        pluginsRoot.listFiles { f ->
+            // v0.7.0 修复（存量缺陷）：只认「合法插件 id」形态的目录 ——
+            // 补丁引擎的 .abyss-backup-* 备份区恰好也建在 pluginsRoot 内
+            // （targetDir.parentFile），旧实现把它一并枚举成「已装插件」，
+            // 备份里的旧 plugin.json 会以幽灵插件身份出现在插件中心
+            // （文件系统目录序不同则时隐时现 —— CI 绿 / 本地红的根因）。
+            f.isDirectory && PluginContract.ID_PATTERN.matches(f.name)
+        }
             .orEmpty()
             .mapNotNull { dir ->
                 runCatching {

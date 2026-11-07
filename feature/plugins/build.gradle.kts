@@ -42,5 +42,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.core)
+    // v0.7.0 镜像分区「测速」按钮图标（NetworkCheck 在 extended 集）
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
 }
