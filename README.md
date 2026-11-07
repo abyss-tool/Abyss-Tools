@@ -105,7 +105,7 @@ tag v* ──→ release.yml ──→ assembleRelease（入库 keystore 签名�
 ```
 
 - **升版纪律**：`app/build.gradle.kts` 与 `core/common/.../AppInfo.kt` 三处同步（CI 门禁校验），提交后打 `v*` tag 推送即发布；发布要点写在 `docs/release-notes/v<版本>.md`（一行一条）。
-- **签名恒定**：`keystore/abyss-release.jks` 入库（GitHub Releases 侧载分发的标准做法，Termux / F-Droid 同款），补丁覆盖安装无签名冲突；`ABYSS_KEYSTORE_*` 环境变量可覆盖。
+- **签名恒定**：`keystore/meng411722.jks` 入库（GitHub Releases 侧载分发的标准做法，Termux / F-Droid 同款），补丁覆盖安装无签名冲突；`ABYSS_KEYSTORE_*` 环境变量可覆盖。
 - **secret**：仓库 secret `RELEASE_TOKEN`（PAT，发布仓写入凭据）。
 - **插件侧同构**：每个 `abyss-plugin-*` 仓的 `patch-release.yml` 发布 abyss-patch-v1 数据补丁；`Abyss-Plugins` 的 `sync-index.yml` 每日 / 手动聚合 `plugins.json`。
 
@@ -116,6 +116,7 @@ tag v* ──→ release.yml ──→ assembleRelease（入库 keystore 签名�
 - [x] **内置化重构**（v0.2.0）：七个轻量工具并入主壳 / 应用构建器登记插件中心 / 插件 Shizuku 独立授权契约
 - [x] **伪装四件套内置 + 新手引导**（v0.3.0）：电量（dumpsys）/ 定位（Fake GPS 官方通道）/ 信号（svc / cmd connectivity）/ 机型（设备名 + 档案库）四引擎落地；首启权限引导页
 - [x] **内置七工具真实功能页 + 插件链路收口 + Android 15/16 适配**（v0.4.0）：应用管理器（冻结/隐藏/提取 APK/强停）/ Shizuku 工具箱（appops·settings·dumpsys 面板）/ 任务蓝图（JSON 步骤链引擎 + 定时调度 + 开机恢复）/ 自动化编排 / 灵动岛悬浮球（overlay + 真实电量）/ 动态壁纸（液态玻璃光斑引擎）/ 二维码工坊（ZXing 生成 + Photo Picker 解析）；`installApkPlugin` 一条龙（安装成功即同步版本账本）+ 插件中心一键检查更新 + APK 本体卸载引导；Android 15/16 适配矩阵（16KB / RECEIVER 加固 / docs/ANDROID_COMPAT.md）
+- [x] **伪装四件套全面深化**（v0.5.0）：机型伪装三级程度（L1 设备名 / L2 标准档案 / L3 深度全字段 + 蓝牙名）+ 档案库 10 → 26 款（v2 全量 Build 字段）；电量伪装持续保持守护（防 ROM 回写，显示恒为伪装值 + 一键恢复）；定位伪装移动模拟（静止/微漂移/步行/骑行/驾车 —— 轨迹 + 速度 + 航向 + 精度自然化）+ 漂移幅度三档 + 坐标收藏夹 + 26 城市预设；签名换用 meng411722 身份
 - [ ] **Phase 1b 终端成型**：伪终端渲染内核 + Shizuku 首条指令（`abyss-plugin-terminal`）
 - [ ] **Phase 2 任务系统与插件内核**：任务蓝图调用链 + DexClassLoader 插件加载
 - [ ] **Phase 3 硬核功能接入**：沙箱双开（机型档案 Hook 层消费方）/ Python 引擎

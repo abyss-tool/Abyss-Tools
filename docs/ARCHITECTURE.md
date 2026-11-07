@@ -87,7 +87,7 @@ lambda 按身份比较 —— 重组期新建 lambda 会引发 draw 失效风暴
 开发仓 Abyss-Tools（源码 + CI 门禁：双变体构建 + 单测 + 清单/版本同步门禁）
     │ git tag v*（升版三处同步：build.gradle.kts ↔ AppInfo）
     ▼
-release.yml：assembleRelease（keystore/abyss-release.jks 恒定签名）
+release.yml：assembleRelease（keystore/meng411722.jks 恒定签名）
     │ tools/publish_release.py（RELEASE_TOKEN）
     ▼
 发布仓 Abyss-Tools-Release

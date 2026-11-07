@@ -65,7 +65,7 @@
 ```
 开发仓升版（build.gradle.kts ↔ AppInfo 三处同步，CI 门禁校验）
   └ git tag v* && git push --tags
-      └ release.yml：assembleRelease（keystore/abyss-release.jks 恒定签名）
+      └ release.yml：assembleRelease（keystore/meng411722.jks 恒定签名）
           └ tools/publish_release.py（RELEASE_TOKEN secret）
               ├ 发布仓创建 GitHub Release + APK 资产（幂等：同名先删）
               ├ version.json：download{url,sizeBytes,sha256} + notes + commitSha

@@ -19,8 +19,8 @@ android {
         // 将不可用。Termux 至今钉 targetSdk 28 正是同因。本项目经 GitHub
         // Releases 侧载分发，不受 Play targetSdk 政策约束。
         targetSdk = 28
-        versionCode = 5
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.5.0"
     }
 
     // ── 发布签名：入库 keystore（GitHub Releases 侧载分发的标准做法，────
@@ -29,18 +29,24 @@ android {
     // 网关的同签名门禁依赖此恒定性）。逃生门：ABYSS_KEYSTORE_FILE /
     // ABYSS_KEYSTORE_PASSWORD / ABYSS_KEY_ALIAS / ABYSS_KEY_PASSWORD
     // 环境变量可覆盖（CI secret 注入场景）。
+    //
+    // ⚠ v0.5.0 起换用 meng411722 身份签名（旧 abyss-release.jks 退役）：
+    //   指纹 SHA-256 = 76:03:78:21:44:88:D6:20:79:78:BA:1E:37:E6:DC:82:
+    //                   AB:C2:DE:72:C9:F6:C6:7D:9B:44:95:15:8A:99:B7:69
+    //   v0.3.0 及之前版本的用户需卸载重装（签名变更无法覆盖安装），
+    //   v0.5.0 起指纹恒定，补丁 / 覆盖安装门禁恢复常态。
     signingConfigs {
         create("release") {
             val keystoreFile = (project.findProperty("abyssKeystoreFile") as String?)
                 ?: System.getenv("ABYSS_KEYSTORE_FILE")
-                ?: rootProject.file("keystore/abyss-release.jks").absolutePath
+                ?: rootProject.file("keystore/meng411722.jks").absolutePath
             storeFile = file(keystoreFile)
             storePassword = (project.findProperty("abyssKeystorePassword") as String?)
-                ?: System.getenv("ABYSS_KEYSTORE_PASSWORD") ?: "abyss-release-2026"
+                ?: System.getenv("ABYSS_KEYSTORE_PASSWORD") ?: "meng411722"
             keyAlias = (project.findProperty("abyssKeyAlias") as String?)
-                ?: System.getenv("ABYSS_KEY_ALIAS") ?: "abyss-release"
+                ?: System.getenv("ABYSS_KEY_ALIAS") ?: "meng411722"
             keyPassword = (project.findProperty("abyssKeyPassword") as String?)
-                ?: System.getenv("ABYSS_KEY_PASSWORD") ?: "abyss-release-2026"
+                ?: System.getenv("ABYSS_KEY_PASSWORD") ?: "meng411722"
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
