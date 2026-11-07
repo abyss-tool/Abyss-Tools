@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +54,10 @@ import com.abyss.tools.feature.wallpaper.WallpaperScreen
 /**
  * 屏幕路由（自维护返回栈 —— 框架期不引 navigation-compose，跳转语义
  * 全部收敛在 AbyssBackStack，后续接深链 / 多任务恢复时再升级）。
+ *
+ * v0.6.0 起返回栈可序列化（评审 #10）：旋转 / 深浅色切换 / 进程重建后
+ * 经 rememberSaveable 恢复。AppManagerDetail 只序列化包名键，恢复后由
+ * AbyssRoot 经 AppInfoProvider 异步重挂（查不到则诚实留在列表页）。
  */
 sealed interface Screen {
     data object Dashboard : Screen
@@ -79,9 +86,12 @@ sealed interface Screen {
  * 主题（AbyssTheme）在 MainActivity 层统一包裹 —— 首启新手引导与
  * 主壳共享同一套色彩体系。
  */
-class AbyssBackStack(initial: Screen) {
+class AbyssBackStack internal constructor(initialStack: List<Screen>) {
 
-    private var stack by mutableStateOf(listOf(initial))
+    private var stack by mutableStateOf(initialStack.ifEmpty { listOf(Screen.Dashboard) })
+
+    /** 恢复出的待重挂应用详情包名（一次性；查不到则丢弃，诚实降级）。 */
+    var pendingAppDetailPackage: String? = null
 
     val current: Screen get() = stack.last()
     val canPop: Boolean get() = stack.size > 1
@@ -110,6 +120,55 @@ class AbyssBackStack(initial: Screen) {
         }
         stack = listOf(target)
     }
+
+    /** 序列化（rememberSaveable 消费；AppManagerDetail 只存包名键）。 */
+    fun serialize(): List<String> = stack.map { screen ->
+        when (screen) {
+            Screen.Dashboard -> TOKEN_DASHBOARD
+            Screen.NavHub -> TOKEN_NAVHUB
+            Screen.Settings -> TOKEN_SETTINGS
+            Screen.PluginHub -> TOKEN_PLUGINHUB
+            is Screen.PluginDetail -> "$PREFIX_PLUGIN${screen.pluginId}"
+            is Screen.Tool -> "$PREFIX_TOOL${screen.toolId}"
+            is Screen.AppManagerDetail -> "$PREFIX_APPMGR${screen.app.packageName}"
+        }
+    }
+
+    companion object {
+        private const val TOKEN_DASHBOARD = "dashboard"
+        private const val TOKEN_NAVHUB = "navhub"
+        private const val TOKEN_SETTINGS = "settings"
+        private const val TOKEN_PLUGINHUB = "pluginhub"
+        private const val PREFIX_PLUGIN = "plugin:"
+        private const val PREFIX_TOOL = "tool:"
+        private const val PREFIX_APPMGR = "appmgr:"
+
+        /** 恢复（fail-closed：未知 token 丢弃，不猜；空栈回 Dashboard）。 */
+        fun restore(tokens: List<String>): AbyssBackStack {
+            val screens = mutableListOf<Screen>()
+            var pending: String? = null
+            for (token in tokens) {
+                when {
+                    token == TOKEN_DASHBOARD -> screens += Screen.Dashboard
+                    token == TOKEN_NAVHUB -> screens += Screen.NavHub
+                    token == TOKEN_SETTINGS -> screens += Screen.Settings
+                    token == TOKEN_PLUGINHUB -> screens += Screen.PluginHub
+                    token.startsWith(PREFIX_PLUGIN) -> {
+                        val id = token.removePrefix(PREFIX_PLUGIN)
+                        if (id.isNotBlank()) screens += Screen.PluginDetail(id)
+                    }
+                    token.startsWith(PREFIX_TOOL) -> screens += Screen.Tool(token.removePrefix(PREFIX_TOOL))
+                    token.startsWith(PREFIX_APPMGR) -> {
+                        val pkg = token.removePrefix(PREFIX_APPMGR)
+                        if (pkg.isNotBlank()) pending = pkg
+                    }
+                    // 未知 token：丢弃（fail-closed）
+                }
+            }
+            if (screens.isEmpty()) screens += Screen.Dashboard
+            return AbyssBackStack(screens).apply { pendingAppDetailPackage = pending }
+        }
+    }
 }
 
 private val bottomItems = listOf(
@@ -127,8 +186,26 @@ fun AbyssRoot(
 ) {
     val registry = ServiceRegistry
     val backdrop = rememberAbyssBackdrop()
-    val backStack = remember { AbyssBackStack(Screen.Dashboard) }
+    // 返回栈持久化（评审 #10）：旋转 / 进程重建后原位恢复；应用详情经
+    // Provider 异步重挂（包名查不到则诚实留在列表页，绝不展示猜测数据）。
+    val backStack = rememberSaveable(
+        saver = listSaver<AbyssBackStack, String>(
+            save = { it.serialize() },
+            restore = { tokens -> AbyssBackStack.restore(tokens) },
+        ),
+    ) { AbyssBackStack(listOf(Screen.Dashboard)) }
     val settings = registry.settings
+
+    // 恢复出的待重挂应用详情（一次性消费）
+    LaunchedEffect(backStack.pendingAppDetailPackage) {
+        val pkg = backStack.pendingAppDetailPackage ?: return@LaunchedEffect
+        backStack.pendingAppDetailPackage = null
+        val onAppManager = (backStack.current as? Screen.Tool)?.toolId == ToolCatalog.ID_APP_MANAGER
+        if (!onAppManager) return@LaunchedEffect
+        val app = registry.appInfoProvider.installedApps()
+            .firstOrNull { it.packageName == pkg }
+        if (app != null) backStack.push(Screen.AppManagerDetail(app))
+    }
 
     // 插件本机状态版本号：安装 / 卸载 / 补丁应用后自增 —— 驱动插件中心
     // 「我的插件」分区、安装徽章与仪表盘统计重读磁盘。
