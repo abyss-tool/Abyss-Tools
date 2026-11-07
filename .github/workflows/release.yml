@@ -76,12 +76,34 @@ jobs:
           else
             TAG="v$APPINFO_VERSION"
           fi
+
+          # ── 已发布检测（v0.7.0 加固）：auto-release 双仓发布会把 tag 落到
+          # 本仓（镜像 Release），该 tag 推送会再次触发本工作流 —— 若通道
+          # version.json 已含同 tag + 同 versionCode，说明 auto-release 已
+          # 完成发布，此处优雅跳过（绝不重复构建 / 覆盖资产：SDK 依赖块
+          # 非确定性会导致同源码构建出不同字节，覆盖即制造资产↔清单不一致）。
+          CHANNEL_JSON=$(curl -fsSL --max-time 30 \
+            "https://raw.githubusercontent.com/abyss-tool/Abyss-Tools-Release/main/version.json" || echo '')
+          if [ -n "$CHANNEL_JSON" ]; then
+            CHANNEL_TAG=$(echo "$CHANNEL_JSON" | jq -r '.tag // empty')
+            CHANNEL_CODE=$(echo "$CHANNEL_JSON" | jq -r '.versionCode // 0')
+            if [ "$CHANNEL_TAG" = "$TAG" ] && [ "$CHANNEL_CODE" = "$APPINFO_CODE" ]; then
+              echo "::notice::v$TAG (code $APPINFO_CODE) 已由自动发布流水线发布 —— 跳过手工发布"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version_name=$APPINFO_VERSION" >> "$GITHUB_OUTPUT"
           echo "version_code=$APPINFO_CODE" >> "$GITHUB_OUTPUT"
 
+      # 单一出口跳过门（已发布检测命中 → 全 job 优雅短路）
+      - name: Skip if already published by auto-release
+        if: steps.version.outputs.skip == 'true'
+        run: echo "已发布，跳过构建与发布"
+
       # ── 发布签名材料注入（评审 P0-1：jks / 口令出库，经 secrets）────
       - name: Decode release keystore (secrets)
+        if: steps.version.outputs.skip != 'true'
         env:
           ABYSS_KEYSTORE_B64: ${{ secrets.ABYSS_KEYSTORE_B64 }}
         run: |
@@ -96,6 +118,7 @@ jobs:
           echo "release 签名材料已注入（未回显任何机密值）"
 
       - name: Assemble release APK (signed)
+        if: steps.version.outputs.skip != 'true'
         env:
           ABYSS_KEYSTORE_PASSWORD: ${{ secrets.ABYSS_KEYSTORE_PASSWORD }}
           ABYSS_KEY_ALIAS: ${{ secrets.ABYSS_KEY_ALIAS }}
@@ -104,6 +127,7 @@ jobs:
 
       # ── 发布前强制门禁：发布者指纹必须命中内置常量（fail-closed）────
       - name: Enforce publisher fingerprint (apksigner)
+        if: steps.version.outputs.skip != 'true'
         run: |
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
@@ -121,6 +145,7 @@ jobs:
           echo "✓ 发布指纹门禁通过"
 
       - name: Locate release APK
+        if: steps.version.outputs.skip != 'true'
         id: apk
         run: |
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
@@ -129,6 +154,7 @@ jobs:
           sha256sum "$APK"
 
       - name: Publish to Abyss-Tools-Release
+        if: steps.version.outputs.skip != 'true'
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
@@ -156,6 +182,7 @@ jobs:
           python3 tools/publish_release.py "${args[@]}"
 
       - name: Upload release APK artifact
+        if: steps.version.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: abyss-tools-release-apk

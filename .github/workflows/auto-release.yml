@@ -136,10 +136,11 @@ jobs:
             sed -i "s/VERSION_CODE: Int = [0-9]*/VERSION_CODE: Int = $NEW_CODE/" "$APPINFO_FILE"
             git config user.name "abyss-release-bot"
             git config user.email "noreply@abyss-tool.github"
+            # 先提交，后 rebase：带着暂存区 pull --rebase 必然失败
+            # （"index contains uncommitted changes"—— v0.7.1 实证踩坑）
             git add "$APPINFO_FILE"
-            # rebase 竞态防御：并发合并后 main 可能已前移
-            git pull --rebase origin main
             git commit -m "chore(release): bump v$NEW_VERSION (code $NEW_CODE) [skip ci]"
+            git pull --rebase origin main
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "✓ 版本推进已提交：v$NEW_VERSION (code $NEW_CODE)"

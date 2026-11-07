@@ -250,6 +250,27 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
     print(f"[publish] 版本 {version_name} (code {args.version_code}) · {asset_name}")
     print(f"[publish] sha256 = {apk_sha} · {apk_size} bytes")
 
+    # ── 0. 通道预检（v0.7.1 加固）：versionCode 单调门禁与同 tag 重发拦截
+    # 【前置到一切上传之前】—— 此前该检查在资产上传后才执行，被拦截时
+    # 发布仓资产已被删除重传（v0.7.0 事故实证：同源码不同 SDK 依赖块
+    # 字节的 APK 覆盖了已发布资产，制造资产↔清单摘要不一致）。
+    cur = get_contents(TOKEN, "version.json", not_found_ok=True)
+    import base64 as _b64
+
+    if cur.get("content"):
+        try:
+            existing_version = json.loads(_b64.b64decode(cur["content"]).decode())
+        except Exception:
+            die("version.json 现存内容损坏 —— 拒绝覆盖（先人工排查发布仓）")
+        existing_code = existing_version.get("versionCode", 0)
+        if args.version_code <= existing_code:
+            die(
+                f"versionCode 必须严格递增：通道现值 {existing_code}，"
+                f"本次 {args.version_code} —— 防误发旧版本把 latest 拉回去"
+            )
+        if existing_version.get("tag") == args.tag:
+            die(f"tag {args.tag} 已在通道中发布过 —— 同 tag 重发需先人工清理")
+
     # ── 1. 发布仓创建 Release + 上传 APK（幂等，双仓复用）─────────────
     release_id = ensure_release_with_apk(
         repo=RELEASE_REPO,
@@ -264,45 +285,8 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
     download_url = f"https://github.com/{RELEASE_REPO}/releases/download/{args.tag}/{asset_name}"
     print(f"[publish] ✓ APK 资产已上传 → {download_url}")
 
-    # ── 1b.（v0.7.0）主开发仓镜像发布：同 tag Release + 同 APK 资产─────
-    # 双仓留存（APK 不单点在发布仓）：通道清单依旧只写发布仓 —— 客户端
-    # 固定读发布仓，镜像仓仅供直接访问 / 备灾。
-    if args.mirror_to_repo:
-        mirror_release_id = ensure_release_with_apk(
-            repo=args.mirror_to_repo,
-            tag=args.tag,
-            title=args.title,
-            notes=args.notes,
-            apk_path=args.apk,
-            asset_name=asset_name,
-        )
-        # v0.7.0 加固：镜像资产同样回读比对（与发布仓字节级一致才算双仓完成）
-        verify_uploaded_asset(args.mirror_to_repo, mirror_release_id, asset_name, apk_sha)
-        print(
-            f"[publish] ✓ 主仓镜像发布完成 → "
-            f"https://github.com/{args.mirror_to_repo}/releases/tag/{args.tag}"
-        )
-
-    # ── 3. version.json ────────────────────────────────────────────────
-    cur = get_contents(TOKEN, "version.json", not_found_ok=True)
+    # ── 3. version.json（单调门禁已在上传前预检，此处只写）────────────
     import base64
-
-    # versionCode 单调门禁 + 同 tag 重发拦截（评审 #2：防误发旧版本把 latest 拉回去）
-    existing_version = None
-    if cur.get("content"):
-        try:
-            existing_version = json.loads(base64.b64decode(cur["content"]).decode())
-        except Exception:
-            die("version.json 现存内容损坏 —— 拒绝覆盖（先人工排查发布仓）")
-    if existing_version:
-        existing_code = existing_version.get("versionCode", 0)
-        if args.version_code <= existing_code:
-            die(
-                f"versionCode 必须严格递增：通道现值 {existing_code}，"
-                f"本次 {args.version_code} —— 防误发旧版本把 latest 拉回去"
-            )
-        if existing_version.get("tag") == args.tag:
-            die(f"tag {args.tag} 已在通道中发布过 —— 同 tag 重发需先人工清理")
 
     version = {
         "schema": "abyss-version-v1",
@@ -392,6 +376,28 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
             if not data.get("latest") or data["latest"].get("tag") != args.tag:
                 die(f"写后自检失败：changelog.json latest ≠ {args.tag}")
         print(f"[publish] ✓ 写后自检通过 {path_}")
+
+
+    # ── 7. 主开发仓镜像发布（v0.7.0；v0.7.1 调序：置于通道三件套与自检
+    # 【之后】）—— 主仓 Release 会顺带创建本仓 tag，tag 推送会触发
+    # release.yml；此时 version.json 已落盘，release.yml 的「已发布检测」
+    # 能读到最新通道状态并优雅跳过（若镜像在前，则触发时通道还是旧值，
+    # 检测失效 → 双流水线互相踩踏 —— v0.7.0 事故根因）。
+    if args.mirror_to_repo:
+        mirror_release_id = ensure_release_with_apk(
+            repo=args.mirror_to_repo,
+            tag=args.tag,
+            title=args.title,
+            notes=args.notes,
+            apk_path=args.apk,
+            asset_name=asset_name,
+        )
+        # 加固：镜像资产同样回读比对（与发布仓字节级一致才算双仓完成）
+        verify_uploaded_asset(args.mirror_to_repo, mirror_release_id, asset_name, apk_sha)
+        print(
+            f"[publish] ✓ 主仓镜像发布完成 → "
+            f"https://github.com/{args.mirror_to_repo}/releases/tag/{args.tag}"
+        )
 
     print(f"[publish] ✓ 发布完成：{download_url}")
     print(f"[publish] ✓ version.json / patches.json / changelog.json 已同步（含写后自检）")
