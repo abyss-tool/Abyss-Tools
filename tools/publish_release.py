@@ -117,6 +117,38 @@ def sha256_of(path: str) -> str:
     return h.hexdigest()
 
 
+def asset_sha256_from_digest(digest: str | None) -> str | None:
+    """GitHub 资产 digest（"sha256:xxx"）→ 纯十六进制（无摘要 → None）。"""
+    if not digest:
+        return None
+    return digest.removeprefix("sha256:").lower() or None
+
+
+def verify_uploaded_asset(repo: str, release_id: int, asset_name: str, expected_sha: str) -> str:
+    """回读资产真实 digest 并与预期比对（fail-closed）。
+
+    v0.7.0 加固：发布仓 / 主仓各自上传后立即回读 —— 任何环节（传输截断 /
+    上传期间源文件被改 / GitHub 入档异常）导致资产字节 ≠ 预期，就地报错
+    拒绝继续（通道清单不会指向一个校验必失败的资产）。返回资产真实摘要。
+    """
+    assets = api("GET", f"/repos/{repo}/releases/{release_id}/assets", TOKEN)
+    asset = next((a for a in assets if a["name"] == asset_name), None)
+    if asset is None:
+        die(f"资产回读失败（{repo} / {asset_name} 不在资产列表）")
+    actual = asset_sha256_from_digest(asset.get("digest"))
+    if actual is None:
+        print(f"[publish] ⚠ {repo} 资产无 digest 字段（旧版 GitHub）—— 跳过比对")
+        return expected_sha
+    if actual != expected_sha:
+        die(
+            f"资产摘要与构建产物不一致（{repo} / {asset_name}）：\n"
+            f"  资产真实: {actual}\n  预期:    {expected_sha}\n"
+            f" —— 拒绝发布（fail-closed，防通道指向校验必失败的资产）"
+        )
+    print(f"[publish] ✓ 资产摘要回读一致（{repo}）")
+    return actual
+
+
 def ensure_release_with_apk(
     repo: str,
     tag: str,
@@ -189,8 +221,29 @@ def main() -> None:
 
     version_name = args.tag.removeprefix("v").removeprefix("V")
     asset_name = args.asset_name or f"abyss-tools-{args.tag}.apk"
-    apk_sha = sha256_of(args.apk)
-    apk_size = os.path.getsize(args.apk)
+
+    # ── 快照（v0.7.0 加固）：构建产物复制到不可变临时路径，后续哈希 / 双仓
+    # 上传全部消费快照 —— 构建目录里的源文件即使在脚本执行期间被改写
+    # （缓存回写 / 并发任务），也不可能污染发布字节。
+    import shutil
+    import tempfile
+
+    snapshot_fd, snapshot_path = tempfile.mkstemp(suffix=".apk", prefix="abyss-publish-")
+    os.close(snapshot_fd)
+    shutil.copyfile(args.apk, snapshot_path)
+    args.apk = snapshot_path
+    try:
+        apk_sha = sha256_of(args.apk)
+        apk_size = os.path.getsize(args.apk)
+        _main_publish(args, version_name, asset_name, apk_sha, apk_size)
+    finally:
+        try:
+            os.unlink(snapshot_path)
+        except OSError:
+            pass
+
+
+def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_size: int) -> None:
     published_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -206,6 +259,8 @@ def main() -> None:
         apk_path=args.apk,
         asset_name=asset_name,
     )
+    # v0.7.0 加固：回读资产真实 digest，与快照摘要比对（fail-closed）
+    verify_uploaded_asset(RELEASE_REPO, release_id, asset_name, apk_sha)
     download_url = f"https://github.com/{RELEASE_REPO}/releases/download/{args.tag}/{asset_name}"
     print(f"[publish] ✓ APK 资产已上传 → {download_url}")
 
@@ -213,7 +268,7 @@ def main() -> None:
     # 双仓留存（APK 不单点在发布仓）：通道清单依旧只写发布仓 —— 客户端
     # 固定读发布仓，镜像仓仅供直接访问 / 备灾。
     if args.mirror_to_repo:
-        ensure_release_with_apk(
+        mirror_release_id = ensure_release_with_apk(
             repo=args.mirror_to_repo,
             tag=args.tag,
             title=args.title,
@@ -221,6 +276,8 @@ def main() -> None:
             apk_path=args.apk,
             asset_name=asset_name,
         )
+        # v0.7.0 加固：镜像资产同样回读比对（与发布仓字节级一致才算双仓完成）
+        verify_uploaded_asset(args.mirror_to_repo, mirror_release_id, asset_name, apk_sha)
         print(
             f"[publish] ✓ 主仓镜像发布完成 → "
             f"https://github.com/{args.mirror_to_repo}/releases/tag/{args.tag}"
