@@ -194,14 +194,15 @@ jobs:
           sha256sum "$APK"
 
       # ── 发布：发布仓（通道三件套 + APK）+ 主仓（同 tag APK 镜像）────
-      # 更新要点：合并提交 message 的首行（自动发版没有手写 release-notes
-      # 文件，诚实使用合并上下文；经 env 传递杜绝 shell 内插注入）。
+      # 更新要点优先级：docs/release-notes/v{version}.md（存在则逐行采用，
+      # 与 release.yml tag 发布同源）→ 缺省回退合并提交 message 首行
+      # （经 env 传递杜绝 shell 内插注入）。
       - name: Publish (release repo + main repo mirror)
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          NOTES_STR=$(echo "$HEAD_COMMIT_MESSAGE" | head -1)
+          NOTES_FILE="docs/release-notes/v${{ steps.version.outputs.version_name }}.md"
           args=(
             --tag "v${{ steps.version.outputs.version_name }}"
             --version-code "${{ steps.version.outputs.version_code }}"
@@ -209,8 +210,16 @@ jobs:
             --channel "stable"
             --commit-sha "${{ steps.bump.outputs.commit_sha }}"
             --mirror-to-repo "abyss-tool/Abyss-Tools"
-            --notes "$NOTES_STR"
           )
+          if [ -f "$NOTES_FILE" ]; then
+            while IFS= read -r n; do
+              [ -n "$n" ] && args+=(--notes "$n")
+            done < "$NOTES_FILE"
+            echo "更新要点来源：$NOTES_FILE"
+          else
+            args+=(--notes "$(echo "$HEAD_COMMIT_MESSAGE" | head -1)")
+            echo "更新要点来源：合并提交首行（未提供 $NOTES_FILE）"
+          fi
           python3 tools/publish_release.py "${args[@]}"
 
       - name: Upload release APK artifact
