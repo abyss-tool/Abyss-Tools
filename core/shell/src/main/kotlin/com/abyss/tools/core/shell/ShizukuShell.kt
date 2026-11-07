@@ -213,16 +213,18 @@ class ShizukuShellGateway(
         private var result: CappedText = CappedText("", false)
 
         override fun run() {
-            result = if (pfdRef == null) {
+            // 本地快照：属性智能转换不跨闭包（编译器保守），local val 零歧义
+            val pfd = pfdRef
+            result = if (pfd == null) {
                 CappedText("", false)
             } else {
                 runCatching {
-                    FileInputStream(pfdRef.fileDescriptor).use { input ->
+                    FileInputStream(pfd.fileDescriptor).use { input ->
                         StreamGuards.readTextCapped(input, maxStreamBytes)
                     }
                 }.getOrDefault(CappedText("", false))
             }
-            runCatching { pfdRef?.close() }
+            runCatching { pfd.close() }
             latch.countDown()
         }
 
