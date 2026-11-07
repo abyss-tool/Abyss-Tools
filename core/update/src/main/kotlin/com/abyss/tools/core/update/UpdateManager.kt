@@ -84,6 +84,10 @@ class UpdateManager(
         }
     }
 
-    private fun fileNameOf(url: String): String =
-        url.substringAfterLast('/').ifBlank { "download-${System.currentTimeMillis()}" }
+    /** 文件名规范化：剥 query、只留安全字符，空则时间戳兑底（评审 #20）。 */
+    private fun fileNameOf(url: String): String {
+        val raw = url.substringBefore('?').substringAfterLast('/')
+        val sanitized = raw.filter { it.isLetterOrDigit() || it == '.' || it == '-' || it == '_' }
+        return sanitized.ifBlank { "abyss-download-${System.currentTimeMillis()}" }
+    }
 }

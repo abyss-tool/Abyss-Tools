@@ -42,7 +42,22 @@ class PluginInstaller(
 ) {
     private val patchApplier: PatchApplier = ZipPatchApplier()
 
-    fun pluginDir(pluginId: String): File = File(pluginsRoot, pluginId)
+    /**
+     * 插件目录（带 canonical 路径断言，评审 #6）：id 先过 ID_PATTERN，
+     * 目录 canonical 必须落在 pluginsRoot 内 —— 穿越 / 越界就地拒绝，
+     * uninstall / applyDataPatch / installDataPlugin 全部经此门禁。
+     */
+    fun pluginDir(pluginId: String): File {
+        require(PluginContract.ID_PATTERN.matches(pluginId)) {
+            "插件 id 非法（拒绝对其做任何文件操作）：$pluginId"
+        }
+        val root = pluginsRoot.canonicalFile
+        val dir = File(pluginsRoot, pluginId).canonicalFile
+        check(dir.path.startsWith(root.path + File.separator)) {
+            "插件目录越界（疑似路径穿越）：$pluginId → ${dir.path}"
+        }
+        return dir
+    }
 
     fun isInstalled(pluginId: String): Boolean =
         pluginDir(pluginId).resolve(PluginContract.MANIFEST_FILE).exists()
@@ -224,8 +239,12 @@ class PluginInstaller(
         File(pluginsRoot, "cache").deleteRecursively()
     }
 
-    private fun cacheDirFor(pluginId: String): File =
-        File(pluginsRoot, "cache/$pluginId").apply { mkdirs() }
+    private fun cacheDirFor(pluginId: String): File {
+        require(PluginContract.ID_PATTERN.matches(pluginId)) {
+            "插件 id 非法（拒绝缓存目录操作）：$pluginId"
+        }
+        return File(pluginsRoot, "cache/$pluginId").apply { mkdirs() }
+    }
 
     private fun PluginIndexEntry.toManifest(): PluginManifest = PluginManifest(
         id = id,

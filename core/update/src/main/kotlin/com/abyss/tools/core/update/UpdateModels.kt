@@ -55,9 +55,10 @@ data class PatchesManifest(
 )
 
 object UpdateParsers {
+    // 严格 JSON（v0.6.0 起去掉 isLenient）：坏清单直接解析失败进 Failed，
+    // 绝不把畸形值猜成合法态；ignoreUnknownKeys 保留做前向兼容。
     private val json = Json {
         ignoreUnknownKeys = true
-        isLenient = true
     }
 
     fun parseVersionManifest(raw: String): VersionManifest = json.decodeFromString(raw)

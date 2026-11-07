@@ -24,9 +24,14 @@ object Digests {
     fun sha256(bytes: ByteArray): String =
         toHex(MessageDigest.getInstance("SHA-256").digest(bytes))
 
-    /** expected 为空视为「通道未声明校验值」→ 放行（框架期兼容）。 */
+    /**
+     * 摘要缺失即拒绝（fail-closed，v0.6.0 起）：expected 为空视作
+     * 「通道拒绝背书」—— 下载资产（APK / 补丁）没有声明校验值就绝不消费。
+     * 旧版「框架期兼容」放行分支已删除（评审 #2：空摘要放行 = 校验链
+     * 整体失效面）。
+     */
     fun verify(file: File, expected: String?): Boolean =
-        expected.isNullOrBlank() || sha256(file).equals(expected.trim(), ignoreCase = true)
+        !expected.isNullOrBlank() && sha256(file).equals(expected.trim(), ignoreCase = true)
 
     private fun toHex(bytes: ByteArray): String {
         val out = CharArray(bytes.size * 2)

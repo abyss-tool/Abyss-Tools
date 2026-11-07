@@ -238,14 +238,52 @@ class DigestsTest {
     }
 
     @Test
-    fun `verify 声明缺失时放行`() {
+    fun `verify 摘要缺失即拒绝（fail-closed）`() {
         val f = kotlin.io.path.createTempFile("digest", ".txt").toFile()
         f.writeText("data")
-        assertTrue(Digests.verify(f, null))
-        assertTrue(Digests.verify(f, "  "))
+        // v0.6.0 起：通道未声明校验值 = 拒绝（不再「框架期兼容」放行）
+        assertFalse(Digests.verify(f, null))
+        assertFalse(Digests.verify(f, "  "))
         assertFalse(Digests.verify(f, "deadbeef"))
+        assertFalse(Digests.verify(f, ""))
         assertTrue(Digests.verify(f, Digests.sha256(f)))
+        assertTrue(Digests.verify(f, Digests.sha256(f).uppercase()))
         f.delete()
+    }
+}
+
+class FetchHostPolicyTest {
+
+    @Test
+    fun `官方四域放行`() {
+        listOf(
+            "https://raw.githubusercontent.com/abyss-tool/Abyss-Tools-Release/main/version.json",
+            "https://github.com/abyss-tool/Abyss-Tools-Release/releases/download/v0.6.0/abyss-tools-v0.6.0.apk",
+            "https://objects.githubusercontent.com/some/asset",
+            "https://release-assets.githubusercontent.com/some/asset",
+        ).forEach { url ->
+            assertEquals(url, FetchHostPolicy.check(url))
+        }
+    }
+
+    @Test
+    fun `白名单外域名拒绝（含仿冒域）`() {
+        listOf(
+            "https://evil.example.com/version.json",
+            // 仿冒域：白名单是精确 host，不是后缀匹配
+            "https://evil.raw.githubusercontent.com.evil.com/version.json",
+            "https://raw.githubusercontent.com.evil.com/version.json",
+            "http://raw.githubusercontent.com/main/version.json", // http 拒绝
+            "not a url",
+            "",
+        ).forEach { url ->
+            try {
+                FetchHostPolicy.check(url)
+                throw AssertionError("白名单外 URL 未被拒绝：$url")
+            } catch (expected: IOException) {
+                // fail-closed
+            }
+        }
     }
 }
 

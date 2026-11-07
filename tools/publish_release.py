@@ -85,9 +85,14 @@ def api(
     return {}
 
 
-def get_contents(token: str, path: str) -> dict:
-    """读取发布仓文件：{content(base64), sha}。"""
-    return api("GET", f"/repos/{RELEASE_REPO}/contents/{path}?ref=main", token)
+def get_contents(token: str, path: str, not_found_ok: bool = False) -> dict:
+    """读取发布仓文件：{content(base64), sha}；404 可选兑底（首次发布）。"""
+    return api(
+        "GET",
+        f"/repos/{RELEASE_REPO}/contents/{path}?ref=main",
+        token,
+        not_found_ok=not_found_ok,
+    )
 
 
 def put_contents(token: str, path: str, text: str, sha: str | None, message: str) -> None:
@@ -175,8 +180,25 @@ def main() -> None:
     print(f"[publish] ✓ APK 资产已上传 → {download_url}")
 
     # ── 3. version.json ────────────────────────────────────────────────
-    cur = get_contents(TOKEN, "version.json")
+    cur = get_contents(TOKEN, "version.json", not_found_ok=True)
     import base64
+
+    # versionCode 单调门禁 + 同 tag 重发拦截（评审 #2：防误发旧版本把 latest 拉回去）
+    existing_version = None
+    if cur.get("content"):
+        try:
+            existing_version = json.loads(base64.b64decode(cur["content"]).decode())
+        except Exception:
+            die("version.json 现存内容损坏 —— 拒绝覆盖（先人工排查发布仓）")
+    if existing_version:
+        existing_code = existing_version.get("versionCode", 0)
+        if args.version_code <= existing_code:
+            die(
+                f"versionCode 必须严格递增：通道现值 {existing_code}，"
+                f"本次 {args.version_code} —— 防误发旧版本把 latest 拉回去"
+            )
+        if existing_version.get("tag") == args.tag:
+            die(f"tag {args.tag} 已在通道中发布过 —— 同 tag 重发需先人工清理")
 
     version = {
         "schema": "abyss-version-v1",
@@ -202,7 +224,7 @@ def main() -> None:
     )
 
     # ── 4. patches.json ────────────────────────────────────────────────
-    cur_patches = get_contents(TOKEN, "patches.json")
+    cur_patches = get_contents(TOKEN, "patches.json", not_found_ok=True)
     try:
         patches = json.loads(base64.b64decode(cur_patches["content"]).decode())
     except Exception:
@@ -218,7 +240,7 @@ def main() -> None:
     )
 
     # ── 5. changelog.json ──────────────────────────────────────────────
-    cur_log = get_contents(TOKEN, "changelog.json")
+    cur_log = get_contents(TOKEN, "changelog.json", not_found_ok=True)
     try:
         changelog = json.loads(base64.b64decode(cur_log["content"]).decode())
     except Exception:
@@ -245,8 +267,30 @@ def main() -> None:
         f"chore(channel): changelog.json 置顶 {args.tag} [skip ci]",
     )
 
+    # ── 6. 写后自检（回读三份清单，防半写 / 错分支状态）────────────────
+    for path_ in ("version.json", "patches.json", "changelog.json"):
+        back = get_contents(TOKEN, path_, not_found_ok=True)
+        if not back.get("content"):
+            die(f"写后自检失败：{path_} 回读为空")
+        try:
+            data = json.loads(base64.b64decode(back["content"]).decode())
+        except Exception:
+            die(f"写后自检失败：{path_} 回读内容无法解析")
+        if path_ == "version.json":
+            if data.get("tag") != args.tag or data.get("versionCode") != args.version_code:
+                die(f"写后自检失败：version.json 回读 tag/code 与本次发布不符（{data.get('tag')} / {data.get('versionCode')}）")
+            if data.get("download", {}).get("sha256") != apk_sha:
+                die("写后自检失败：version.json 回读摘要与本次 APK 不符")
+        elif path_ == "patches.json":
+            if data.get("latestTag") != args.tag:
+                die(f"写后自检失败：patches.json latestTag ≠ {args.tag}")
+        else:
+            if not data.get("latest") or data["latest"].get("tag") != args.tag:
+                die(f"写后自检失败：changelog.json latest ≠ {args.tag}")
+        print(f"[publish] ✓ 写后自检通过 {path_}")
+
     print(f"[publish] ✓ 发布完成：{download_url}")
-    print(f"[publish] ✓ version.json / patches.json / changelog.json 已同步")
+    print(f"[publish] ✓ version.json / patches.json / changelog.json 已同步（含写后自检）")
 
 
 if __name__ == "__main__":

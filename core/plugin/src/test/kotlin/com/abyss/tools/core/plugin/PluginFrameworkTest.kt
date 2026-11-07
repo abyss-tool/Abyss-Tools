@@ -389,3 +389,190 @@ class PluginFrameworkTest {
         }
     }
 }
+
+/** 运行时通道白名单（ChannelPolicy，评审 #6 fail-closed 断言）。 */
+class ChannelPolicyTest {
+
+    private fun entry(
+        id: String = "abyss-plugin-terminal",
+        repo: String = "abyss-tool/abyss-plugin-terminal",
+        patchChannel: String? = "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-terminal/main/patches/index.json",
+        apkUrl: String? = null,
+        apkSha256: String? = null,
+    ) = PluginIndexEntry(
+        id = id, name = "终端引擎", repo = repo, category = "terminal",
+        version = "0.1.0", summary = "",
+        apk = if (apkUrl != null) {
+            PluginApkInfo(url = apkUrl, sizeBytes = 1, sha256 = apkSha256)
+        } else {
+            null
+        },
+        patchChannel = patchChannel,
+    )
+
+    @Test
+    fun `合规条目放行（含 APK 资产）`() {
+        val sha = "a".repeat(64)
+        assertEquals(
+            null,
+            ChannelPolicy.validateEntry(
+                entry(
+                    apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
+                    apkSha256 = sha,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `id 形态非法拒收`() {
+        assertTrue(ChannelPolicy.validateEntry(entry(id = "Terminal")) != null)
+        assertTrue(ChannelPolicy.validateEntry(entry(id = "../escape")) != null)
+        assertTrue(ChannelPolicy.validateEntry(entry(id = "")) != null)
+    }
+
+    @Test
+    fun `仓库不归属组织拒收`() {
+        assertTrue(ChannelPolicy.validateEntry(entry(repo = "evil/abyss-plugin-terminal")) != null)
+        assertTrue(ChannelPolicy.validateEntry(entry(repo = "abyss-tool/evil")) != null)
+        // 仓库末段与 id 不符（跨插件嫁接）
+        assertTrue(
+            ChannelPolicy.validateEntry(
+                entry(repo = "abyss-tool/abyss-plugin-backup"),
+            ) != null,
+        )
+    }
+
+    @Test
+    fun `补丁通道形态非法拒收`() {
+        assertTrue(
+            ChannelPolicy.validateEntry(
+                entry(patchChannel = "https://evil.com/abyss-tool/abyss-plugin-terminal/main/patches/index.json"),
+            ) != null,
+        )
+        // 指向别的插件仓库的通道
+        assertTrue(
+            ChannelPolicy.validateEntry(
+                entry(patchChannel = "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-backup/main/patches/index.json"),
+            ) != null,
+        )
+    }
+
+    @Test
+    fun `APK 资产域外或缺摘要拒收`() {
+        val sha = "a".repeat(64)
+        assertTrue(
+            ChannelPolicy.validateEntry(entry(apkUrl = "https://evil.com/x.apk", apkSha256 = sha)) != null,
+        )
+        assertTrue(
+            ChannelPolicy.validateEntry(
+                apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
+                apkSha256 = null,
+            ) != null,
+        )
+        assertTrue(
+            ChannelPolicy.validateEntry(
+                apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
+                apkSha256 = "deadbeef",
+            ) != null,
+        )
+        assertTrue(
+            ChannelPolicy.validateEntry(
+                apkUrl = "http://github.com/x.apk",
+                apkSha256 = sha,
+            ) != null,
+        )
+    }
+
+    @Test
+    fun `补丁条目缺摘要或域外拒收`() {
+        val sha = "b".repeat(64)
+        assertTrue(
+            ChannelPolicy.validatePatch(
+                PluginPatch(
+                    from = "0.1.0", to = "0.1.1",
+                    url = "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-terminal/main/patches/p.zip",
+                    sha256 = sha,
+                ),
+            ) == null,
+        )
+        assertTrue(
+            ChannelPolicy.validatePatch(
+                PluginPatch(
+                    from = "0.1.0", to = "0.1.1",
+                    url = "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-terminal/main/patches/p.zip",
+                    sha256 = null,
+                ),
+            ) != null,
+        )
+        assertTrue(
+            ChannelPolicy.validatePatch(
+                PluginPatch(
+                    from = "0.1.0", to = "0.1.1",
+                    url = "https://evil.com/p.zip",
+                    sha256 = sha,
+                ),
+            ) != null,
+        )
+    }
+
+    @Test
+    fun `fetchIndex 剔除不合规条目并给出拒收理由`() = runTest {
+        val malicious = """
+            {
+              "schema": "abyss-plugin-index-v1",
+              "plugins": [
+                {
+                  "id": "abyss-plugin-terminal", "name": "终端引擎",
+                  "repo": "abyss-tool/abyss-plugin-terminal", "category": "terminal",
+                  "version": "0.1.0", "minApp": "0.1.0", "summary": "",
+                  "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-terminal/main/patches/index.json"
+                },
+                {
+                  "id": "abyss-plugin-evil", "name": "恶意插件",
+                  "repo": "evil/abyss-plugin-evil", "category": "x",
+                  "version": "9.9.9", "minApp": "0.1.0", "summary": "",
+                  "patchChannel": "https://evil.com/p.json"
+                }
+              ]
+            }
+        """.trimIndent()
+        val transport = object : com.abyss.tools.core.update.HttpTransport {
+            override fun get(url: String): String = malicious
+            override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {
+                dest.writeBytes(malicious.toByteArray())
+            }
+        }
+        val index = PluginRepository(transport, "https://x/plugins.json").fetchIndex().getOrThrow()
+        assertEquals(1, index.plugins.size)
+        assertEquals("abyss-plugin-terminal", index.plugins.first().id)
+        assertEquals(1, index.rejected.size)
+        assertTrue(index.rejected.first().reason.isNotEmpty())
+    }
+
+    @Test
+    fun `插件目录穿越在文件操作层被拦截`() {
+        val root = java.io.File(System.getProperty("java.io.tmpdir"), "abyss-policy-test-${System.nanoTime()}")
+        root.mkdirs()
+        try {
+            val installer = PluginInstaller(root, object : com.abyss.tools.core.update.HttpTransport {
+                override fun get(url: String): String = "{}"
+                override fun download(url: String, dest: File, onProgress: (Long, Long) -> Unit) {}
+            }, object : ApkInstallGateway {
+                override fun install(apk: File) = Result.success(Unit)
+            })
+            listOf("../../..", "a/b", "UPPER-case-id", "nohyphen").forEach { hostile ->
+                try {
+                    installer.pluginDir(hostile)
+                    throw AssertionError("穿越 id 未被拦截：$hostile")
+                } catch (expected: IllegalArgumentException) {
+                    // fail-closed
+                }
+            }
+            // 合法 id 正常
+            assertTrue(installer.pluginDir("abyss-plugin-terminal").path.contains("abyss-plugin-terminal"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+}

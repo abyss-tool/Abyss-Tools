@@ -49,6 +49,8 @@ data class PluginIndex(
     val generatedAt: String? = null,
     val hubVersion: String? = null,
     val plugins: List<PluginIndexEntry> = emptyList(),
+    /** 运行时校验拒收的条目（ChannelPolicy fail-closed：不合规即剔除，不展示不可装）。 */
+    val rejected: List<RejectedPluginEntry> = emptyList(),
 )
 
 /**
@@ -70,12 +72,15 @@ data class PluginPatchChannel(
     val plugin: String,
     val latest: String,
     val patches: List<PluginPatch> = emptyList(),
+    /** 运行时校验拒收的补丁条目（缺摘要 / 域外 URL —— 永不可应用，尽早剔除）。 */
+    val rejectedPatches: List<RejectedPluginEntry> = emptyList(),
 )
 
 object PluginParsers {
+    // 严格 JSON（v0.6.0 起去掉 isLenient，评审 #6）：坏索引直接解析失败，
+    // 绝不把畸形值猜成合法态；ignoreUnknownKeys 保留做 schema 前向兼容。
     private val json = Json {
         ignoreUnknownKeys = true
-        isLenient = true
     }
 
     fun parseIndex(raw: String): PluginIndex = json.decodeFromString(raw)

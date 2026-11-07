@@ -88,6 +88,11 @@ def check_plugin_index_fixture() -> None:
             apk = p["apk"]
             if not apk.get("url"):
                 fail(f"{where}: apk.url 缺失")
+            # 与运行时 ChannelPolicy 同构（v0.6.0 起）：APK 资产必须带
+            # 合法 sha256 —— 摘要缺失 = 永远过不了校验 = 索引非法
+            sha = apk.get("sha256")
+            if not isinstance(sha, str) or not re.match(r"^[0-9a-fA-F]{64}$", sha):
+                fail(f"{where}: apk.sha256 缺失或非 64 位十六进制 → {sha!r}")
     print(f"[manifests] 插件索引夹具：{len(plugins)} 个插件校验通过")
 
 
