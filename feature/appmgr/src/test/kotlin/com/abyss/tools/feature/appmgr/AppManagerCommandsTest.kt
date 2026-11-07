@@ -159,7 +159,7 @@ class AppManagerCommandsTest {
             "package:",                // 空包名 → 跳过
             "package:com.a b",         // 含空白 → 跳过
             "package:com.bad;rm",      // 含 shell 元字符 → 跳过
-            "package:com.nodot",       // 无点（非 Android 包名形态）→ 跳过
+            "package:nodotname",       // 无点（非 Android 包名形态）→ 跳过
             "  package:com.padded  ",  // 首尾空白容忍 → 收下
             "",                        // 空行 → 跳过
         ).joinToString(separator = "\n")
