@@ -2,7 +2,7 @@
 
 # 深渊工具 Abyss Tools
 
-### 🕳 面向极客的 Android 系统级超级工具箱 —— 液态玻璃 M3 主壳 · 轻功能内置 · 七大重型插件 · 伪装四件套 · 补丁热更新
+### 🕳 面向极客的 Android 系统级超级工具箱 —— 液态玻璃 M3 主壳 · 轻功能内置（全部真实可用）· 七大重型插件 · 伪装四件套 · 补丁热更新 · Android 15/16 适配
 
 **A system-level geek toolbox for Android — liquid glass M3 shell · built-in tools (incl. disguise kit) + 7 heavyweight plugins · patch updates.**
 
@@ -19,13 +19,13 @@
 
 ## 这是什么
 
-深渊工具是一个「主壳轻、能力重」的 Android 超级工具箱框架。**v0.2 起承载形态定型为三分法，v0.3 伪装四件套落地：**
+深渊工具是一个「主壳轻、能力重」的 Android 超级工具箱框架。**v0.2 起承载形态定型为三分法，v0.3 伪装四件套落地，v0.4 内置工具全部真实功能页：**
 
-- **轻功能一律内置**：应用管理器 / Shizuku 工具箱 / 任务蓝图 / 自动化编排 / 灵动岛悬浮球 / 动态壁纸 / 二维码工坊（v0.2）+ **伪装四件套 —— 机型 / 电量 / 信号 / 定位（v0.3，Shizuku 免 Root 实时生效）** —— 直接写进主仓库（`ToolStatus.BUILT_IN`），随版本更新获得，零安装成本；
+- **轻功能一律内置且全部真实可用**（v0.4 占位页时代结束）：应用管理器（冻结/隐藏/提取 APK）/ Shizuku 工具箱（appops·settings·dumpsys 面板）/ 任务蓝图（JSON 步骤链引擎 + 定时调度）/ 自动化编排（精确闹钟 + 开机恢复）/ 灵动岛悬浮球（overlay + 真实电量）/ 动态壁纸（液态玻璃光斑引擎）/ 二维码工坊（ZXing 生成 + 相册解析）+ **伪装四件套 —— 机型 / 电量 / 信号 / 定位（v0.3，Shizuku 免 Root 实时生效）**，全部直接写进主仓库（`ToolStatus.BUILT_IN`），随版本更新获得，零安装成本；
 - **只有「重」的能力才做成插件**：终端 / Python / 沙箱双开 / 媒体处理 / 网络守护 / 备份迁移 / **应用构建器**（旗舰）—— 原生工具链或独立进程级能力，独立仓库、独立 CI、独立补丁通道，部分插件可声明**独立 Shizuku 授权**；
 - **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/abyss-tool/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
 
-> 当前版本 **v0.3.0**：伪装四件套（电量 / 定位 / 信号 / 机型）内置落地（dumpsys battery 引擎 / Fake GPS 官方通道 / svc 连接性开关 / 设备名 + 档案库）、首启新手引导（权限一站式申请）；插件中心收缩至七大插件（设备伪装仓归档）。
+> 当前版本 **v0.4.0**：七个内置工具落地真实功能页（应用管理 / Shizuku 面板 / 任务蓝图 / 自动化 / 灵动岛 / 壁纸 / 二维码）；插件 APK 安装一条龙收口（安装成功即同步版本账本）+ 插件中心一键检查更新 + APK 本体卸载引导；Android 15/16 适配矩阵落地（16KB / RECEIVER 加固，见 [docs/ANDROID_COMPAT.md](docs/ANDROID_COMPAT.md)）。
 
 ## 主界面框架
 
@@ -63,7 +63,7 @@
 | `:core:plugin` | 插件框架：中心索引 / 安装器 / 插件补丁通道 |
 | `:core:shell` | Shizuku 执行层：adb shell 网关 + 指令编排（可单测）|
 | `:plugin-sdk:plugin-api` | 插件契约（宿主 ↔ 插件共享 ABI） |
-| `:feature:*` | dashboard / navhub / plugins / **disguise（伪装四件套）** / **onboarding（新手引导）** / settings |
+| `:feature:*` | dashboard / navhub / plugins / **disguise（伪装四件套）** / **onboarding（新手引导）** / settings / **appmgr（应用管理器）** / **shizukukit（Shizuku 工具箱）** / **qrcraft（二维码工坊）** / **blueprint（任务蓝图 + 自动化）** / **island（灵动岛悬浮球）** / **wallpaper（动态壁纸）** |
 
 详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
@@ -115,9 +115,10 @@ tag v* ──→ release.yml ──→ assembleRelease（入库 keystore 签名�
 - [x] **框架闭环完善**（v0.1.1）：真实 APK 安装网关 / 自更新流水线 / 插件数据安装与补丁应用闭环 / 全仓发布工作流
 - [x] **内置化重构**（v0.2.0）：七个轻量工具并入主壳 / 应用构建器登记插件中心 / 插件 Shizuku 独立授权契约
 - [x] **伪装四件套内置 + 新手引导**（v0.3.0）：电量（dumpsys）/ 定位（Fake GPS 官方通道）/ 信号（svc / cmd connectivity）/ 机型（设备名 + 档案库）四引擎落地；首启权限引导页
+- [x] **内置七工具真实功能页 + 插件链路收口 + Android 15/16 适配**（v0.4.0）：应用管理器（冻结/隐藏/提取 APK/强停）/ Shizuku 工具箱（appops·settings·dumpsys 面板）/ 任务蓝图（JSON 步骤链引擎 + 定时调度 + 开机恢复）/ 自动化编排 / 灵动岛悬浮球（overlay + 真实电量）/ 动态壁纸（液态玻璃光斑引擎）/ 二维码工坊（ZXing 生成 + Photo Picker 解析）；`installApkPlugin` 一条龙（安装成功即同步版本账本）+ 插件中心一键检查更新 + APK 本体卸载引导；Android 15/16 适配矩阵（16KB / RECEIVER 加固 / docs/ANDROID_COMPAT.md）
 - [ ] **Phase 1b 终端成型**：伪终端渲染内核 + Shizuku 首条指令（`abyss-plugin-terminal`）
 - [ ] **Phase 2 任务系统与插件内核**：任务蓝图调用链 + DexClassLoader 插件加载
-- [ ] **Phase 3 硬核功能接入**：沙箱双开（机型档案 Hook 层消费方）/ Python 引擎 / 悬浮球与灵动岛
+- [ ] **Phase 3 硬核功能接入**：沙箱双开（机型档案 Hook 层消费方）/ Python 引擎
 - [ ] **Phase 4 完善与结项**：Web 控制台 / 设备管理器 / 图标伪装
 
 ## 许可与免责声明

@@ -11,6 +11,8 @@
 ├───────────────┬───────────────┬───────────────────────────────┤
 │ :feature:dashboard │ :feature:navhub │ :feature:plugins         │
 │ :feature:disguise │ :feature:onboarding │ :feature:settings    │
+│ :feature:appmgr │ :feature:shizukukit │ :feature:qrcraft         │
+│ :feature:blueprint │ :feature:island │ :feature:wallpaper        │
 │      （纯 Compose 界面层，依赖注入经由参数，不感知 DI 容器）      │
 ├───────────────┴───────────────┴───────────────────────────────┤
 │ :core:designsystem（M3 主题 + 液态玻璃组件）                    │
@@ -45,6 +47,21 @@
 诚实边界：无 Root 不改 ro.product.*（系统属性只读）；信号格数伪造属
 SystemUI 渲染层 —— 均明示不装能。Shizuku 状态经 `ShizukuMonitor`
 扇出，Compose 侧唯一桥接点 `rememberShizukuStatus`（app 模块）。
+
+## 内置七工具（v0.4 全部真实功能页，占位页时代结束）
+
+| 模块 | 能力 | 通道 |
+| --- | --- | --- |
+| :feature:appmgr | 列表/搜索/排序 / 冻结（pm disable-user）/ 隐藏（pm hide）/ 强停（am force-stop）/ 提取 APK 分享 | PackageManager + Shizuku 双通道 |
+| :feature:shizukukit | appops 查改 / settings 读写 / dumpsys 白名单摘要 / 指令历史（50 条） | Shizuku（指令编排纯 JVM 可单测） |
+| :feature:qrcraft | ZXing 生成（纠错/色板/尺寸）+ 相册解析（Photo Picker）+ 历史 | 纯算法 + MediaStore 双路径保存 |
+| :feature:blueprint | JSON 步骤链（shell/toast/delay）+ 引擎（成功判定/超时/continueOnFailure/{prev_output}）+ 定时调度（exact alarm + 开机重排） | 引擎纯 JVM；SHELL 步骤走 ShellGateway |
+| :feature:island | overlay 悬浮球（拖拽吸边）+ 快捷面板（真实电量/时间）+ 前台服务保活 | WindowManager + ComposeView 三 Owner 桥接 |
+| :feature:wallpaper | 液态玻璃光斑引擎（四主题/速度/视差）+ 预览 + 一键设为 | WallpaperService（30fps，不可见暂停） |
+| 任务蓝图×自动化 | 同一 BlueprintScreen 双入口：task-blueprint → 蓝图库；automation → 调度 Tab | — |
+
+Android 15/16 适配立场（16KB / edge-to-edge / RECEIVER 加固 / FGS 等
+逐项矩阵）见 [ANDROID_COMPAT.md](ANDROID_COMPAT.md)。
 
 ## 导航与返回栈
 
@@ -99,12 +116,17 @@ App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
 - Shizuku 授权声明：独立 APK 插件可在 manifest 声明 `shizuku.ownAuth`（per-app 授权，不继承宿主）—— 插件详情页展示独立授权引导
 - 宿主契约：`PluginContract.HOST_API_VERSION`（只增不减），
   `filesDir/plugins/<id>/plugin.json` 为安装态单一事实源
-- 安装流水线（v0.1.1 起全链路真实）：
-  - APK 形态：下载 → SHA-256 校验 → `PackageInstallerApkGateway`
-    （同签名门禁 + 未知来源确认页转发 + 结果广播等待 + 超时 abandon）
+- 安装流水线（v0.1.1 起全链路真实；v0.4 收口一条龙）：
+  - APK 形态：`installApkPlugin` 一条龙（下载 → SHA-256 校验 →
+    `PackageInstallerApkGateway`（同签名门禁 + 未知来源确认页转发 +
+    结果广播等待 + 超时 abandon）→ **版本账本同步**：安装成功后
+    manifest 登记对齐索引版本，补丁通道的 from 比对不再算错）
   - 数据形态：`installDataPlugin`（id 形态 / SemVer / 宿主下限校验 →
     manifest 原子落盘）→ 版本账本（installedVersion）→ 补丁应用闭环
-    （updatablePatch 选链 → applyDataPatch）→ 卸载清目录
+    （updatablePatch 选链 → applyDataPatch）→ 卸载清目录（APK 形态
+    附带系统卸载引导：缓存 APK 解析包名 → 直达系统卸载页）
+  - 插件中心「一键检查更新」：并发拉取全部已装插件的补丁通道，
+    可更新徽章 + 摘要（v0.4）
 
 详见 [PLUGIN_SDK.md](PLUGIN_SDK.md)。
 

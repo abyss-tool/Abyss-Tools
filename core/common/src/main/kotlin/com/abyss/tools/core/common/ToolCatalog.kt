@@ -3,13 +3,14 @@ package com.abyss.tools.core.common
 /**
  * 工具目录（导航页的数据底座）。
  *
- * 承载形态三分法（v0.3 起定型）：
+ * 承载形态三分法（v0.3 起定型；v0.4 全部内置工具落地真实功能页）：
  *  - [ToolStatus.READY]      壳内已可用（当前为插件中心入口）
  *  - [ToolStatus.BUILT_IN]   主壳内置功能 —— 轻量能力直接写进主仓库，
  *                            随版本更新获得，无需安装插件（v0.2 起：
  *                            应用管理 / Shizuku 面板 / 自动化 / 灵动岛 /
  *                            壁纸 / 二维码 / 任务蓝图；v0.3 起：伪装四件套
- *                            —— 机型 / 电量 / 信号 / 定位，Shizuku 免 Root）
+ *                            —— 机型 / 电量 / 信号 / 定位，Shizuku 免 Root；
+ *                            v0.4 起：上列内置全部真实功能页可用）
  *  - [ToolStatus.PLUGIN]     由大插件承载（重型能力：独立仓库 / 独立 CI /
  *                            独立补丁通道，点击跳到对应插件详情页安装）
  *  - [ToolStatus.FRAMEWORK]  框架占位（路线图内排期，当前不可用）
@@ -65,6 +66,15 @@ object ToolCatalog {
     const val ID_MODEL_DISGUISE = "model-disguise"
     const val ID_SIGNAL_DISGUISE = "signal-disguise"
     const val ID_LOCATION_DISGUISE = "location-disguise"
+
+    /** v0.4.0 内置功能页的稳定 id（占位页 → 真实功能页）。 */
+    const val ID_APP_MANAGER = "app-manager"
+    const val ID_SHIZUKU_KIT = "shizuku-kit"
+    const val ID_QR_CRAFT = "qr-craft"
+    const val ID_TASK_BLUEPRINT = "task-blueprint"
+    const val ID_AUTOMATION = "automation"
+    const val ID_DYNAMIC_ISLAND = "dynamic-island"
+    const val ID_LIVE_WALLPAPER = "live-wallpaper"
 
     val categories: List<ToolCategory> = ToolCategory.entries.toList()
 
