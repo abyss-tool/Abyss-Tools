@@ -360,7 +360,7 @@ class PluginFrameworkTest {
         val installer = PluginInstaller(root, fakeTransport(), okGateway)
 
         // 通道声明的摘要与下载内容不符 → 校验失败
-        val result = installer.installApkPlugin(apkEntry(sha256 = "deadbeef")) { _, _ -> }
+        val result = installer.installApkPlugin(entry = apkEntry(sha256 = "deadbeef"))
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull()!!.message!!.contains("SHA-256"))
         // 不产生任何登记
@@ -376,7 +376,7 @@ class PluginFrameworkTest {
         }
         val installer = PluginInstaller(root, fakeTransport(), rejectGateway)
 
-        val result = installer.installApkPlugin(apkEntry()) { _, _ -> }
+        val result = installer.installApkPlugin(entry = apkEntry())
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull()!!.message!!.contains("签名不一致"))
         assertTrue(!installer.isInstalled("abyss-plugin-app-builder"))
