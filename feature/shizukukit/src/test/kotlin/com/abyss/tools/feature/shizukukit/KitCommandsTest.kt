@@ -121,8 +121,9 @@ class KitCommandsTest {
             "settings put global device_name 'Pixel 9 Pro'",
             SettingsCommands.putSetting("global", "device_name", "Pixel 9 Pro"),
         )
+        // 值一律引用（数字亦同）：sh 会剖去引号，语义等价且杜绝注入面
         assertEquals(
-            "settings put system screen_off_timeout 30000",
+            "settings put system screen_off_timeout '30000'",
             SettingsCommands.putSetting("system", "screen_off_timeout", "30000"),
         )
     }
@@ -131,7 +132,9 @@ class KitCommandsTest {
     fun `settings 写入值含单引号安全转义`() {
         val hostile = "X'; reboot; '"
         val cmd = SettingsCommands.putSetting("global", "device_name", hostile)
-        assertEquals("settings put global device_name 'X'\\''; reboot; '\\''", cmd)
+        // 标准 POSIX sh 引用（shlex.quote 同款）：'X' + \' + '; reboot; ' + \' + ''
+        // —— 分号全部落在引号内，注入面归零；末尾 '\''' = 替换产物 '\'' + 闭合 '
+        assertEquals("settings put global device_name 'X'\\''; reboot; '\\'''", cmd)
     }
 
     @Test
