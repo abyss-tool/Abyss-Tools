@@ -229,7 +229,8 @@ class BlueprintEngineTest {
         assertTrue(run.success)
         // 第 2 步的占位符取的是「最近一次 SHELL」（第 0 步）的 stdout，
         // 且中间穿过了 DELAY（第 1 步）不断链
-        assertEquals("echo 1", gateway.commands[2])
+        // commands 只记录 SHELL 执行（0/1 两项 —— DELAY/TOAST 不触碰通道）
+        assertEquals("echo 1", gateway.commands[1])
         // 第 3 步（TOAST）取最近一次 SHELL（第 2 步）的 stdout "echoed"
         assertEquals("当前值 echoed", run.results[3].message)
     }
