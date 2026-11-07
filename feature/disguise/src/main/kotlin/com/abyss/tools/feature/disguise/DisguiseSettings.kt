@@ -7,6 +7,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.abyss.tools.core.shell.BatteryStatus
 
+/** 定位伪装移动模式（存 prefs 用名字，UI 展示用 [label]）。 */
+enum class MovementMode(val label: String, val speedMps: Double) {
+    STATIC("静止", 0.0),
+    JITTER("微漂移", 0.0),
+    WALK("步行", 1.4),
+    RIDE("骑行", 5.0),
+    DRIVE("驾车", 15.0),
+}
+
+/** 坐标收藏夹条目（prefs 私有格式 name|lat|lng，非法行解析时丢弃）。 */
+data class SavedSpot(val name: String, val lat: Double, val lng: Double)
+
 /**
  * 伪装四件套的本地状态（SharedPreferences + Compose 直读直写，
  * 手动 DI —— 语义与 SettingsRepository 完全同构）。
@@ -52,6 +64,16 @@ class DisguiseSettings(context: Context) {
             prefs.edit().putBoolean(KEY_BATTERY_UNPLUG, value).apply()
         }
 
+    private var _batteryGuard by mutableStateOf(prefs.getBoolean(KEY_BATTERY_GUARD, false))
+
+    /** 持续保持：应用后启动守护服务周期重申伪装值，防定制 ROM 回写真实电量。 */
+    var batteryGuard: Boolean
+        get() = _batteryGuard
+        set(value) {
+            _batteryGuard = value
+            prefs.edit().putBoolean(KEY_BATTERY_GUARD, value).apply()
+        }
+
     // ── 机型伪装 ──────────────────────────────────────────────────────
 
     private var _modelProfileId by mutableStateOf(prefs.getString(KEY_MODEL_PROFILE, null))
@@ -62,6 +84,19 @@ class DisguiseSettings(context: Context) {
         set(value) {
             _modelProfileId = value
             prefs.edit().putString(KEY_MODEL_PROFILE, value).apply()
+        }
+
+    private var _modelSpoofLevel by mutableStateOf(
+        runCatching { SpoofLevel.valueOf(prefs.getString(KEY_MODEL_LEVEL, null) ?: "") }
+            .getOrDefault(SpoofLevel.STANDARD),
+    )
+
+    /** 机型伪装程度（L1 设备名 / L2 标准档案 / L3 深度全字段 + 蓝牙名）。 */
+    var modelSpoofLevel: SpoofLevel
+        get() = _modelSpoofLevel
+        set(value) {
+            _modelSpoofLevel = value
+            prefs.edit().putString(KEY_MODEL_LEVEL, value.name).apply()
         }
 
     private var _deviceName by mutableStateOf(prefs.getString(KEY_DEVICE_NAME, "") ?: "")
@@ -118,7 +153,7 @@ class DisguiseSettings(context: Context) {
 
     private var _jitter by mutableStateOf(prefs.getBoolean(KEY_JITTER, true))
 
-    /** 微漂移开关（±3 米随机游走，对抗「静止检测」类反作弊）。 */
+    /** 微漂移开关（兼容旧版：true 时映射 JITTER 模式，新逻辑由 movementMode 接管）。 */
     var jitter: Boolean
         get() = _jitter
         set(value) {
@@ -126,11 +161,48 @@ class DisguiseSettings(context: Context) {
             prefs.edit().putBoolean(KEY_JITTER, value).apply()
         }
 
+    private var _movementMode by mutableStateOf(
+        runCatching { MovementMode.valueOf(prefs.getString(KEY_MOVEMENT_MODE, null) ?: "") }
+            .getOrDefault(MovementMode.JITTER),
+    )
+
+    /** 移动模式：静止 / 微漂移 / 步行 / 骑行 / 驾车（速度自然化 + 坐标推进）。 */
+    var movementMode: MovementMode
+        get() = _movementMode
+        set(value) {
+            _movementMode = value
+            prefs.edit().putString(KEY_MOVEMENT_MODE, value.name).apply()
+        }
+
+    private var _driftMeters by mutableIntStateOf(prefs.getInt(KEY_DRIFT_METERS, 3))
+
+    /** 微漂移幅度（米）：小 1 / 中 3 / 大 10。 */
+    var driftMeters: Int
+        get() = _driftMeters
+        set(value) {
+            _driftMeters = value
+            prefs.edit().putInt(KEY_DRIFT_METERS, value).apply()
+        }
+
+    private var _savedSpots by mutableStateOf(parseSpots(prefs.getString(KEY_SAVED_SPOTS, null)))
+
+    /** 坐标收藏夹（name|lat|lng 多行格式，损坏行解析时丢弃）。 */
+    var savedSpots: List<SavedSpot>
+        get() = _savedSpots
+        set(value) {
+            _savedSpots = value
+            prefs.edit()
+                .putString(KEY_SAVED_SPOTS, value.joinToString("\n") { encodeSpot(it) })
+                .apply()
+        }
+
     private companion object {
         const val KEY_BATTERY_LEVEL = "battery_level"
         const val KEY_BATTERY_STATUS = "battery_status"
         const val KEY_BATTERY_UNPLUG = "battery_unplug"
+        const val KEY_BATTERY_GUARD = "battery_guard"
         const val KEY_MODEL_PROFILE = "model_profile"
+        const val KEY_MODEL_LEVEL = "model_spoof_level"
         const val KEY_DEVICE_NAME = "device_name"
         const val KEY_CUSTOM_MODEL = "custom_model"
         const val KEY_CUSTOM_BRAND = "custom_brand"
@@ -139,5 +211,26 @@ class DisguiseSettings(context: Context) {
         const val KEY_LNG = "last_lng"
         const val KEY_LOCATION_LABEL = "location_label"
         const val KEY_JITTER = "location_jitter"
+        const val KEY_MOVEMENT_MODE = "movement_mode"
+        const val KEY_DRIFT_METERS = "drift_meters"
+        const val KEY_SAVED_SPOTS = "saved_spots"
+
+        /** name 里的分隔符/换行剥掉（单行安全，解析零歧义）。 */
+        fun encodeSpot(spot: SavedSpot): String =
+            spot.name.replace("|", "/").replace("\n", " ").trim() +
+                "|" + spot.lat.toString() + "|" + spot.lng.toString()
+
+        /** fail-closed：字段数不对 / 数值非法的行直接丢弃，绝不猜。 */
+        fun parseSpots(raw: String?): List<SavedSpot> {
+            if (raw.isNullOrBlank()) return emptyList()
+            return raw.lineSequence().mapNotNull { line ->
+                val parts = line.split('|')
+                if (parts.size != 3) return@mapNotNull null
+                val lat = parts[1].toDoubleOrNull() ?: return@mapNotNull null
+                val lng = parts[2].toDoubleOrNull() ?: return@mapNotNull null
+                if (lat !in -90.0..90.0 || lng !in -180.0..180.0) return@mapNotNull null
+                SavedSpot(name = parts[0].ifBlank { "未命名" }, lat = lat, lng = lng)
+            }.toList()
+        }
     }
 }

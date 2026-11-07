@@ -176,6 +176,7 @@ internal fun SelectableChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         color = if (selected) {
@@ -189,7 +190,7 @@ internal fun SelectableChip(
             MaterialTheme.colorScheme.onSurfaceVariant
         },
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
     ) {

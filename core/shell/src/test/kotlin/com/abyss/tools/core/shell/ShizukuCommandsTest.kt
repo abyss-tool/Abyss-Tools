@@ -119,6 +119,35 @@ class ShizukuCommandsTest {
         assertTrue(cmd.startsWith("settings put global device_name '"))
     }
 
+    @Test
+    fun `蓝牙名写入命令带安全引用`() {
+        assertEquals(
+            "settings put secure bluetooth_name 'Meng Phone'",
+            DeviceIdentityCommands.setBluetoothName("Meng Phone"),
+        )
+        // 敌意输入：转义后注入面封死
+        val hostile = "X'; settings put global airplane_mode_on 1; '"
+        val cmd = DeviceIdentityCommands.setBluetoothName(hostile)
+        assertFalse(cmd.contains("; 'X"))
+        assertTrue(cmd.startsWith("settings put secure bluetooth_name '"))
+    }
+
+    @Test
+    fun `机型伪装恢复命令删除覆写项`() {
+        assertEquals(
+            "settings delete global device_name",
+            DeviceIdentityCommands.resetDeviceName(),
+        )
+        assertEquals(
+            "settings delete secure bluetooth_name",
+            DeviceIdentityCommands.resetBluetoothName(),
+        )
+        assertEquals(
+            "settings get secure bluetooth_name",
+            DeviceIdentityCommands.readBluetoothName(),
+        )
+    }
+
     // ── 定位伪装 ──────────────────────────────────────────────────────
 
     @Test

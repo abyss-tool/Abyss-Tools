@@ -125,7 +125,7 @@ object SignalCommands {
     }
 }
 
-// ── 机型伪装（系统设备名 + Build 档案）────────────────────────────────────
+// ── 机型伪装（系统设备名 + 蓝牙名 + Build 档案）──────────────────────────
 
 object DeviceIdentityCommands {
 
@@ -137,6 +137,22 @@ object DeviceIdentityCommands {
         "settings put global device_name " + ShizukuCommands.shellQuote(name)
 
     fun readDeviceName(): String = "settings get global device_name"
+
+    /** 恢复系统默认设备名（删除用户覆写项，系统回退出厂名）。 */
+    fun resetDeviceName(): String = "settings delete global device_name"
+
+    /**
+     * 蓝牙显示名（Settings.Secure.BLUETOOTH_NAME）：多数 ROM 的 BT 协议栈
+     * 启动时读取该项作为适配器默认名；部分 ROM 需在系统设置里同步一次。
+     * 属 L3 深度伪装动作 —— 诚实边界：非全部 ROM 即刻生效。
+     */
+    fun setBluetoothName(name: String): String =
+        "settings put secure bluetooth_name " + ShizukuCommands.shellQuote(name)
+
+    fun readBluetoothName(): String = "settings get secure bluetooth_name"
+
+    /** 恢复系统默认蓝牙名（删除覆写项）。 */
+    fun resetBluetoothName(): String = "settings delete secure bluetooth_name"
 }
 
 // ── 定位伪装（mock_location appop 授权本 App 为模拟位置源）────────────────
