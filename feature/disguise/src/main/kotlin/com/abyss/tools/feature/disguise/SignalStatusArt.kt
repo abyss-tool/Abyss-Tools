@@ -109,9 +109,10 @@ data class SignalSpoofSpec(
  */
 object SignalStatusArt {
 
-    // 与系统状态栏图标一致的半透明实色（非纯白/纯黑，视觉更接近原生）
-    private const val LIGHT_ICON = 0xE6FFFFFF
-    private const val DARK_ICON = 0xE61B1B21
+    // 与系统状态栏图标一致的半透明实色（非纯白/纯黑，视觉更接近原生）。
+    // Kotlin 十六进制字面量超 Int 范围时推断 Long（无 Java 式回绕）→ toInt() 收敛。
+    private val LIGHT_ICON: Int = 0xE6FFFFFF.toInt()
+    private val DARK_ICON: Int = 0xE61B1B21.toInt()
     private const val EMPTY_SLOT_ALPHA = 82 // 32%
 
     fun iconColor(spec: SignalSpoofSpec, nightMode: Boolean): Int =

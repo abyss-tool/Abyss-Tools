@@ -192,12 +192,12 @@ class ShizukuCommandsTest {
     }
 
     @Test
-    fun `敌意 token 就地拒绝（元字符 / 空格 / 穿越全拦截）`() {
+    fun `敌意 token 就地拒绝（元字符、空格、穿越全拦截）`() {
         val hostile = listOf(
             "com.abyss.tools; dumpsys battery set level 0",
             "com.abyss.tools && svc wifi disable",
             "pkg\$(id)",
-            "pkg\`id\`",
+            "pkg`id`",
             "../..",
             "a b",
             "",

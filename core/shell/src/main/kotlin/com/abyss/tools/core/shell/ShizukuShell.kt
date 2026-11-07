@@ -224,7 +224,7 @@ class ShizukuShellGateway(
                     }
                 }.getOrDefault(CappedText("", false))
             }
-            runCatching { pfd.close() }
+            runCatching { pfd?.close() }
             latch.countDown()
         }
 

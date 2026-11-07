@@ -305,7 +305,9 @@ class PluginFrameworkTest {
 
     private fun apkEntry(
         version: String = "0.2.0",
-        sha256: String? = null,
+        // fakeTransport 下载内容固定为单字节 0x01 —— 默认摘要与之匹配
+        // （v0.6.0 起 Digests fail-closed：摘要缺失即拒，夹具必须带真值）
+        sha256: String? = "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
     ) = PluginIndexEntry(
         id = "abyss-plugin-app-builder", name = "应用构建器",
         repo = "abyss-tool/abyss-plugin-app-builder", category = "dev",
@@ -466,20 +468,23 @@ class ChannelPolicyTest {
         )
         assertTrue(
             ChannelPolicy.validateEntry(
-                apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
-                apkSha256 = null,
+                entry(
+                    apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
+                    apkSha256 = null,
+                ),
             ) != null,
         )
         assertTrue(
             ChannelPolicy.validateEntry(
-                apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
-                apkSha256 = "deadbeef",
+                entry(
+                    apkUrl = "https://github.com/abyss-tool/abyss-plugin-terminal/releases/download/v0.1.0/x.apk",
+                    apkSha256 = "deadbeef",
+                ),
             ) != null,
         )
         assertTrue(
             ChannelPolicy.validateEntry(
-                apkUrl = "http://github.com/x.apk",
-                apkSha256 = sha,
+                entry(apkUrl = "http://github.com/x.apk", apkSha256 = sha),
             ) != null,
         )
     }

@@ -402,7 +402,7 @@ fun SignalSpoofScreen(
                                             }
                                             .onFailure { e ->
                                                 feedbackError = true
-                                                feedback = "授权失败：${e.failureSummary()}"
+                                                feedback = "授权失败：${e.message ?: e.javaClass.simpleName}"
                                                 feedbackDetail = null
                                             }
                                         overlayBusy = false
@@ -635,7 +635,7 @@ private fun PreviewStrip(spec: SignalSpoofSpec, dark: Boolean, paint: NativePain
     ) {
         // 左侧时钟示意（原生 Paint 与图标同一套绘制逻辑）
         val clockPaint = paint.apply {
-            color = if (dark) 0xE6FFFFFF else 0xE61B1B21
+            color = if (dark) 0xE6FFFFFF.toInt() else 0xE61B1B21.toInt()
             textSize = size.height * 0.44f
             typeface = android.graphics.Typeface.create(
                 android.graphics.Typeface.SANS_SERIF,
