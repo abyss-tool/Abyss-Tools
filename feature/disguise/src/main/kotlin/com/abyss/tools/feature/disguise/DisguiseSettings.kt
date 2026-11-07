@@ -196,6 +196,33 @@ class DisguiseSettings(context: Context) {
                 .apply()
         }
 
+    // ── 信号显示伪装（状态栏覆盖层规格）──────────────────────────────
+
+    /** 当前覆盖层规格（聚合读写：单一入口，坏值在 fromPrefs 内回默认）。 */
+    var signalSpec: SignalSpoofSpec
+        get() = SignalSpoofSpec.fromPrefs(
+            networkTypeName = prefs.getString(KEY_SIGNAL_NETWORK, null),
+            bars = prefs.getInt(KEY_SIGNAL_BARS, SignalSpoofSpec.TOTAL_BARS),
+            wifi = prefs.getBoolean(KEY_SIGNAL_WIFI, false),
+            wifiBars = prefs.getInt(KEY_SIGNAL_WIFI_BARS, SignalSpoofSpec.TOTAL_ARCS),
+            rightMarginDp = prefs.getInt(KEY_SIGNAL_RIGHT_MARGIN, 68),
+            coverEnabled = prefs.getBoolean(KEY_SIGNAL_COVER, false),
+            coverWidthDp = prefs.getInt(KEY_SIGNAL_COVER_WIDTH, 96),
+            iconThemeName = prefs.getString(KEY_SIGNAL_THEME, null),
+        )
+        set(value) {
+            prefs.edit()
+                .putString(KEY_SIGNAL_NETWORK, value.networkType.name)
+                .putInt(KEY_SIGNAL_BARS, value.bars.coerceIn(1, SignalSpoofSpec.TOTAL_BARS))
+                .putBoolean(KEY_SIGNAL_WIFI, value.wifi)
+                .putInt(KEY_SIGNAL_WIFI_BARS, value.wifiBars.coerceIn(1, SignalSpoofSpec.TOTAL_ARCS))
+                .putInt(KEY_SIGNAL_RIGHT_MARGIN, value.rightMarginDp)
+                .putBoolean(KEY_SIGNAL_COVER, value.coverEnabled)
+                .putInt(KEY_SIGNAL_COVER_WIDTH, value.coverWidthDp)
+                .putString(KEY_SIGNAL_THEME, value.iconTheme.name)
+                .apply()
+        }
+
     private companion object {
         const val KEY_BATTERY_LEVEL = "battery_level"
         const val KEY_BATTERY_STATUS = "battery_status"
@@ -214,6 +241,14 @@ class DisguiseSettings(context: Context) {
         const val KEY_MOVEMENT_MODE = "movement_mode"
         const val KEY_DRIFT_METERS = "drift_meters"
         const val KEY_SAVED_SPOTS = "saved_spots"
+        const val KEY_SIGNAL_NETWORK = "signal_network_type"
+        const val KEY_SIGNAL_BARS = "signal_bars"
+        const val KEY_SIGNAL_WIFI = "signal_wifi"
+        const val KEY_SIGNAL_WIFI_BARS = "signal_wifi_bars"
+        const val KEY_SIGNAL_RIGHT_MARGIN = "signal_right_margin_dp"
+        const val KEY_SIGNAL_COVER = "signal_cover_enabled"
+        const val KEY_SIGNAL_COVER_WIDTH = "signal_cover_width_dp"
+        const val KEY_SIGNAL_THEME = "signal_icon_theme"
 
         /** name 里的分隔符/换行剥掉（单行安全，解析零歧义）。 */
         fun encodeSpot(spot: SavedSpot): String =

@@ -211,7 +211,7 @@ object ToolCatalog {
         ToolDef(
             id = ID_SIGNAL_DISGUISE,
             title = "信号伪装",
-            summary = "飞行模式 / 移动数据 / Wi-Fi 真实开关（svc / cmd connectivity），含旧系统回退。",
+            summary = "状态栏显示伪装（5G-A/5G/4G + 信号格 + Wi-Fi 覆盖层，无卡可用）+ 飞行模式/数据/Wi-Fi 真实开关。",
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "signal",

@@ -16,6 +16,22 @@ object ShizukuCommands {
 
     /** sh 单引号安全转义：'…' 内的 ' 替换为 '\'' （唯一可靠的 sh 引用形态）。 */
     fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+
+    /**
+     * 免引用参数的安全边界（命令注入收敛的单一入口）：只放行
+     * `[A-Za-z0-9._:-]+` —— 包名 / appop 名（`android:mock_location` 冒号
+     * 前缀）/ 设置项名天然落在该集合内（冒号在 shell 参数位置是普通字符）。
+     * 含空格、引号、元字符、`../` 的输入就地拒绝（fail-closed），
+     * 绝不带引号硬拼。所有 `*Commands` 的裸参数一律经此门禁。
+     */
+    private val SAFE_TOKEN = Regex("^[A-Za-z0-9._:-]+$")
+
+    fun requireSafeToken(value: String, what: String = "参数"): String {
+        require(SAFE_TOKEN.matches(value)) {
+            "非法 $what（只允许字母/数字/.、:、_、-，拒绝元字符与空格）：$value"
+        }
+        return value
+    }
 }
 
 // ── 电量伪装（dumpsys battery：系统级，全 App 读到伪装值）─────────────────
@@ -159,18 +175,25 @@ object DeviceIdentityCommands {
 
 object MockLocationCommands {
 
+    /** appop 名同样是安全 token（经门禁拒绝元字符注入）。 */
+    private fun op(name: String): String = ShizukuCommands.requireSafeToken(name, "appop 名")
+
     /**
      * Android 12+ appop 名带 android: 前缀；老版本不带 —— 先发新名，
      * 失败再发 [allowLegacy]。
      */
-    fun allow(pkg: String): String = "appops set $pkg android:mock_location allow"
+    fun allow(pkg: String): String =
+        "appops set ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op("android:mock_location")} allow"
 
-    fun allowLegacy(pkg: String): String = "appops set $pkg mock_location allow"
+    fun allowLegacy(pkg: String): String =
+        "appops set ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op("mock_location")} allow"
 
     /** 撤销模拟位置资格（隐私回收：不用伪装时归还系统默认）。 */
-    fun reset(pkg: String): String = "appops set $pkg android:mock_location default"
+    fun reset(pkg: String): String =
+        "appops set ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op("android:mock_location")} default"
 
-    fun query(pkg: String): String = "appops get $pkg android:mock_location"
+    fun query(pkg: String): String =
+        "appops get ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op("android:mock_location")}"
 
     /**
      * appops get 输出解析：
@@ -186,6 +209,46 @@ object MockLocationCommands {
             text.contains("default", ignoreCase = true) ||
                 text.contains("deny", ignoreCase = true) ||
                 text.contains("reject", ignoreCase = true) -> false
+
+            else -> null
+        }
+    }
+}
+
+// ── 信号显示伪装（SYSTEM_ALERT_WINDOW appop：Shizuku 免设置页授予）────────
+
+/**
+ * 状态栏覆盖层的授权通道：`appops set … SYSTEM_ALERT_WINDOW allow` 与
+ * 「设置 → 应用 → 在其他应用上层显示」等价（adb shell 官方通道），
+ * 但免跳设置页 —— 授权后 [android.provider.Settings.canDrawOverlays]
+ * 即刻为 true，覆盖层服务直接可用。
+ */
+object OverlayCommands {
+
+    private fun op(): String = ShizukuCommands.requireSafeToken("SYSTEM_ALERT_WINDOW", "appop 名")
+
+    fun grant(pkg: String): String =
+        "appops set ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op()} allow"
+
+    /** 归还默认（撤权：隐私回收 / 排障时用）。 */
+    fun revoke(pkg: String): String =
+        "appops set ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op()} default"
+
+    fun query(pkg: String): String =
+        "appops get ${ShizukuCommands.requireSafeToken(pkg, "包名")} ${op()}"
+
+    /**
+     * appops get 输出解析（与 MockLocationCommands 同形态）：
+     * allow → true；default / deny / ignore → false；无法判定 → null。
+     */
+    fun parseGranted(output: String): Boolean? {
+        val text = output.trim()
+        if (text.isEmpty() || text.contains("No such", ignoreCase = true)) return null
+        return when {
+            text.contains("allow", ignoreCase = true) -> true
+            text.contains("default", ignoreCase = true) ||
+                text.contains("deny", ignoreCase = true) ||
+                text.contains("ignore", ignoreCase = true) -> false
 
             else -> null
         }

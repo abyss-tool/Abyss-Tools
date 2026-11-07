@@ -240,6 +240,7 @@ fun AbyssRoot(
                             ToolCatalog.ID_SIGNAL_DISGUISE -> SignalSpoofScreen(
                                 shizukuStatus = shizukuStatus,
                                 gateway = registry.shellGateway,
+                                settings = registry.disguiseSettings,
                                 onRequestShizukuPermission = onRequestShizukuPermission,
                                 onOpenShizuku = onOpenShizuku,
                                 onBack = { backStack.pop() },

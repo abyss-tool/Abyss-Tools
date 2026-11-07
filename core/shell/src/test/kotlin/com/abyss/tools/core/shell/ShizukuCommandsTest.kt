@@ -175,4 +175,87 @@ class ShizukuCommandsTest {
         assertNull(MockLocationCommands.parseAllowed("No such app ops: android:mock_location"))
         assertNull(MockLocationCommands.parseAllowed(""))
     }
+
+    // ── 安全 token 门禁（命令注入收敛的单一入口）─────────────────────
+
+    @Test
+    fun `合法 token 原样放行`() {
+        assertEquals(
+            "com.abyss.tools",
+            ShizukuCommands.requireSafeToken("com.abyss.tools", "包名"),
+        )
+        // appop 名的 android: 冒号前缀合法（shell 参数位置普通字符）
+        assertEquals(
+            "android:mock_location",
+            ShizukuCommands.requireSafeToken("android:mock_location", "appop 名"),
+        )
+    }
+
+    @Test
+    fun `敌意 token 就地拒绝（元字符 / 空格 / 穿越全拦截）`() {
+        val hostile = listOf(
+            "com.abyss.tools; dumpsys battery set level 0",
+            "com.abyss.tools && svc wifi disable",
+            "pkg\$(id)",
+            "pkg\`id\`",
+            "../..",
+            "a b",
+            "",
+        )
+        hostile.forEach { input ->
+            try {
+                ShizukuCommands.requireSafeToken(input, "包名")
+                throw AssertionError("敌意输入未被拒绝：$input")
+            } catch (expected: IllegalArgumentException) {
+                // fail-closed：就地拒绝
+            }
+        }
+    }
+
+    @Test
+    fun `敌意包名在命令构造层被拦截`() {
+        val hostile = "com.evil; svc data disable"
+        try {
+            MockLocationCommands.allow(hostile)
+            throw AssertionError("敌意包名未在命令构造层拦截")
+        } catch (expected: IllegalArgumentException) {
+        }
+    }
+
+    // ── 覆盖层授权（SYSTEM_ALERT_WINDOW appops）──────────────────────
+
+    @Test
+    fun `覆盖层授权命令形态`() {
+        assertEquals(
+            "appops set com.abyss.tools SYSTEM_ALERT_WINDOW allow",
+            OverlayCommands.grant("com.abyss.tools"),
+        )
+        assertEquals(
+            "appops set com.abyss.tools SYSTEM_ALERT_WINDOW default",
+            OverlayCommands.revoke("com.abyss.tools"),
+        )
+        assertEquals(
+            "appops get com.abyss.tools SYSTEM_ALERT_WINDOW",
+            OverlayCommands.query("com.abyss.tools"),
+        )
+    }
+
+    @Test
+    fun `覆盖层授权状态解析`() {
+        assertEquals(true, OverlayCommands.parseGranted("SYSTEM_ALERT_WINDOW: allow"))
+        assertEquals(false, OverlayCommands.parseGranted("SYSTEM_ALERT_WINDOW: default"))
+        assertEquals(false, OverlayCommands.parseGranted("SYSTEM_ALERT_WINDOW: deny"))
+        assertEquals(false, OverlayCommands.parseGranted("SYSTEM_ALERT_WINDOW: ignore"))
+        assertNull(OverlayCommands.parseGranted("No such app ops: SYSTEM_ALERT_WINDOW"))
+        assertNull(OverlayCommands.parseGranted(""))
+    }
+
+    @Test
+    fun `敌意包名在覆盖层命令构造层被拦截`() {
+        try {
+            OverlayCommands.grant("com.evil; appops set x y allow")
+            throw AssertionError("敌意包名未在覆盖层命令构造层拦截")
+        } catch (expected: IllegalArgumentException) {
+        }
+    }
 }
