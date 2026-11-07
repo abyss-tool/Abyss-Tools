@@ -59,7 +59,7 @@ class WallpaperSceneTest {
     // ── orbCenter ─────────────────────────────────────────────────────────
 
     @Test
-    fun `漂移值域 横向±0.06w 纵向±0.045h`() {
+    fun `漂移值域 横向±0_06w 纵向±0_045h`() {
         val theme = WallpaperThemes.VERDANT
         for (orb in buildScene(theme, w, h)) {
             var t = 0f
