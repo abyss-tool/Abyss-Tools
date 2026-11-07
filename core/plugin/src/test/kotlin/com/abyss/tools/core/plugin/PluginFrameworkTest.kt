@@ -21,7 +21,7 @@ class PluginFrameworkTest {
         javaClass.classLoader!!.getResourceAsStream(name)!!.readBytes().decodeToString()
 
     @Test
-    fun `解析 7 插件索引（v0.3 伪装内置化后）`() {
+    fun `解析 7 插件索引（伪装四件套内置化后）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
         assertEquals("abyss-plugin-index-v1", index.schema)
         assertEquals(7, index.plugins.size)

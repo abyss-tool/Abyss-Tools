@@ -33,7 +33,6 @@ import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuStatus
 import com.abyss.tools.core.shell.SignalCommands
-import com.abyss.tools.core.shell.failureSummary
 import kotlinx.coroutines.launch
 
 /**
@@ -66,7 +65,7 @@ fun SignalSpoofScreen(
         if (busy) return
         busy = true
         scope.launch {
-            fun read(setting: String): Boolean? {
+            suspend fun read(setting: String): Boolean? {
                 val result = gateway.exec(setting).getOrNull() ?: return null
                 return if (result.isSuccess) SignalCommands.parseSettingFlag(result.stdout) else null
             }
@@ -98,7 +97,7 @@ fun SignalSpoofScreen(
                 }
                 .onFailure { e ->
                     feedbackError = true
-                    feedback = "$label 切换失败：${e.failureSummary()}"
+                    feedback = "$label 切换失败：${e.message ?: e.javaClass.simpleName}"
                     feedbackDetail = null
                 }
             busy = false

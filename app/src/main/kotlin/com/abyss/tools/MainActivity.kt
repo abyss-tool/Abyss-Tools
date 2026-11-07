@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
                     OnboardingScreen(
                         shizukuStatus = shizukuStatus,
                         onRequestShizukuPermission = {
-                            ShizukuMonitor.requestPermission(this)
+                            ShizukuMonitor.requestPermission()
                         },
                         onOpenShizukuApp = {
                             ShizukuMonitor.shizukuAppIntent(this)?.let(::startActivity)
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
                     AbyssRoot(
                         shizukuStatus = shizukuStatus,
                         onRequestShizukuPermission = {
-                            ShizukuMonitor.requestPermission(this)
+                            ShizukuMonitor.requestPermission()
                         },
                         onOpenShizuku = {
                             ShizukuMonitor.shizukuAppIntent(this)?.let(::startActivity)

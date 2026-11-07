@@ -1,12 +1,15 @@
 package com.abyss.tools.core.shell
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import dev.rikka.shizuku.Shizuku
+import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import moe.shizuku.server.IRemoteProcess
+import moe.shizuku.server.IShizukuService
+import rikka.shizuku.Shizuku
+import java.io.FileInputStream
 
 /**
  * Shizuku 运行态（新手引导 / 仪表盘徽章 / 各伪装页共用一份数据源）。
@@ -35,6 +38,10 @@ sealed interface ShizukuStatus {
  * Shizuku 状态监控：统一挂 binder 生死 + 授权结果监听，向 UI 扇出快照。
  * 单例（手动 DI 语义同 ServiceRegistry 其余成员），监听生命周期由
  * Compose DisposableEffect 管理（见 app 模块 rememberShizukuStatus）。
+ *
+ * API 包名注意：Maven 坐标是 dev.rikka.shizuku:api，但类包名是
+ * rikka.shizuku（Shizuku 上游历史命名），AIDL 服务接口在
+ * moe.shizuku.server（dev.rikka.shizuku:aidl 传递依赖）。
  */
 object ShizukuMonitor {
 
@@ -75,9 +82,9 @@ object ShizukuMonitor {
         }
     }
 
-    /** 拉起 Shizuku 的授权弹窗（需要前台 Activity）。 */
-    fun requestPermission(activity: Activity) {
-        runCatching { Shizuku.requestPermission(activity, REQUEST_CODE) }
+    /** 拉起 Shizuku 的授权弹窗（Shizuku API 形态：requestPermission(requestCode)）。 */
+    fun requestPermission() {
+        runCatching { Shizuku.requestPermission(REQUEST_CODE) }
     }
 
     /** 跳去 Shizuku App（未启动 / 配置无线调试时用）。 */
@@ -112,6 +119,10 @@ object ShizukuMonitor {
 /**
  * 真实网关：命令在 Shizuku 的 adb shell（uid 2000）上下文执行。
  *
+ * 通道：Shizuku binder → IShizukuService.newProcess（Shizuku 官方 AIDL，
+ * 与 Shizuku 内置终端同源）→ IRemoteProcess 的 stdin/stdout/stderr
+ * ParcelFileDescriptor。
+ *
  * 输出量约束：伪装四件套的命令输出全部是小体量（dumpsys battery /
  * settings get / appops get），顺序读 stdout → stderr 不会撑爆管道
  * 缓冲；不适用于大输出命令（那是终端引擎插件的领域）。
@@ -133,18 +144,36 @@ class ShizukuShellGateway : ShellGateway {
                         "Shizuku 已运行但未授权深渊工具 —— 请在 Shizuku 的「授权管理」中允许",
                     )
                 }
-                val process = Shizuku.newProcess(arrayOf("sh", "-c", command), null, null)
+                val binder = Shizuku.getBinder()
+                    ?: throw ShizukuUnavailableException("Shizuku binder 不可用（服务刚断开，稍后重试）")
+                val service = IShizukuService.Stub.asInterface(binder)
+                val process: IRemoteProcess =
+                    service.newProcess(arrayOf("sh", "-c", command), null, null)
                 try {
-                    val stdout = process.inputStream.readBytes().decodeToString()
-                    val stderr = process.errorStream.readBytes().decodeToString()
+                    val stdout = readFd(process.inputStream)
+                    val stderr = readFd(process.errorStream)
                     ShellResult(
                         exitCode = process.waitFor(),
                         stdout = stdout,
                         stderr = stderr,
                     )
                 } finally {
-                    process.destroy()
+                    runCatching { process.destroy() }
                 }
             }
         }
+
+    /** ParcelFileDescriptor → 全量文本（流与描述符都确定性归还）。 */
+    private fun readFd(pfd: ParcelFileDescriptor?): String {
+        if (pfd == null) return ""
+        return runCatching {
+            val input = FileInputStream(pfd.fileDescriptor)
+            try {
+                input.readBytes().decodeToString()
+            } finally {
+                runCatching { input.close() }
+                runCatching { pfd.close() }
+            }
+        }.getOrDefault("")
+    }
 }
