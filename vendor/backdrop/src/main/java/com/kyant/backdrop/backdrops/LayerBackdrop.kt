@@ -41,6 +41,24 @@ class LayerBackdrop internal constructor(
 
     internal var layerCoordinates: LayoutCoordinates? by mutableStateOf(null)
 
+    /**
+     * 自嵌套防线（本仓补丁 v1.1，2026-11-08）：
+     *
+     * 该 backdrop 的采样源（LayerBackdropNode）正在把自身内容录制进
+     * graphicsLayer 期间为 true。此时若同一 backdrop 的消费方也在被录制
+     * 的子树里执行 drawBackdrop —— 即玻璃件位于自身采样源内部 —— 照常
+     * drawLayer(graphicsLayer) 会把**上一帧的录制**嵌进**本帧的录制**，
+     * 显示列表（RenderNode 树）深度每帧 +1 且无界增长；RenderThread 递归
+     * prepareTree 最终原生栈溢出：SIGSEGV (SEGV_ACCERR)，backtrace 呈
+     * prepareListAndChildren ↔ prepareTreeImpl 数百帧交替（参考 bugreport
+     * PLE110 2026-11-08 启动秒闪退三连崩，512 帧）。
+     *
+     * 守卫语义：自录制期间跳过采样绘制 —— 玻璃件视觉退为本层 tint /
+     * 霜面 / 内容（视觉上可接受），树深恒定有界。正常绘制阶段（live
+     * pass）不受影响，真实折射保留。
+     */
+    internal var isRecordingSelf = false
+
     private var inverseLayerScope: InverseLayerScope? = null
 
     override fun DrawScope.drawBackdrop(
@@ -50,6 +68,7 @@ class LayerBackdrop internal constructor(
     ) {
         val coordinates = coordinates ?: return
         val layerCoordinates = layerCoordinates ?: return
+        if (isRecordingSelf) return // 防自嵌套：见属性注释
         withTransform({
             if (layerBlock != null) {
                 with(obtainInverseLayerScope()) { inverseTransform(density, layerBlock) }
