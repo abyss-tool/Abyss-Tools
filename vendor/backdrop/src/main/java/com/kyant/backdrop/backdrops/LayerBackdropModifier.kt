@@ -53,7 +53,18 @@ private class LayerBackdropNode(
 
     override fun ContentDrawScope.draw() {
         drawContent()
-        recordLayer(this@LayerBackdropNode, backdrop.graphicsLayer) { backdrop.onDraw(this@draw) }
+        // 自嵌套防线（本仓补丁 v1.1）：录制自身内容期间置位 isRecordingSelf，
+        // 同一 backdrop 的消费方（drawBackdrop）在该录制里跳过采样绘制，
+        // 杜绝"录制内容嵌套上一帧录制"的每帧 +1 无界增长（RenderThread
+        // prepareTree 栈溢出 SIGSEGV）。save/restore 而非 true/false：
+        // 防御"多个采样源共用同一 backdrop"时内层 finally 提前复位。
+        val wasRecording = backdrop.isRecordingSelf
+        backdrop.isRecordingSelf = true
+        try {
+            recordLayer(this@LayerBackdropNode, backdrop.graphicsLayer) { backdrop.onDraw(this@draw) }
+        } finally {
+            backdrop.isRecordingSelf = wasRecording
+        }
     }
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {

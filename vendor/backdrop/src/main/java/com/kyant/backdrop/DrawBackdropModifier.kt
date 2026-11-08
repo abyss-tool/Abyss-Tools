@@ -314,6 +314,23 @@ private class DrawBackdropNode(
     }
 
     override fun ContentDrawScope.draw() {
+        // 自嵌套防线（本仓补丁 v1.1）：本玻璃件正位于它消费的 LayerBackdrop
+        // 的采样源录制内容之中（isRecordingSelf = true）→ 整体跳过本节点的
+        // 绘制（采样面 / tint / 受光 / 内容一并不进录制）。
+        //
+        // 为什么整体跳过而不是只跳过采样：若仅跳过采样（LayerBackdrop 守卫
+        // 兜底路径），tint + 文本仍会进入录制 —— 玻璃件下一帧采到的就是
+        // "自己的残影被模糊"，视觉出现重影。整体跳过后，录制里保留的是
+        // 玻璃件**背后**的真实内容，正是折射语义想要的东西；玻璃件自身
+        // 的完整视觉（采样 + 霜面 + 内容）由 live 绘制阶段正常渲染。
+        //
+        // 副作用（可接受）：位于采样源外部的消费方（如悬浮底栏）采到的
+        // 内容不再包含源内部玻璃件的视觉 —— 折射只反映玻璃件背后的底
+        // 层内容，与上游"backdrop = 玻璃背后的内容"语义一致。
+        // （backdrop 是可变属性，无法 smart cast —— 取局部快照判定）
+        val layerBackdrop = backdrop as? LayerBackdrop
+        if (layerBackdrop?.isRecordingSelf == true) return
+
         if (effectScope.update(this)) {
             updateEffects()
         }

@@ -49,6 +49,12 @@ import com.kyant.backdrop.shadow.InnerShadow
  * 根上（Modifier.abyssBackdropSource(backdrop)），玻璃件悬浮其上 ——
  * 内容从玻璃件下方滚过时即产生真实的液态折射。
  *
+ * 自嵌套防线（v0.7.2）：玻璃件位于自身采样源内部（如仪表盘更新卡 /
+ * 插件详情 Hero）是合法布局 —— vendored 库已内建 isRecordingSelf 重入
+ * 守卫，源录制期间同一 backdrop 的采样绘制被跳过，显示列表深度恒定
+ * 有界（修复 v0.7.1 及之前启动秒闪退：RenderThread prepareTree 栈溢出）。
+ * 业务层无需为"玻璃件在源内"做任何特殊处理。
+ *
  * 所有 drawBackdrop 的 lambda 一律记忆化（ModifierNodeElement 对 lambda
  * 按身份比较，重组期新建 lambda 会引发 draw 失效风暴 —— 参考仓
  * diag-20261011 教训）。
