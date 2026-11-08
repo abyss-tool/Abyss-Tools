@@ -55,6 +55,7 @@ import com.abyss.tools.feature.qrcraft.QrCraftScreen
 import com.abyss.tools.feature.settings.SettingsScreen
 import com.abyss.tools.feature.shizukukit.ShizukuKitScreen
 import com.abyss.tools.feature.wallpaper.WallpaperScreen
+import com.kyant.backdrop.backdrops.LayerBackdrop
 
 /**
  * 屏幕路由（自维护返回栈 —— 框架期不引 navigation-compose，跳转语义
