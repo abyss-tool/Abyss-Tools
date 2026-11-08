@@ -327,7 +327,9 @@ private class DrawBackdropNode(
         // 副作用（可接受）：位于采样源外部的消费方（如悬浮底栏）采到的
         // 内容不再包含源内部玻璃件的视觉 —— 折射只反映玻璃件背后的底
         // 层内容，与上游"backdrop = 玻璃背后的内容"语义一致。
-        if (backdrop is LayerBackdrop && backdrop.isRecordingSelf) return
+        // （backdrop 是可变属性，无法 smart cast —— 取局部快照判定）
+        val layerBackdrop = backdrop as? LayerBackdrop
+        if (layerBackdrop?.isRecordingSelf == true) return
 
         if (effectScope.update(this)) {
             updateEffects()
