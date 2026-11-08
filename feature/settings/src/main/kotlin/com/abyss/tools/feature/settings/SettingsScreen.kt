@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.CrashGuard
+import com.abyss.tools.core.common.RenderSafeMode
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
@@ -768,6 +769,10 @@ private fun DiagnosticsCard() {
     var reportCount by remember { mutableStateOf(CrashGuard.allReports(crashRoot).size) }
     var showFullReport by remember { mutableStateOf(false) }
 
+    // 渲染安全模式状态（v0.7.3 断路器）：触发原因 / 快速重启计数 / 手动重置
+    val safeModeFile = remember { java.io.File(context.filesDir, RenderSafeMode.FILE_NAME) }
+    var safeMode by remember { mutableStateOf(RenderSafeMode.readState(safeModeFile)) }
+
     AbyssGlassSurface(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
@@ -818,6 +823,42 @@ private fun DiagnosticsCard() {
                         },
                     ) {
                         Text("清除记录", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+
+            // ── 渲染安全模式（v0.7.3 断路器状态与重置）──────────────
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "渲染安全模式",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (safeMode.engaged) {
+                            "已启用：连续快速重启 ${safeMode.rapidRestarts} 次，玻璃已降级；" +
+                                "稳定运行后自动恢复"
+                        } else {
+                            "未启用 —— 渲染管线正常。检测到连续闪退时将自动降级玻璃保主壳可用"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (safeMode.engaged) {
+                    TextButton(
+                        onClick = {
+                            RenderSafeMode.reset(safeModeFile)
+                            safeMode = RenderSafeMode.readState(safeModeFile)
+                        },
+                    ) {
+                        Text("重置", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
