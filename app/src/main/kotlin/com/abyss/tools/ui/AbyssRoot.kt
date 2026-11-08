@@ -5,8 +5,13 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -183,9 +188,12 @@ fun AbyssRoot(
     onRequestShizukuPermission: () -> Unit,
     onOpenShizuku: () -> Unit,
     onReopenOnboarding: () -> Unit,
+    glassEnabled: Boolean = true,
 ) {
     val registry = ServiceRegistry
-    val backdrop = rememberAbyssBackdrop()
+    // 渲染安全模式（v0.7.3）：glassEnabled=false → backdrop 为空 →
+    // 全部玻璃件落 Frosted 降级档（零 RenderEffect / 零 backdrop 采样）。
+    val backdrop: LayerBackdrop? = if (glassEnabled) rememberAbyssBackdrop() else null
     // 返回栈持久化（评审 #10）：旋转 / 进程重建后原位恢复；应用详情经
     // Provider 异步重挂（包名查不到则诚实留在列表页，绝不展示猜测数据）。
     val backStack = rememberSaveable(
@@ -223,13 +231,14 @@ fun AbyssRoot(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(androidx.compose.material3.MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background),
         ) {
             // 内容层 = 玻璃采样源：内容滚过底栏 / 玻璃卡下方时被真实采样
+            // （安全模式下无采样源 —— 修饰符链保持空操作，玻璃件全 Frosted）
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .abyssBackdropSource(backdrop),
+                    .then(if (backdrop != null) Modifier.abyssBackdropSource(backdrop) else Modifier),
             ) {
                 Crossfade(
                     targetState = backStack.current,
@@ -400,6 +409,13 @@ fun AbyssRoot(
                 }
             }
 
+            // 渲染安全模式横幅（顶部，告知降级原因与恢复路径）
+            if (!glassEnabled) {
+                RenderSafeModeBanner(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
+
             // 液态玻璃 Dark 底栏（悬浮于内容之上，真实折射背后内容）
             if (backStack.showBottomBar) {
                 AbyssGlassBottomBar(
@@ -414,6 +430,29 @@ fun AbyssRoot(
                 )
             }
         }
+    }
+}
+
+/**
+ * 渲染安全模式横幅（v0.7.3）：断路器触发时告知用户降级原因、自动恢复
+ * 条件与手动重置入口 —— 「莫名其妙变丑」必须给活人话解释。
+ */
+@Composable
+private fun RenderSafeModeBanner(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.errorContainer,
+        tonalElevation = 6.dp,
+    ) {
+        Text(
+            text = "🛡 渲染安全模式：检测到连续闪退，玻璃效果已临时降级；" +
+                "稳定运行后自动恢复，也可在 设置 → 诊断 手动重置",
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
     }
 }
 
