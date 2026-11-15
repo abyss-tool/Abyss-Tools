@@ -88,7 +88,7 @@ sealed interface Screen {
 }
 
 /**
- * 导航动作（v0.7.5）：屏幕转场动效的方向依据 —— push 新页自右滑入、
+ * 导航动作（v0.7.6）：屏幕转场动效的方向依据 —— push 新页自右滑入、
  * pop 反向滑出、tab 淡切。运行时状态，不参与序列化 —— 进程恢复后
  * 首帧按 TAB 处理（恢复现场不播放推入动画）。
  */
@@ -113,7 +113,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
 
     private var stack by mutableStateOf(initialStack.ifEmpty { listOf(Screen.Dashboard) })
 
-    /** 最近一次导航动作（v0.7.5）：转场动效的方向依据，随动作即时更新。 */
+    /** 最近一次导航动作（v0.7.6）：转场动效的方向依据，随动作即时更新。 */
     var lastAction by mutableStateOf(NavAction.TAB)
         private set
 
@@ -271,7 +271,7 @@ fun AbyssRoot(
                     .fillMaxSize()
                     .then(if (backdrop != null) Modifier.abyssBackdropSource(backdrop) else Modifier),
             ) {
-                // 屏幕转场（v0.7.5）：方向随返回栈语义 —— push 新页自右
+                // 屏幕转场（v0.7.6）：方向随返回栈语义 —— push 新页自右
                 // 滑入（旧页视差左移让位），pop 反向，tab 平级淡切；
                 // 系统移除动画时直切（无障碍，见 rememberReducedMotion）。
                 AnimatedContent(

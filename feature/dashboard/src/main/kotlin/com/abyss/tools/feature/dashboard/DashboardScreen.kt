@@ -154,7 +154,7 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // ── 状态行：Shizuku / 安装权限（真实态，新手引导页可修）────
-            // 错峰入场（v0.7.5）：包裹 Box 挂 entranceStagger，卡片零改动。
+            // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，卡片零改动。
             item {
                 Box(Modifier.fillMaxWidth().entranceStagger(0)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

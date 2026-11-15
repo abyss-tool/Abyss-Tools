@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
- * 全局动效系统（v0.7.5）：液态玻璃手感的三个通用件，业务页零直接
+ * 全局动效系统（v0.7.6）：液态玻璃手感的三个通用件，业务页零直接
  * 动画 API（与玻璃纪律同构 —— 底层动效替换时只改本文件）。
  *
  *  - [rememberReducedMotion]：无障碍硬要求 —— 系统「移除动画」/ 开发者

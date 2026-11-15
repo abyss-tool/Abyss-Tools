@@ -191,7 +191,7 @@ fun ListRowCard(
     badge: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    // 按压反馈（v0.7.5）：interactionSource 自持并同步喂给 clickable +
+    // 按压反馈（v0.7.6）：interactionSource 自持并同步喂给 clickable +
     // pressScale —— 按下整卡「按进液体」缩放，spring 回弹。
     val interaction = remember { MutableInteractionSource() }
     Row(

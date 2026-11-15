@@ -86,7 +86,7 @@ fun NavHubScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             ToolCatalog.categories.forEachIndexed { catIndex, category ->
-                // 错峰入场（v0.7.5）：屏内序号 = 分类偏移 + 分类内序号 ——
+                // 错峰入场（v0.7.6）：屏内序号 = 分类偏移 + 分类内序号 ——
                 // 前 ENTRANCE_MAX_STAGGER_STEPS 张依次延迟形成波浪，更深的
                 // 卡片立即入场（滚动复用不让人等）。分类内工具数 < 10。
                 item(key = "header-${category.id}") {
@@ -127,7 +127,7 @@ fun NavHubScreen(
 /** 插件分类的特殊入口卡（玻璃件，导航页的门面）。 */
 @Composable
 private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
-    // 点击接线修复（v0.7.5）：onOpenPluginHub 此前从未接线 —— 门面入口卡
+    // 点击接线修复（v0.7.6）：onOpenPluginHub 此前从未接线 —— 门面入口卡
     // 点不动。interactionSource 自持并同步喂给 clickable + pressScale，
     // 按下整卡「按进液体」缩放（涟漪让位给果冻手感，与底栏同款纪律）。
     val interaction = remember { MutableInteractionSource() }
