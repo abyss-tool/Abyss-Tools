@@ -177,6 +177,7 @@ class RenderSafeModeTest {
         RenderSafeMode.reset(file)
         coldStart(t0 + 5_000)
         coldStart(t0 + 10_000)
+        coldStart(t0 + 15_000) // 三次 5s 快速启动 → rapidRestarts = 3 → engage
         assertTrue(RenderSafeMode.currentDecision(file).engage)
         assertEquals(RenderSafeMode.GlassMode.FROSTED, RenderSafeMode.currentDecision(file).glassMode)
     }

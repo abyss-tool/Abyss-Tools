@@ -133,13 +133,19 @@ object RenderSafeMode {
         )
     }
 
-    /** 温重建调用（同进程内 Activity 重建）：只读判定，不计数。 */
+    /**
+     * 温重建调用（同进程内 Activity 重建）：只读判定，不计数。
+     * 档位推导考虑干净退出（v0.7.8 修复）：cleanExit = true 即慢性循环
+     * 已自愈 —— 温重建 / 诊断探针按 FULL 报告，不再拿旧 streak 报降级档
+     * （streak 本体保留在状态里，下次冷启动语义不变）。
+     */
     fun currentDecision(file: File): Decision {
         val s = readState(file)
+        val effectiveStreak = if (s.lastCleanExit) 0 else s.crashStreak
         return Decision(
             engage = s.engaged,
             rapidRestarts = s.rapidRestarts,
-            glassMode = deriveGlassMode(s.engaged, s.crashStreak),
+            glassMode = deriveGlassMode(s.engaged, effectiveStreak),
         )
     }
 
