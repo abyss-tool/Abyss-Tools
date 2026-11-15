@@ -270,7 +270,8 @@ fun AbyssRoot(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
         ) {
-            // 内容层 = 玻璃采样源：内容滚过底栏 / 玻璃卡下方时被真实采样
+            // 内容层 = 玻璃采样源：内容滚过底栏下方时被真实采样（采样源
+            // 本体保留 —— 底栏折射需要它；页内玻璃卡不接 backdrop）。
             // （安全模式下无采样源 —— 修饰符链保持空操作，玻璃件全 Frosted）
             Box(
                 modifier = Modifier
@@ -302,7 +303,10 @@ fun AbyssRoot(
                 ) { screen ->
                     when (screen) {
                         Screen.Dashboard -> DashboardScreen(
-                            backdrop = backdrop,
+                            // 玻璃采样收敛（v0.8.0）：真实液态玻璃仅底栏一处 ——
+                            // 页内玻璃卡全 Frosted（GPU 驱动崩溃排查中，页内玻璃
+                            // 后续再设计；恢复 = 本参数传回 backdrop 即可）
+                            backdrop = null,
                             pluginRepository = registry.pluginRepository,
                             updateManager = registry.updateManager,
                             onOpenTool = { backStack.push(Screen.Tool(it)) },
@@ -347,7 +351,8 @@ fun AbyssRoot(
                             repository = registry.pluginRepository,
                             channelClient = registry.channelClient,
                             installer = registry.pluginInstaller,
-                            backdrop = backdrop,
+                            // 玻璃采样收敛（v0.8.0）：同 Dashboard —— 页内玻璃全 Frosted
+                            backdrop = null,
                             onBack = { backStack.pop() },
                             onPluginsChanged = bumpPluginState,
                         )

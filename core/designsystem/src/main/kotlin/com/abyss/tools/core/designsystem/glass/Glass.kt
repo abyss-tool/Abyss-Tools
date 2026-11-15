@@ -51,6 +51,10 @@ import com.kyant.backdrop.shadow.InnerShadow
  * 根上（Modifier.abyssBackdropSource(backdrop)），玻璃件悬浮其上 ——
  * 内容从玻璃件下方滚过时即产生真实的液态折射。
  *
+ * 采样收敛（v0.8.0，驱动崩溃排查中）：真实液态玻璃当前**仅底栏一处**
+ * （闸门在 AbyssRoot —— 页面拿到 backdrop 传 null），页内玻璃件一律
+ * Frosted 档；页内玻璃后续再设计时把 backdrop 传回即可恢复。
+ *
  * 自嵌套防线（v0.7.2）：玻璃件位于自身采样源内部（如仪表盘更新卡 /
  * 插件详情 Hero）是合法布局 —— vendored 库已内建 isRecordingSelf 重入
  * 守卫，源录制期间同一 backdrop 的采样绘制被跳过，显示列表深度恒定
