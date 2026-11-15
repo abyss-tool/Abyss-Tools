@@ -38,6 +38,7 @@ import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
+import com.abyss.tools.core.designsystem.component.entranceStagger
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.abyss.tools.core.plugin.PluginIndex
 import com.abyss.tools.core.plugin.PluginRepository
@@ -153,72 +154,87 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // ── 状态行：Shizuku / 安装权限（真实态，新手引导页可修）────
+            // 错峰入场（v0.7.5）：包裹 Box 挂 entranceStagger，卡片零改动。
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val (shizukuLabel, shizukuTone) = when (shizukuUi) {
-                        ShizukuUi.Authorized -> "Shizuku · 已授权" to ChipTone.OK
-                        ShizukuUi.RunningUnauthorized -> "Shizuku · 未授权" to ChipTone.WARN
-                        ShizukuUi.NotRunning -> "Shizuku · 未运行" to ChipTone.NEUTRAL
+                Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val (shizukuLabel, shizukuTone) = when (shizukuUi) {
+                            ShizukuUi.Authorized -> "Shizuku · 已授权" to ChipTone.OK
+                            ShizukuUi.RunningUnauthorized -> "Shizuku · 未授权" to ChipTone.WARN
+                            ShizukuUi.NotRunning -> "Shizuku · 未运行" to ChipTone.NEUTRAL
+                        }
+                        StatusChip(text = shizukuLabel, tone = shizukuTone)
+                        StatusChip(
+                            text = if (installPermGranted) "安装未知应用 · 已允许" else "安装未知应用 · 未允许",
+                            tone = if (installPermGranted) ChipTone.OK else ChipTone.WARN,
+                        )
                     }
-                    StatusChip(text = shizukuLabel, tone = shizukuTone)
-                    StatusChip(
-                        text = if (installPermGranted) "安装未知应用 · 已允许" else "安装未知应用 · 未允许",
-                        tone = if (installPermGranted) ChipTone.OK else ChipTone.WARN,
-                    )
                 }
             }
 
             // ── 统计卡 ────────────────────────────────────────────────
             item {
-                StatsRow(
-                    indexState = indexState,
-                    installedPluginCount = installedPluginCount,
-                )
+                Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                    StatsRow(
+                        indexState = indexState,
+                        installedPluginCount = installedPluginCount,
+                    )
+                }
             }
 
             // ── 补丁更新卡（液态玻璃件：采样主内容）────────────────────
             item {
-                UpdateCard(
-                    backdrop = backdrop,
-                    updateUi = updateUi,
-                    onCheck = checkUpdate,
-                )
+                Box(Modifier.fillMaxWidth().entranceStagger(2)) {
+                    UpdateCard(
+                        backdrop = backdrop,
+                        updateUi = updateUi,
+                        onCheck = checkUpdate,
+                    )
+                }
             }
 
             // ── 快捷工具 ──────────────────────────────────────────────
             item {
-                SectionHeader(title = "快捷工具", subtitle = "高频入口 · 点击进入工具页")
+                Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                    SectionHeader(title = "快捷工具", subtitle = "高频入口 · 点击进入工具页")
+                }
             }
             items(count = 4, key = { it }) { index ->
                 val tool = listOf(
                     "battery-disguise", "location-disguise", "terminal", "app-builder",
                 )[index].let { ToolCatalog.byId(it) }
                 if (tool != null) {
-                    com.abyss.tools.core.designsystem.component.ListRowCard(
-                        icon = AbyssIcons.icon(tool.iconKey),
-                        title = tool.title,
-                        summary = tool.summary,
-                        onClick = { onOpenTool(tool.id) },
-                        badge = { StatusChip(text = tool.status.label) },
-                    )
+                    Box(Modifier.fillMaxWidth().entranceStagger(4 + index)) {
+                        com.abyss.tools.core.designsystem.component.ListRowCard(
+                            icon = AbyssIcons.icon(tool.iconKey),
+                            title = tool.title,
+                            summary = tool.summary,
+                            onClick = { onOpenTool(tool.id) },
+                            badge = { StatusChip(text = tool.status.label) },
+                        )
+                    }
                 }
             }
 
             // ── 插件生态入口 ──────────────────────────────────────────
             item {
-                SectionHeader(title = "插件生态")
-                Box(Modifier.size(6.dp))
-                PluginEntryCard(
-                    indexState = indexState,
-                    installedPluginCount = installedPluginCount,
-                    onOpen = onOpenPlugins,
-                )
+                Box(Modifier.fillMaxWidth().entranceStagger(8)) {
+                    SectionHeader(title = "插件生态")
+                    Box(Modifier.size(6.dp))
+                    PluginEntryCard(
+                        indexState = indexState,
+                        installedPluginCount = installedPluginCount,
+                        onOpen = onOpenPlugins,
+                    )
+                }
             }
 
             // ── 路线图 ────────────────────────────────────────────────
             item {
-                SectionHeader(title = "框架路线图", subtitle = "SRS §6 开发里程碑（对齐总体蓝图）")
-                RoadmapCard()
+                Box(Modifier.fillMaxWidth().entranceStagger(9)) {
+                    SectionHeader(title = "框架路线图", subtitle = "SRS §6 开发里程碑（对齐总体蓝图）")
+                    RoadmapCard()
+                }
             }
         }
     }
