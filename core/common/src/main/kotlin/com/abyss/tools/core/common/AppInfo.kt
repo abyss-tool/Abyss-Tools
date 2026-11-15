@@ -7,7 +7,7 @@ package com.abyss.tools.core.common
  */
 object AppInfo {
     const val VERSION_NAME: String = "0.8.0"
-    const val VERSION_CODE: Int = 12
+    const val VERSION_CODE: Int = 17
 
     val version: SemVer
         get() = requireNotNull(SemVer.parse(VERSION_NAME)) {
