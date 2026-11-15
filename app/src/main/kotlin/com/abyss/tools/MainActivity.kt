@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
                             ShizukuMonitor.requestPermission()
                         },
                         onOpenShizukuApp = {
-                            // 统一入口（v0.8.3）：已装任一变体（Shizuku /
+                            // 统一入口（v0.8.5）：已装任一变体（Shizuku /
                             // Shevery / Shizuku+）→ 打开它；一个都没装 →
                             // 官方下载页兜底，按钮不再静默失灵。
                             runCatching {

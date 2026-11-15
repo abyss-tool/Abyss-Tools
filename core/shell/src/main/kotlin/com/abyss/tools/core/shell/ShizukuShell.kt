@@ -20,7 +20,7 @@ import kotlin.concurrent.thread
  * NotRunning 同时覆盖「未安装」与「未启动」—— 对用户而言动作一致
  * （去启动 Shizuku），区分两者的成本（跨进程探测）不值得。
  *
- * v0.8.3：服务端可能是任意 Shizuku 兼容变体（Shizuku / Shevery /
+ * v0.8.5：服务端可能是任意 Shizuku 兼容变体（Shizuku / Shevery /
  * Shizuku+ / Sui…），客户端 binder 机制对变体透明 —— 状态语义不变。
  */
 sealed interface ShizukuStatus {
@@ -113,7 +113,7 @@ object ShizukuMonitor {
     /**
      * 跳去 Shizuku App（未启动 / 配置无线调试时用）。
      *
-     * v0.8.3：按变体注册表逐个探测（官方包名同时是 Shevery / Shizuku-Next
+     * v0.8.5：按变体注册表逐个探测（官方包名同时是 Shevery / Shizuku-Next
      * 等 fork 服务端 stub 的共用包名；另探测 Shevery / Shizuku+ 的独立
      * 管理器），首个命中即返回。
      */

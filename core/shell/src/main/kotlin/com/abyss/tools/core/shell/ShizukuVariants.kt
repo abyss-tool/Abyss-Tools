@@ -3,7 +3,7 @@ package com.abyss.tools.core.shell
 import android.content.Context
 
 /**
- * Shizuku 兼容变体注册表（v0.8.3）。
+ * Shizuku 兼容变体注册表（v0.8.5）。
  *
  * 背景：Shizuku 的客户端 SDK（dev.rikka.shizuku:api）通过本应用内的
  * ShizukuProvider 接收服务端广播下发的 binder —— **服务端由谁实现与客户端

@@ -98,7 +98,7 @@ sealed interface Screen {
 }
 
 /**
- * 屏幕的 SaveableStateProvider 键（v0.8.3 滚动位置保持）：与序列化 token
+ * 屏幕的 SaveableStateProvider 键（v0.8.5 滚动位置保持）：与序列化 token
  * 同源 —— 每个屏幕实例一个稳定键，推入详情页再返回时列表滚动位置 /
  * 入场动画已播标记等 rememberSaveable 状态全部原位恢复（不再跳回顶部）。
  */
@@ -278,7 +278,7 @@ fun AbyssRoot(
 
     BackHandler(enabled = backStack.canPop) { backStack.pop() }
 
-    // 屏幕级状态保持（v0.8.3）：每个屏幕在 SaveableStateHolder 下组合 ——
+    // 屏幕级状态保持（v0.8.5）：每个屏幕在 SaveableStateHolder 下组合 ——
     // push 详情页时旧屏的 rememberSaveable（列表滚动位置 / 入场已播标记）
     // 自动存入 holder；pop 回来时原位恢复。此前 AnimatedContent 直接换
     // 内容会销毁旧屏，返回后列表一律跳回顶部（用户明确反馈的痛点）。
@@ -399,7 +399,7 @@ fun AbyssRoot(
                             )
 
                             is Screen.Tool -> when (screen.toolId) {
-                                // ── 插件中心行项（v0.8.3）：目录里遗留的「插件中心」
+                                // ── 插件中心行项（v0.8.5）：目录里遗留的「插件中心」
                                 //    行项此前落到通用占位页，改接线真实插件中心。 ──
                                 ToolCatalog.ID_PLUGIN_HUB -> PluginHubScreen(
                                     repository = registry.pluginRepository,

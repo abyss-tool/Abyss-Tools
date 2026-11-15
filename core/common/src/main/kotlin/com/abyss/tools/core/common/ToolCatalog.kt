@@ -65,7 +65,7 @@ data class ToolDef(
 
 object ToolCatalog {
 
-    /** 插件中心行项（v0.8.3：从通用占位页改接真实插件中心）。 */
+    /** 插件中心行项（v0.8.5：从通用占位页改接真实插件中心）。 */
     const val ID_PLUGIN_HUB = "plugin-hub"
 
     /** 伪装四件套的稳定 id（AbyssRoot 路由消费，避免散落字符串）。 */

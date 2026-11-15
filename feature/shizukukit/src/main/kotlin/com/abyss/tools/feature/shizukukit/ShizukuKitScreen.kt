@@ -38,7 +38,7 @@ internal enum class KitTab(val title: String) {
 /**
  * Shizuku 工具箱 —— 免 Root 提权指令面板（单页 + Tab 分区）。
  *
- * v0.8.3 易用性重做（用户反馈「页面不行、不好用」）：
+ * v0.8.5 易用性重做（用户反馈「页面不行、不好用」）：
  *  - 门禁卡可收起（就绪时默认一行绿徽章，不再常驻占屏幕）；
  *  - 变体感知（Shizuku / Shevery / Shizuku+ / Sui，展开可见安装情况）；
  *  - Dumpsys 面板加搜索过滤；说明卡全部改可收起，面板主体优先。

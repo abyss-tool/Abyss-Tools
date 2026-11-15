@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.designsystem.component.SectionHeader
 
 /**
- * Dumpsys 面板（v0.8.3 易用性重做）：
+ * Dumpsys 面板（v0.8.5 易用性重做）：
  *  - 搜索框实时过滤白名单（标题 / 命令 / 说明三维匹配）；
  *  - 白名单只读诊断命令卡片列表 → 点击执行 → 输出卡
  *    （等宽字体 / 可滚动 max-h 320dp / 复制按钮；大输出截断到 64KB）；
@@ -55,7 +55,7 @@ internal fun DumpsysPanel(
             )
         }
 
-        // 搜索过滤（v0.8.3）：9+ 条命令按标题 / 命令 / 说明三维匹配
+        // 搜索过滤（v0.8.5）：9+ 条命令按标题 / 命令 / 说明三维匹配
         item {
             OutlinedTextField(
                 value = search,

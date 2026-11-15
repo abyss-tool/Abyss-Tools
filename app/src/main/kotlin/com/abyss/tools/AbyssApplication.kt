@@ -104,7 +104,7 @@ class AbyssApplication : Application() {
         // 异常都会落盘 files/crash/last-crash.txt，设置页「诊断」可查看 ——
         // 侧载渠道无 Play 统计，闪退现场全靠本地取证（v0.7.0）。
         CrashGuard.install(filesDir)
-        // Shizuku 变体接线（v0.8.3）：Sui（Root 集成形态）的 binder 必须经
+        // Shizuku 变体接线（v0.8.5）：Sui（Root 集成形态）的 binder 必须经
         // Sui.init 显式挂载，且要先于一切 Shizuku API 调用 —— 官方 Shizuku /
         // Shevery / Shizuku+ 不需要，但也在此幂等探测一次。
         ShizukuMonitor.ensureInit(this)
