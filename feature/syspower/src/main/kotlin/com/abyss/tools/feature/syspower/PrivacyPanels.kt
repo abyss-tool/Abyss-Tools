@@ -852,11 +852,14 @@ internal fun NetPolicyPanel(
                 )
             } else {
                 // 应用策略状态文案（uid / 策略两段各自诚实三态）
+                // 委托属性不可 smart cast —— 先落本地 val 再判空（when 分支
+                // 里的 policyValue 会被编译器视为每次重读的 Int?）
+                val currentPolicy = policyValue
                 val policyText = when {
                     !policyLoaded -> "读取中…"
                     policyFailed -> "读取失败（见顶部错误条）"
-                    policyValue == null -> "未知（输出无法解析）"
-                    else -> uidPolicyLabel(policyValue)
+                    currentPolicy == null -> "未知（输出无法解析）"
+                    else -> uidPolicyLabel(currentPolicy)
                 }
                 Text(
                     text = "UID: ${uid ?: "读取中…"}",
