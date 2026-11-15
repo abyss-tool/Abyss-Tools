@@ -20,12 +20,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,6 +93,7 @@ import kotlinx.coroutines.withContext
  * @param mirrorPreference 当前镜像偏好（"auto" 或镜像 id）。
  * @param onMirrorPreference 镜像偏好写回（持久化到设置存储）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PluginHubScreen(
     repository: PluginRepository,
@@ -109,9 +112,15 @@ fun PluginHubScreen(
     var categoryFilter by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
+    // 下拉刷新进度位：与 retryKey 同一条索引重取管线共用 —— 数据态刷新
+    // 时列表原地保留（不闪全屏 Loading），进度交给 PullToRefreshBox 指示器；
+    // 首载 / 错误重试仍走全屏 Loading（原行为不变）。
+    var pullRefreshing by remember { mutableStateOf(false) }
+
     LaunchedEffect(retryKey) {
-        indexState = UiState.Loading
+        if (indexState is UiState.Data) pullRefreshing = true else indexState = UiState.Loading
         indexState = repository.fetchIndex().toUiState()
+        pullRefreshing = false
     }
 
     // 本机已装插件（stateVersion 变化时重读磁盘）
@@ -191,145 +200,155 @@ fun PluginHubScreen(
             is UiState.Data -> {
                 val entries = state.value.plugins
                 val categories = entries.map { it.category }.distinct()
-                LazyColumn(
+                // 下拉刷新（M3 PullToRefreshBox）：onRefresh 与错误态「重试」
+                // 按钮共用同一条 retryKey 索引重取管线 —— 不另起网络逻辑；
+                // 数据态触发时上方 LaunchedEffect 已保证列表原地保留，
+                // 仅顶部指示器转圈。页头保留在刷新区之外（不随下拉位移）。
+                PullToRefreshBox(
+                    isRefreshing = pullRefreshing,
+                    onRefresh = { retryKey++ },
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        start = 20.dp,
-                        end = 20.dp,
-                        bottom = 32.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // ── 下载镜像（v0.7.0：国内反代 + 延迟实测）──────────
-                    // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
-                    if (mirrorRouter != null) {
-                        item {
-                            Box(Modifier.fillMaxWidth().entranceStagger(0)) {
-                                MirrorSection(
-                                    mirrorRouter = mirrorRouter,
-                                    preference = mirrorPreference,
-                                    onPreference = onMirrorPreference,
-                                )
-                            }
-                        }
-                    }
-
-                    // ── 我的插件（本机已装）───────────────────────────────
-                    if (installedPlugins.isNotEmpty()) {
-                        item {
-                            Box(Modifier.fillMaxWidth().entranceStagger(1)) {
-                                SectionHeader(
-                                    title = "我的插件",
-                                    subtitle = "本机已装 ${installedPlugins.size} 个 · 数据层登记 + 补丁通道",
-                                    trailing = {
-                                        androidx.compose.material3.TextButton(
-                                            onClick = { checkUpdates(state.value) },
-                                        ) { Text(if (updatesChecked) "重新检查" else "检查更新") }
-                                    },
-                                )
-                            }
-                        }
-                        // 检查结果摘要（人话：N 个可更新 / 全部最新 / 检查失败可重试）
-                        if (updatesChecked) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            start = 20.dp,
+                            end = 20.dp,
+                            bottom = 32.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        // ── 下载镜像（v0.7.0：国内反代 + 延迟实测）──────────
+                        // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
+                        if (mirrorRouter != null) {
                             item {
-                                when (val u = updatesState) {
-                                    is UiState.Loading -> Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(14.dp),
-                                            strokeWidth = 2.dp,
-                                        )
-                                        Spacer(Modifier.size(8.dp))
-                                        Text(
-                                            "正在核对补丁通道…",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-
-                                    is UiState.Error -> Text(
-                                        text = "检查更新失败：${u.message}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
+                                Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                                    MirrorSection(
+                                        mirrorRouter = mirrorRouter,
+                                        preference = mirrorPreference,
+                                        onPreference = onMirrorPreference,
                                     )
+                                }
+                            }
+                        }
 
-                                    is UiState.Data ->
-                                        if (u.value.isEmpty()) {
+                        // ── 我的插件（本机已装）───────────────────────────────
+                        if (installedPlugins.isNotEmpty()) {
+                            item {
+                                Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                                    SectionHeader(
+                                        title = "我的插件",
+                                        subtitle = "本机已装 ${installedPlugins.size} 个 · 数据层登记 + 补丁通道",
+                                        trailing = {
+                                            androidx.compose.material3.TextButton(
+                                                onClick = { checkUpdates(state.value) },
+                                            ) { Text(if (updatesChecked) "重新检查" else "检查更新") }
+                                        },
+                                    )
+                                }
+                            }
+                            // 检查结果摘要（人话：N 个可更新 / 全部最新 / 检查失败可重试）
+                            if (updatesChecked) {
+                                item {
+                                    when (val u = updatesState) {
+                                        is UiState.Loading -> Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(14.dp),
+                                                strokeWidth = 2.dp,
+                                            )
+                                            Spacer(Modifier.size(8.dp))
                                             Text(
-                                                "已装插件均为通道可应用链的最新版本。",
+                                                "正在核对补丁通道…",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
-                                        } else {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                StatusChip("${u.value.size} 个可更新", ChipTone.WARN)
-                                                Spacer(Modifier.size(8.dp))
+                                        }
+
+                                        is UiState.Error -> Text(
+                                            text = "检查更新失败：${u.message}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+
+                                        is UiState.Data ->
+                                            if (u.value.isEmpty()) {
                                                 Text(
-                                                    "进入对应插件详情页下载并应用补丁。",
+                                                    "已装插件均为通道可应用链的最新版本。",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
+                                            } else {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    StatusChip("${u.value.size} 个可更新", ChipTone.WARN)
+                                                    Spacer(Modifier.size(8.dp))
+                                                    Text(
+                                                        "进入对应插件详情页下载并应用补丁。",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
                                             }
-                                        }
+                                    }
+                                }
+                            }
+                            val updatableIds = when (val u = updatesState) {
+                                is UiState.Data -> u.value.keys
+                                else -> emptySet()
+                            }
+                            items(
+                                count = installedPlugins.size,
+                                key = { "mine-$stateVersion-${installedPlugins[it].id}" },
+                            ) { index ->
+                                val manifest = installedPlugins[index]
+                                Box(Modifier.fillMaxWidth().entranceStagger(2 + index)) {
+                                    InstalledPluginRow(
+                                        name = manifest.name,
+                                        id = manifest.id,
+                                        localVersion = manifest.version,
+                                        updatable = manifest.id in updatableIds,
+                                        onClick = { onOpenPlugin(manifest.id) },
+                                    )
+                                }
+                            }
+                            item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+                            item { Box(Modifier.size(4.dp)) }
+                        }
+
+                        item {
+                            Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                                SectionHeader(title = "插件生态", subtitle = "${entries.size} 个大插件仓库 · 独立 CI · 独立补丁通道")
+                            }
+                        }
+                        item {
+                            Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(text = "全部 ${entries.size}", selected = categoryFilter == null) {
+                                        categoryFilter = null
+                                    }
+                                    categories.forEach { cat ->
+                                        FilterChip(
+                                            text = categoryLabel(cat),
+                                            selected = categoryFilter == cat,
+                                        ) { categoryFilter = cat }
+                                    }
                                 }
                             }
                         }
-                        val updatableIds = when (val u = updatesState) {
-                            is UiState.Data -> u.value.keys
-                            else -> emptySet()
-                        }
+                        val visible = entries.filter { categoryFilter == null || it.category == categoryFilter }
                         items(
-                            count = installedPlugins.size,
-                            key = { "mine-$stateVersion-${installedPlugins[it].id}" },
+                            count = visible.size,
+                            key = { "hub-$stateVersion-${visible[it].id}" },
                         ) { index ->
-                            val manifest = installedPlugins[index]
-                            Box(Modifier.fillMaxWidth().entranceStagger(2 + index)) {
-                                InstalledPluginRow(
-                                    name = manifest.name,
-                                    id = manifest.id,
-                                    localVersion = manifest.version,
-                                    updatable = manifest.id in updatableIds,
-                                    onClick = { onOpenPlugin(manifest.id) },
+                            val entry = visible[index]
+                            Box(Modifier.fillMaxWidth().entranceStagger(5 + index)) {
+                                PluginCard(
+                                    entry = entry,
+                                    installed = installer.isInstalled(entry.id),
+                                    onClick = { onOpenPlugin(entry.id) },
                                 )
                             }
-                        }
-                        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-                        item { Box(Modifier.size(4.dp)) }
-                    }
-
-                    item {
-                        Box(Modifier.fillMaxWidth().entranceStagger(3)) {
-                            SectionHeader(title = "插件生态", subtitle = "${entries.size} 个大插件仓库 · 独立 CI · 独立补丁通道")
-                        }
-                    }
-                    item {
-                        Box(Modifier.fillMaxWidth().entranceStagger(4)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilterChip(text = "全部 ${entries.size}", selected = categoryFilter == null) {
-                                    categoryFilter = null
-                                }
-                                categories.forEach { cat ->
-                                    FilterChip(
-                                        text = categoryLabel(cat),
-                                        selected = categoryFilter == cat,
-                                    ) { categoryFilter = cat }
-                                }
-                            }
-                        }
-                    }
-                    val visible = entries.filter { categoryFilter == null || it.category == categoryFilter }
-                    items(
-                        count = visible.size,
-                        key = { "hub-$stateVersion-${visible[it].id}" },
-                    ) { index ->
-                        val entry = visible[index]
-                        Box(Modifier.fillMaxWidth().entranceStagger(5 + index)) {
-                            PluginCard(
-                                entry = entry,
-                                installed = installer.isInstalled(entry.id),
-                                onClick = { onOpenPlugin(entry.id) },
-                            )
                         }
                     }
                 }
