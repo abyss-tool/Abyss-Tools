@@ -25,6 +25,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -193,6 +195,11 @@ fun SettingsScreen(
     onRestartOnboarding: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
+
+    // 底部反馈宿主：瞬时动作（清插件缓存这类静默完成型）完成后给人话确认，
+    // 否则用户无从得知点下去到底生没生效。
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var checkUi by remember { mutableStateOf<CheckUi>(CheckUi.Idle) }
     var showLicense by remember { mutableStateOf(false) }
 
@@ -276,93 +283,115 @@ fun SettingsScreen(
         }
     }
 
-    Column(
+    // Box 外壳只为给 SnackbarHost 提供底部对齐锚点；列表仍 fillMaxSize，
+    // 内容照旧滚到玻璃底栏下方（采样源语义不变）。
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp)) {
-            Spacer(Modifier.size(10.dp))
-            Text(
-                text = "设置",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.size(10.dp))
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                bottom = bottomClearance,
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // ── 外观：液态玻璃强度（实时生效）─────────────────────────
-            // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
-            item {
-                Box(Modifier.fillMaxWidth().entranceStagger(0)) {
-                    SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
-                    GlassIntensityCard(settings)
-                }
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp)) {
+                Spacer(Modifier.size(10.dp))
+                Text(
+                    text = "设置",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.size(10.dp))
             }
 
-            // ── 补丁更新 ─────────────────────────────────────────────
-            item {
-                Box(Modifier.fillMaxWidth().entranceStagger(1)) {
-                    SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
-                    UpdateSectionCard(
-                        checkUi = checkUi,
-                        settings = settings,
-                        selfPhase = selfPhase,
-                        selfProgress = selfProgress,
-                        selfFailure = selfFailure,
-                        onCheck = checkUpdate,
-                        onDownloadAndInstall = downloadAndInstall,
-                        onOpenChangelog = openChangelog,
-                    )
-                }
-            }
-
-            // ── 插件 ─────────────────────────────────────────────────
-            item {
-                Box(Modifier.fillMaxWidth().entranceStagger(2)) {
-                    SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
-                    PluginSectionCard(onClearPluginCache = onClearPluginCache)
-                }
-            }
-
-            // ── 诊断（v0.7.0：崩溃防护网本地取证）────────────────────
-            item {
-                Box(Modifier.fillMaxWidth().entranceStagger(3)) {
-                    SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
-                    DiagnosticsCard()
-                }
-            }
-
-            // ── 权限与新手引导 ──────────────────────────────────────
-            if (onRestartOnboarding != null) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    bottom = bottomClearance,
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // ── 外观：液态玻璃强度（实时生效）─────────────────────
+                // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
                 item {
-                    Box(Modifier.fillMaxWidth().entranceStagger(4)) {
-                        SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
-                        OnboardingSectionCard(onRestart = onRestartOnboarding)
+                    Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                        SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
+                        GlassIntensityCard(settings)
+                    }
+                }
+
+                // ── 补丁更新 ─────────────────────────────────────────────
+                item {
+                    Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                        SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
+                        UpdateSectionCard(
+                            checkUi = checkUi,
+                            settings = settings,
+                            selfPhase = selfPhase,
+                            selfProgress = selfProgress,
+                            selfFailure = selfFailure,
+                            onCheck = checkUpdate,
+                            onDownloadAndInstall = downloadAndInstall,
+                            onOpenChangelog = openChangelog,
+                        )
+                    }
+                }
+
+                // ── 插件 ─────────────────────────────────────────────────
+                item {
+                    Box(Modifier.fillMaxWidth().entranceStagger(2)) {
+                        SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
+                        PluginSectionCard(
+                            onClearPluginCache = {
+                                onClearPluginCache()
+                                // 清的是磁盘目录，界面上零可见变化 —— 不补
+                                // 一句确认，用户无法判断动作是否生效。
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("插件缓存已清除")
+                                }
+                            },
+                        )
+                    }
+                }
+
+                // ── 诊断（v0.7.0：崩溃防护网本地取证）────────────────────
+                item {
+                    Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                        SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
+                        DiagnosticsCard()
+                    }
+                }
+
+                // ── 权限与新手引导 ──────────────────────────────────────
+                if (onRestartOnboarding != null) {
+                    item {
+                        Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+                            SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
+                            OnboardingSectionCard(onRestart = onRestartOnboarding)
+                        }
+                    }
+                }
+
+                // ── 关于 ─────────────────────────────────────────────────
+                item {
+                    Box(Modifier.fillMaxWidth().entranceStagger(5)) {
+                        SectionHeader(title = "关于")
+                        AboutCard(
+                            versionName = versionName,
+                            onShowLicense = { showLicense = true },
+                        )
                     }
                 }
             }
-
-            // ── 关于 ─────────────────────────────────────────────────
-            item {
-                Box(Modifier.fillMaxWidth().entranceStagger(5)) {
-                    SectionHeader(title = "关于")
-                    AboutCard(
-                        versionName = versionName,
-                        onShowLicense = { showLicense = true },
-                    )
-                }
-            }
         }
+
+        // 沉在悬浮玻璃底栏上方（bottomClearance 与列表底部预留同一基准），
+        // 瞬时确认不遮挡列表关键内容。
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = bottomClearance),
+        )
     }
 
     if (showLicense) {
