@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 黑洞时钟宿主布局：全部像素内容（黑洞 + 时间）都绘制进 ImageView 的
+     位图 —— 布局保持零文本节点，RemoteViews 只做位图搬运（单一绘制实现
+     纪律，与组件工坊预览所见即所得）。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_canvas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/black_hole_widget_label" />
+
+</FrameLayout>

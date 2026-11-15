@@ -133,6 +133,20 @@ class SettingsRepository(context: Context) {
             ?: com.abyss.tools.core.common.MIRROR_AUTO,
     )
 
+    private var _dynamicColor by mutableStateOf(prefs.getBoolean(KEY_DYNAMIC_COLOR, false))
+
+    /**
+     * 跟随壁纸动态取色（v0.8.0，Material You）：Android 12+ 生效 ——
+     * 整套 M3 色板从壁纸种子色派生；老系统 / 关闭时回落深渊默认色板。
+     * 学习 Google 的个性化色彩语言，装饰层 fail-open（能力缺失不闪退）。
+     */
+    var dynamicColor: Boolean
+        get() = _dynamicColor
+        set(value) {
+            _dynamicColor = value
+            prefs.edit().putBoolean(KEY_DYNAMIC_COLOR, value).apply()
+        }
+
     /**
      * 下载镜像偏好（v0.7.0）：镜像 id 或 "auto"（延迟择优）。
      * 插件中心与更新通道共用；MirrorRouter 实时读取。
@@ -151,6 +165,7 @@ class SettingsRepository(context: Context) {
         const val KEY_LAST_CHECK_AT = "last_check_at"
         const val KEY_ONBOARDING_DONE = "onboarding_completed"
         const val KEY_DOWNLOAD_MIRROR = "download_mirror"
+        const val KEY_DYNAMIC_COLOR = "dynamic_color"
     }
 }
 
@@ -417,6 +432,28 @@ private fun GlassIntensityCard(settings: SettingsRepository) {
                 onValueChange = { settings.glassIntensity = it },
                 valueRange = 0.4f..1.6f,
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "跟随壁纸动态取色",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.size(2.dp))
+                    Text(
+                        text = "Android 12+ 从壁纸种子色派生整套色板（Material You）；关闭或老系统用深渊默认色板",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = settings.dynamicColor,
+                    onCheckedChange = { settings.dynamicColor = it },
+                )
+            }
         }
     }
 }

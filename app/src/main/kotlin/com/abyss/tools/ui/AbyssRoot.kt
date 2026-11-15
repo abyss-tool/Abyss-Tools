@@ -47,10 +47,9 @@ import com.abyss.tools.core.designsystem.glass.abyssBackdropSource
 import com.abyss.tools.core.designsystem.glass.rememberAbyssBackdrop
 import com.abyss.tools.core.shell.ShizukuStatus
 import com.abyss.tools.feature.appmgr.AppDetailScreen
-import com.abyss.tools.feature.backup.BackupScreen
-import com.abyss.tools.feature.backup.ExportableApp
 import com.abyss.tools.feature.appmgr.AppManagerScreen
 import com.abyss.tools.feature.appmgr.AbyssAppInfo
+import com.abyss.tools.feature.backup.BackupScreen
 import com.abyss.tools.feature.blueprint.BlueprintScreen
 import com.abyss.tools.feature.blueprint.BlueprintTab
 import com.abyss.tools.feature.dashboard.DashboardScreen
@@ -60,14 +59,21 @@ import com.abyss.tools.feature.disguise.LocationSpoofScreen
 import com.abyss.tools.feature.disguise.ModelSpoofScreen
 import com.abyss.tools.feature.disguise.SignalSpoofScreen
 import com.abyss.tools.feature.island.IslandScreen
+import com.abyss.tools.feature.media.MediaLabScreen
 import com.abyss.tools.feature.navhub.NavHubScreen
 import com.abyss.tools.feature.navhub.ToolScreen
+import com.abyss.tools.feature.netaudit.NetAuditScreen
 import com.abyss.tools.feature.plugins.PluginDetailScreen
 import com.abyss.tools.feature.plugins.PluginHubScreen
 import com.abyss.tools.feature.qrcraft.QrCraftScreen
+import com.abyss.tools.feature.sandbox.SandboxScreen
+import com.abyss.tools.feature.scriptlab.ScriptLabScreen
 import com.abyss.tools.feature.settings.SettingsScreen
 import com.abyss.tools.feature.shizukukit.ShizukuKitScreen
+import com.abyss.tools.feature.syspower.SysControlScreen
+import com.abyss.tools.feature.terminal.TerminalScreen
 import com.abyss.tools.feature.wallpaper.WallpaperScreen
+import com.abyss.tools.feature.widgets.WidgetStudioScreen
 import com.kyant.backdrop.backdrops.LayerBackdrop
 
 /**
@@ -455,23 +461,56 @@ fun AbyssRoot(
                                 onBack = { backStack.pop() },
                             )
 
-                            // ── v0.8.1：备份迁移真实功能页（zip 引擎 + SAF）────
-                            ToolCatalog.ID_BACKUP -> BackupScreen(
-                                appSource = {
-                                    registry.appInfoProvider.installedApps().map { info ->
-                                        ExportableApp(
-                                            packageName = info.packageName,
-                                            label = info.label,
-                                            versionName = info.versionName,
-                                            versionCode = info.versionCode,
-                                            sourceDir = info.sourceDir,
-                                            apkSize = info.apkSize,
-                                            isSystem = info.isSystem,
-                                        )
-                                    }
-                                },
+                            // ── v0.8.0：六插件内置化 + 新能力落地真实功能页 ──────
+                            ToolCatalog.ID_TERMINAL -> TerminalScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
                                 onBack = { backStack.pop() },
-                                bottomClearance = bottomClearance,
+                            )
+
+                            ToolCatalog.ID_SCRIPT_LAB -> ScriptLabScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_SANDBOX_SPACE, ToolCatalog.ID_DUAL_OPEN -> SandboxScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_MEDIA_LAB -> MediaLabScreen(
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_NET_AUDIT -> NetAuditScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_BACKUP -> BackupScreen(
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_SYS_CONTROL -> SysControlScreen(
+                                shizukuStatus = shizukuStatus,
+                                gateway = registry.shellGateway,
+                                onRequestShizukuPermission = onRequestShizukuPermission,
+                                onOpenShizuku = onOpenShizuku,
+                                onBack = { backStack.pop() },
+                            )
+
+                            ToolCatalog.ID_WIDGET_STUDIO -> WidgetStudioScreen(
+                                onOpenTool = { backStack.push(Screen.Tool(it)) },
+                                onBack = { backStack.pop() },
                             )
 
                             // ── 其余工具：通用占位页（内置卡 / 插件卡 / 路线图卡）──

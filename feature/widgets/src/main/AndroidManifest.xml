@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  组件工坊模块 manifest —— 黑洞动态时钟桌面组件。
+
+  只声明组件，权限只有 RECEIVE_BOOT_COMPLETED（分钟级重排闹钟不随重启
+  存活，BootReceiver 负责重排；与 feature:blueprint 的 BootReceiver 同款
+  纪律 —— 宿主 targetSdk 28 < 31，setExactAndAllowWhileIdle 无需
+  SCHEDULE_EXACT_ALARM）。
+
+  exported=false：APPWIDGET_UPDATE / BOOT_COMPLETED 均为系统保护广播，
+  系统 UID 投递不受 exported 约束；自定义 ACTION_TICK 走显式 PendingIntent，
+  同样可达。组件不暴露任何跨应用入口。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+
+        <!-- 4×2 宽版（默认入口） -->
+        <receiver
+            android:name="com.abyss.tools.feature.widgets.BlackHoleClockWidget"
+            android:exported="false"
+            android:label="@string/black_hole_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/black_hole_widget_info" />
+        </receiver>
+
+        <!-- 2×2 方版（同一引擎的第二个尺寸入口 —— 桌面选择器里独立可选） -->
+        <receiver
+            android:name="com.abyss.tools.feature.widgets.BlackHoleClockWidgetSmall"
+            android:exported="false"
+            android:label="@string/black_hole_widget_small_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/black_hole_widget_small_info" />
+        </receiver>
+
+        <!-- 开机重排分钟级重绘链 -->
+        <receiver
+            android:name="com.abyss.tools.feature.widgets.BlackHoleBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

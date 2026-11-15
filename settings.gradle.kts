@@ -72,4 +72,12 @@ include(":feature:qrcraft")     // 二维码工坊（ZXing 生成 / 相册解析
 include(":feature:blueprint")   // 任务蓝图 + 自动化编排（JSON 步骤链 + 定时调度）
 include(":feature:island")      // 灵动岛与悬浮球（WindowManager overlay）
 include(":feature:wallpaper")   // 动态壁纸（WallpaperService 液态玻璃光斑引擎）
-include(":feature:backup")      // 备份迁移（主壳配置包 zip 引擎 + APK 资料库导出）
+// ── v0.8.0 大内置化：原六个重型插件 + 新能力全部内置主壳 ──────────────
+include(":feature:terminal")    // 内置终端（Shizuku adb shell 真实执行 + 指令历史）
+include(":feature:scriptlab")   // 脚本实验室（Shell/Python 编辑 → Shizuku 执行 + 脚本库）
+include(":feature:sandbox")     // 隔离空间（多用户引擎：免 Root 双开 / pm install --user）
+include(":feature:media")       // 媒体实验室（MediaExtractor/MediaMuxer 无重编码处理）
+include(":feature:netaudit")    // 流量审计（dumpsys netstats 应用维度画像）
+include(":feature:backup")      // 备份迁移（APK 库 + zip 导出 + 防护恢复）
+include(":feature:syspower")    // 系统控制中心（授权总管 AppOps + pm grant/revoke + 显示/电源）
+include(":feature:widgets")     // 组件工坊（黑洞动态时钟桌面组件 + 实时预览）

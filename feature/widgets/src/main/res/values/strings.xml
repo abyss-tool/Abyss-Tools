@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="black_hole_widget_label">黑洞时钟</string>
+    <string name="black_hole_widget_small_label">黑洞时钟 · 方形</string>
+    <string name="black_hole_widget_desc">绘制的黑洞动态时钟：吸积盘随时间旋转，整分重绘（深渊工具 · 组件工坊）</string>
+</resources>

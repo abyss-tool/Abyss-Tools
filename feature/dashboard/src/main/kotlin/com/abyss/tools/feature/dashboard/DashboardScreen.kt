@@ -206,7 +206,7 @@ fun DashboardScreen(
             }
             items(count = 4, key = { it }) { index ->
                 val tool = listOf(
-                    "battery-disguise", "location-disguise", "terminal", "app-builder",
+                    "system-control", "terminal", "media-lab", "app-builder",
                 )[index].let { ToolCatalog.byId(it) }
                 if (tool != null) {
                     Box(Modifier.fillMaxWidth().entranceStagger(4 + index)) {
@@ -247,7 +247,7 @@ fun DashboardScreen(
 
 @Composable
 private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int) {
-    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 7
+    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 3
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(
             value = ToolCatalog.builtInCount,
@@ -256,7 +256,7 @@ private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int
         )
         StatCard(
             value = pluginCount,
-            label = "大插件仓库",
+            label = "引擎级插件",
             modifier = Modifier.weight(1f),
         )
         StatCard(
@@ -391,7 +391,7 @@ private fun PluginEntryCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "插件中心 · $count 个大插件",
+                text = "插件中心 · $count 个引擎级插件",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -403,7 +403,7 @@ private fun PluginEntryCard(
         }
         Spacer(Modifier.size(4.dp))
         Text(
-            text = "终端引擎 / Python 游乐场 / 沙箱双开 / 媒体实验室…每个插件独立仓库、独立 CI、独立补丁通道。",
+            text = "应用构建器（旗舰）/ 病毒拦截（新）/ 虚拟机（新）—— 独立仓库、独立 CI、独立补丁通道。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
         )
@@ -415,10 +415,11 @@ private fun PluginEntryCard(
 @Composable
 private fun RoadmapCard() {
     val phases = listOf(
-        "Phase 1 框架与终端成型" to "本版本：三栏主界面 / 分类导航 / 插件框架 / 补丁更新引擎（当前）",
+        "Phase 1 框架与终端成型" to "三栏主界面 / 分类导航 / 插件框架 / 补丁更新引擎",
         "Phase 2 任务系统与插件内核" to "任务→模块→特征调用链 · DexClassLoader 插件加载",
         "Phase 3 硬核功能接入" to "沙箱双开 · Python 引擎 · 悬浮球与灵动岛",
         "Phase 4 完善与结项" to "Web 控制台 · 设备管理器 · 图标伪装",
+        "v0.8.0 大内置化（已落地）" to "六插件内置化 · 系统控制中心 · 黑洞时钟组件 · M3 全面进化",
     )
     Column(
         modifier = Modifier

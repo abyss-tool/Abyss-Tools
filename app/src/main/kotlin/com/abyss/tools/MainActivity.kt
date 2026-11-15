@@ -55,8 +55,10 @@ class MainActivity : ComponentActivity() {
         GlassProbe.mark(GlassProbe.STAGE_SESSION_START)
 
         setContent {
-            AbyssTheme {
-                val registry = ServiceRegistry
+            // v0.8.0：动态取色（Material You）—— 读取设置仓储的 Compose 状态，
+            // 开关切换即时重换整套色板；老系统 / 关闭档回落深渊默认色板。
+            val registry = ServiceRegistry
+            AbyssTheme(dynamicColor = registry.settings.dynamicColor) {
                 val shizukuStatus by rememberShizukuStatus(ShizukuMonitor)
 
                 // 首启新手引导（权限一站式申请）：完成前不进主界面；

@@ -141,7 +141,15 @@ dependencies {
     implementation(project(":feature:blueprint"))
     implementation(project(":feature:island"))
     implementation(project(":feature:wallpaper"))
+    // ── v0.8.0 大内置化模块群 ──────────────────────────────────────────
+    implementation(project(":feature:terminal"))
+    implementation(project(":feature:scriptlab"))
+    implementation(project(":feature:sandbox"))
+    implementation(project(":feature:media"))
+    implementation(project(":feature:netaudit"))
     implementation(project(":feature:backup"))
+    implementation(project(":feature:syspower"))
+    implementation(project(":feature:widgets"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

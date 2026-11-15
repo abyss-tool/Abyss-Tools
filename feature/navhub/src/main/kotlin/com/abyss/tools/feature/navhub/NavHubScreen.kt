@@ -168,7 +168,7 @@ private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "七大插件仓库 · 小功能内置 · 大功能插件化 · 独立补丁更新",
+                    text = "三大引擎级插件 · 小功能内置 · 引擎级能力插件化 · 独立补丁更新",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
