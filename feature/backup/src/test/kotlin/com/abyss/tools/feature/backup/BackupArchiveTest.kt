@@ -79,11 +79,11 @@ class BackupArchiveTest {
         blueprintsDir.resolve("my-task.json").writeText("""{"id": "my-task", "old": true}""")
 
         val source = tmp.newFile("bp.json").apply { writeBytes(blueprintJson("my-task")) }
-        val report = BackupArchiveBuilder()
+        val zip = BackupArchiveBuilder()
             .add("blueprints/my-task.json", source)
             .build(tmp.root.resolve("pkg.zip"), appVersion = "0.8.0")
 
-        engine.restore(report.path, blueprintsDir)
+        engine.restore(zip.path, blueprintsDir)
 
         assertEquals(
             blueprintJson("my-task").decodeToString(),
@@ -153,7 +153,7 @@ class BackupArchiveTest {
         val result = runCatching {
             BackupArchiveBuilder().add("../evil.json", source)
         }
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(result.exceptionOrNull() is BackupRejectedException)
 
         val builder = BackupArchiveBuilder().add("blueprints/a.json", source)
         val dup = runCatching { builder.add("blueprints/a.json", source) }

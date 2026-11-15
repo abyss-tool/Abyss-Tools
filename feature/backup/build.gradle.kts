@@ -15,6 +15,9 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // v0.8.x：BackupArchive（蓝图层备份包）的 @Serializable manifest 走
+    // kotlinx-serialization —— 纯 JVM 单测同样依赖编译器插件生成 serializer。
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -56,6 +59,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
 }
