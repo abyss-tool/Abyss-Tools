@@ -116,7 +116,7 @@ class RenderSafeModeTest {
     // ── fail-open：绝不成为新的崩溃源 ─────────────────────────────────
 
     @Test
-    fun `v0.7.3 三行旧格式 —— 迁移不误伤`() {
+    fun `三行旧格式迁移 —— fail-open 不误伤`() {
         file.writeText("$t0\n1\n0\n")
         val d = RenderSafeMode.onColdStart(file, t0 + 5_000)
         assertFalse(d.engage)
