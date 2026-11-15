@@ -44,7 +44,7 @@ import java.util.concurrent.TimeUnit
  */
 class PackageInstallerApkGateway(private val context: Context) : ApkInstallGateway {
 
-    override fun install(apk: File): Result<Unit> = install(apk, null)
+    override fun install(apk: File): Result<Unit> = runGatesAndInstall(apk, null)
 
     /**
      * v0.7.8：新增期望门禁（门禁 0）—— 自更新传通道清单 versionCode，
@@ -52,7 +52,11 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
      * 不得低于在装版本）。清单与资产漂移（镜像错位 / 通道未滚动 /
      * 指错版本）在进入系统安装器之前就地拦截。
      */
-    override fun install(apk: File, expectation: InstallExpectation?): Result<Unit> = runCatching {
+    override fun install(apk: File, expectation: InstallExpectation): Result<Unit> =
+        runGatesAndInstall(apk, expectation)
+
+    /** 门禁与会话提交的共同实现（expectation 可空：单参重载 = 无门禁）。 */
+    private fun runGatesAndInstall(apk: File, expectation: InstallExpectation?): Result<Unit> = runCatching {
         if (!apk.exists() || apk.length() == 0L) {
             throw IOException("安装包不存在或为空：${apk.absolutePath}")
         }

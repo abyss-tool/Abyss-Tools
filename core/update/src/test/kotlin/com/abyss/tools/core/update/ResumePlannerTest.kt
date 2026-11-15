@@ -77,9 +77,9 @@ class DownloadVerifiedApkTest {
         var lastExpectation: InstallExpectation? = null
         var succeed = true
 
-        override fun install(apk: File): Result<Unit> = install(apk, null)
+        override fun install(apk: File): Result<Unit> = install(apk, InstallExpectation(expectedVersionCode = -1L))
 
-        override fun install(apk: File, expectation: InstallExpectation?): Result<Unit> {
+        override fun install(apk: File, expectation: InstallExpectation): Result<Unit> {
             lastFile = apk
             lastExpectation = expectation
             return if (succeed) Result.success(Unit) else Result.failure(IOException("模拟安装失败"))
