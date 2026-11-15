@@ -112,6 +112,16 @@ class OkHttpTransport : HttpTransport {
         }
     }
 
+    /**
+     * 流式下载（v0.7.8 重写）：`.part` 暂存 + HTTP Range 断点续传 +
+     * 成功后原子改名收尾。
+     *
+     *  - 落盘永远写 [ResumePlanner.partFileOf]，成功才 renameTo(dest) ——
+     *    中断的下载绝不会以「完整文件」的假象留在缓存里被误用；
+     *  - 有残留时带 Range 头重试，服务端命中（206）则续传，回全量（200）
+     *    则截断重下 —— 决策见 [ResumePlanner]（只认 206，歧义一律重下）；
+     *  - 中途异常：part 原样保留 —— 下一次调用自动从断点续传。
+     */
     override fun download(
         url: String,
         dest: File,
@@ -119,20 +129,29 @@ class OkHttpTransport : HttpTransport {
     ) {
         FetchHostPolicy.check(url)
         dest.parentFile?.mkdirs()
-        val request = Request.Builder().url(url).build()
+        val part = ResumePlanner.partFileOf(dest)
+        val existing = if (part.exists()) part.length() else 0L
+
+        val request = Request.Builder().url(url).apply {
+            if (existing > 0) header("Range", "bytes=$existing-")
+        }.build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code} <- $url")
+            // 重定向落点复检（同 get：302 去往任意第三方域在此拦截）
             FetchHostPolicy.check(response.request.url.toString())
             val body = response.body ?: throw IOException("空响应体 <- $url")
-            val total = body.contentLength()
-            if (total > MAX_DOWNLOAD_BYTES) {
+            val plan = ResumePlanner.plan(existing, response.code)
+            val contentLength = body.contentLength()
+            val total = if (contentLength >= 0) contentLength + plan.resumeFrom else -1L
+            if (contentLength >= 0 && total > MAX_DOWNLOAD_BYTES) {
                 throw IOException("资产声明体量 ${total} B 超过 ${MAX_DOWNLOAD_BYTES / 1024 / 1024} MB 上限 <- $url")
             }
+            val append = plan.mode == ResumePlan.Mode.APPEND
             body.byteStream().use { input ->
-                dest.outputStream().use { output ->
+                java.io.FileOutputStream(part, append).use { output ->
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var read: Int
-                    var accumulated = 0L
+                    var accumulated = plan.resumeFrom
                     while (input.read(buffer).also { read = it } != -1) {
                         output.write(buffer, 0, read)
                         accumulated += read
@@ -143,6 +162,11 @@ class OkHttpTransport : HttpTransport {
                     }
                     output.flush()
                 }
+            }
+            // 原子收尾：同目录同分区 rename 保证不出现半份 APK 冒充完整文件
+            if (!part.renameTo(dest)) {
+                part.copyTo(dest, overwrite = true)
+                part.delete()
             }
         }
     }
