@@ -1,5 +1,7 @@
 package com.abyss.tools.feature.appmgr
 
+import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,20 +11,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SearchBar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +68,15 @@ internal enum class AppFilterMode(val label: String) {
     SYSTEM("系统应用"),
 }
 
+/** 应用管理器 SharedPreferences 文件名（搜索关键词历史落盘用）。 */
+private const val PREFS_APPMGR = "abyss_appmgr"
+
+/** SearchBar 建议区展示的历史关键词条数（存储 6 条，多存 1 条轮换余量）。 */
+private const val SEARCH_SUGGESTION_LIMIT = 5
+
+/** SearchBar 建议区展示的匹配应用行数 —— 更多结果收起搜索后在主列表看。 */
+private const val SEARCH_MATCH_LIMIT = 6
+
 /**
  * 应用管理器 —— 列表页（全量应用目录：搜索 / 排序 / 过滤 / 冻结概览）。
  *
@@ -70,6 +85,7 @@ internal enum class AppFilterMode(val label: String) {
  *  - 冻结集合经 Shizuku 读 `pm list packages -d`，未授权 / 读取失败 →
  *    null（未知），绝不显示猜测值 —— 徽章只在确认为真时点亮。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppManagerScreen(
     provider: AppInfoProvider,
@@ -86,6 +102,21 @@ fun AppManagerScreen(
     var query by remember { mutableStateOf("") }
     var sortMode by remember { mutableStateOf(AppSortMode.NAME) }
     var filterMode by remember { mutableStateOf(AppFilterMode.ALL) }
+
+    // ── 搜索视图（M3 SearchBar 展开态）────────────────────────────
+    // 关键词历史只服务 SearchBar 的建议区；主列表过滤仍由同一个 query
+    // 状态驱动（输入即过滤，收起搜索后列表保持过滤结果 —— 与旧
+    // OutlinedTextField 时代行为完全一致）。
+    val context = LocalContext.current
+    val searchHistory = remember {
+        AppSearchHistory(context.getSharedPreferences(PREFS_APPMGR, Context.MODE_PRIVATE))
+    }
+    var recentKeywords by remember { mutableStateOf(searchHistory.all()) }
+    var searchActive by remember { mutableStateOf(false) }
+
+    // 搜索展开时先吃一次系统返回：收起搜索视图而不是直接退出列表页
+    //（Google 搜索同款层级；旧输入框时代不存在此坑）。
+    BackHandler(enabled = searchActive) { searchActive = false }
 
     /** null = 未知（Shizuku 未授权 / 读取失败）—— 已冻结徽章仅确认为真时显示。 */
     var frozenPackages by remember { mutableStateOf<Set<String>?>(null) }
@@ -205,10 +236,26 @@ fun AppManagerScreen(
                             top = 4.dp,
                         ),
                     ) {
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            modifier = Modifier.fillMaxWidth(),
+                        // M3 SearchBar（经典重载，点按展开）：未激活 =
+                        // 56dp 搜索条；激活 = 原地展开搜索视图（历史建议 /
+                        // 应用匹配行）。heightIn(max)：经典 SearchBar 激活
+                        // 时会占满父级给出的全部高度 —— 不设上限会把下方
+                        // 过滤 chip 行与冻结卡挤成 0 高；限高后固定区其余
+                        // 部分始终可见，建议区超高时内部滚动。
+                        SearchBar(
+                            query = query,
+                            onQueryChange = { query = it },
+                            onSearch = { submitted ->
+                                // 提交即记入关键词历史（非空去重，上限 6）
+                                searchHistory.record(submitted)
+                                recentKeywords = searchHistory.all()
+                                searchActive = false
+                            },
+                            active = searchActive,
+                            onActiveChange = { searchActive = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 320.dp),
                             placeholder = { Text("搜索应用名或包名") },
                             leadingIcon = {
                                 Icon(
@@ -226,8 +273,20 @@ fun AppManagerScreen(
                                     }
                                 }
                             },
-                            singleLine = true,
-                        )
+                        ) {
+                            SearchSuggestions(
+                                apps = apps,
+                                query = query,
+                                recentKeywords = recentKeywords,
+                                frozenPackages = frozenPackages,
+                                onPickKeyword = { query = it },
+                                onOpenApp = { app ->
+                                    // 点匹配行直达详情；顺带收起搜索视图
+                                    searchActive = false
+                                    onOpenApp(app)
+                                },
+                            )
+                        }
                         Spacer(Modifier.size(10.dp))
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -376,6 +435,95 @@ fun AppManagerScreen(
             }
         }
     }
+}
+
+/**
+ * SearchBar 展开态内容：空关键词 → 最近搜索历史（最多 5 条）；有
+ * 关键词 → 实时匹配应用行（最多 6 条，复用主列表行视觉）。匹配只在
+ * 全量应用上做（不叠加过滤 chip 条件）—— 搜索的本意就是跨过滤找应用。
+ */
+@Composable
+private fun SearchSuggestions(
+    apps: List<AbyssAppInfo>,
+    query: String,
+    recentKeywords: List<String>,
+    frozenPackages: Set<String>?,
+    onPickKeyword: (String) -> Unit,
+    onOpenApp: (AbyssAppInfo) -> Unit,
+) {
+    val keyword = query.trim()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        if (keyword.isEmpty()) {
+            if (recentKeywords.isEmpty()) {
+                SearchHintText(text = "输入应用名或包名，最近搜索会出现在这里")
+            } else {
+                recentKeywords.take(SEARCH_SUGGESTION_LIMIT).forEach { word ->
+                    RecentKeywordRow(keyword = word, onClick = { onPickKeyword(word) })
+                }
+            }
+        } else {
+            val matches = apps
+                .filter {
+                    it.label.contains(keyword, ignoreCase = true) ||
+                        it.packageName.contains(keyword, ignoreCase = true)
+                }
+                .take(SEARCH_MATCH_LIMIT)
+            if (matches.isEmpty()) {
+                SearchHintText(text = "没有匹配的应用")
+            } else {
+                matches.forEach { app ->
+                    AppRowCard(
+                        app = app,
+                        frozen = frozenPackages?.contains(app.packageName) == true,
+                        onClick = { onOpenApp(app) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 最近搜索行：点选 → 填入搜索框并实时出匹配（Search 前缀镜射输入态）。 */
+@Composable
+private fun RecentKeywordRow(keyword: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.size(12.dp))
+        Text(
+            text = keyword,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** 建议区空态提示（人话，不装腔）。 */
+@Composable
+private fun SearchHintText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+    )
 }
 
 /** 应用行卡（镜像 designsystem ListRowCard 的视觉，图标位换为真实应用图标）。 */
