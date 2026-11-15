@@ -108,6 +108,17 @@ class CommandHistory(private val store: HistoryStore, private val cap: Int = 50)
         store.save(entries.toList())
     }
 
+    /**
+     * 删除单条历史（历史 Sheet 的 chip 尾部 ×）：只删命中的那一条，
+     * 其余顺序与上限语义不动 —— 之前只有 clear() 全清，想留后面几条就
+     * 只能全删重来。落盘走同一个 store（找不到则无操作，不空写）。
+     */
+    fun remove(command: String) {
+        if (entries.remove(command)) {
+            store.save(entries.toList())
+        }
+    }
+
     /** 最近 [count] 条（最新在前）；越界按全量/空处理，不炸。 */
     fun recent(count: Int): List<String> = all().take(count.coerceAtLeast(0))
 

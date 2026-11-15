@@ -7,6 +7,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,11 +22,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Send
@@ -37,15 +42,19 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -258,6 +267,11 @@ fun TerminalScreen(
                 fill(command)
                 historySheetVisible = false
             },
+            onRemove = { command ->
+                // 单条删除（chip 尾部 ×）：只删这条，其余历史顺序不动
+                history.remove(command)
+                historyLines = history.all()
+            },
             onClear = {
                 history.clear()
                 historyLines = emptyList()
@@ -267,7 +281,12 @@ fun TerminalScreen(
     }
 }
 
-/** 页头：返回 + 标题 + Shizuku 状态徽章 + 历史入口（DetailHeader 同构）。 */
+/**
+ * 页头：返回 + 标题 + Shizuku 状态徽章 + 历史入口（DetailHeader 同构）。
+ * 图标按钮补长按 Tooltip（Plain）：contentDescription 只服务读屏用户，
+ * 长按提示才覆盖视力正常用户（Google Apps 同款双层可达性）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TerminalHeader(
     shizukuStatus: ShizukuStatus,
@@ -281,11 +300,17 @@ private fun TerminalHeader(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "返回",
-            )
+        TooltipBox(
+            positionProvider = TooltipDefaults.plainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text("返回") } },
+            state = rememberTooltipState(),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                )
+            }
         }
         Text(
             text = "内置终端",
@@ -294,11 +319,17 @@ private fun TerminalHeader(
             modifier = Modifier.weight(1f),
         )
         StatusChip(text = shizukuChipText(shizukuStatus), tone = shizukuChipTone(shizukuStatus))
-        IconButton(onClick = onHistory) {
-            Icon(
-                imageVector = Icons.Rounded.List,
-                contentDescription = "命令历史",
-            )
+        TooltipBox(
+            positionProvider = TooltipDefaults.plainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text("历史记录") } },
+            state = rememberTooltipState(),
+        ) {
+            IconButton(onClick = onHistory) {
+                Icon(
+                    imageVector = Icons.Rounded.List,
+                    contentDescription = "命令历史",
+                )
+            }
         }
     }
 }
@@ -584,33 +615,29 @@ private fun FontSizeRow(
     }
 }
 
-/** 全量历史 Sheet：ListItem 点击回填输入框（不自动执行）+「清空历史」。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 全量历史 Sheet：每条命令一枚 InputChip，FlowRow 自动换行（长命令在
+ * 芯内单行省略）—— chip 点击回填输入框（不自动执行），尾部 × 单条
+ * 删除；「清空历史」沉底（destructive 动作与 chip 区分离，防误触）。
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun HistorySheet(
     commands: List<String>,
     onPick: (String) -> Unit,
+    onRemove: (String) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "命令历史",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    onClick = onClear,
-                    enabled = commands.isNotEmpty(),
-                ) {
-                    Text(text = "清空历史", color = MaterialTheme.colorScheme.error)
-                }
-            }
             Text(
-                text = "最近 ${commands.size} 条 · 点击回填输入框（不自动执行）",
+                text = "命令历史",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "最近 ${commands.size} 条 · 点击回填（不自动执行）· 尾部 × 删除单条",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -623,25 +650,81 @@ private fun HistorySheet(
                     modifier = Modifier.padding(bottom = 24.dp),
                 )
             } else {
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 420.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp),
+                // 上限 50 条（CommandHistory cap）非懒加载也可承受 ——
+                // chip 数量级下 FlowRow 一次成型比 LazyColumn 简单可靠。
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    items(commands) { command ->
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    text = command,
-                                    fontFamily = FontFamily.Monospace,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            modifier = Modifier.clickable { onPick(command) },
-                        )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        commands.forEach { command ->
+                            HistoryChip(
+                                command = command,
+                                onPick = { onPick(command) },
+                                onRemove = { onRemove(command) },
+                            )
+                        }
                     }
                 }
             }
+            Spacer(Modifier.size(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    onClick = onClear,
+                    enabled = commands.isNotEmpty(),
+                ) {
+                    Text(text = "清空历史", color = MaterialTheme.colorScheme.error)
+                }
+            }
+            Spacer(Modifier.size(16.dp))
         }
     }
+}
+
+/**
+ * 单条历史 chip：整枚点击回填；尾部 × 只删这一条（M3 InputChip 可删除
+ * 语义）。× 用嵌套 clickable 拦截 —— 命中测试先分发给最内层，否则整枚
+ * chip 的回填会连带触发。
+ */
+@Composable
+private fun HistoryChip(
+    command: String,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    InputChip(
+        selected = false,
+        onClick = onPick,
+        label = {
+            Text(
+                text = command,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        trailingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "删除这条历史",
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        },
+    )
 }
