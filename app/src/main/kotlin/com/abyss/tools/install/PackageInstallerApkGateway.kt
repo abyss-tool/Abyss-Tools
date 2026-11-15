@@ -12,6 +12,7 @@ import android.content.pm.Signature
 import android.os.Build
 import android.os.Parcelable
 import com.abyss.tools.core.update.ApkInstallGateway
+import com.abyss.tools.core.update.InstallExpectation
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
@@ -43,7 +44,15 @@ import java.util.concurrent.TimeUnit
  */
 class PackageInstallerApkGateway(private val context: Context) : ApkInstallGateway {
 
-    override fun install(apk: File): Result<Unit> = runCatching {
+    override fun install(apk: File): Result<Unit> = install(apk, null)
+
+    /**
+     * v0.7.8：新增期望门禁（门禁 0）—— 自更新传通道清单 versionCode，
+     * 与 APK 实际 versionCode 严格相等才放行；再核对不降级（待装版本
+     * 不得低于在装版本）。清单与资产漂移（镜像错位 / 通道未滚动 /
+     * 指错版本）在进入系统安装器之前就地拦截。
+     */
+    override fun install(apk: File, expectation: InstallExpectation?): Result<Unit> = runCatching {
         if (!apk.exists() || apk.length() == 0L) {
             throw IOException("安装包不存在或为空：${apk.absolutePath}")
         }
@@ -55,6 +64,24 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
 
         val packageName = archive.packageName
             ?: throw IOException("APK 缺少包名：${apk.name}")
+
+        val archiveVersionCode = versionCodeOf(archive)
+
+        // ── 门禁 0：期望门禁（v0.7.8，通道清单 vs 实际 APK）────────────
+        if (expectation != null) {
+            if (archiveVersionCode != expectation.expectedVersionCode) {
+                throw IOException(
+                    "APK 版本（$archiveVersionCode）与通道声明（${expectation.expectedVersionCode}）不一致 —— " +
+                        "疑似镜像资产错位，拒绝安装（fail-closed）",
+                )
+            }
+            val installedVersion = installedVersionCodeOf(pm, packageName)
+            if (installedVersion != null && archiveVersionCode < installedVersion) {
+                throw IOException(
+                    "待装版本（$archiveVersionCode）低于在装版本（$installedVersion）—— 疑似降级包，拒绝覆盖",
+                )
+            }
+        }
 
         // ── 门禁 1：待装签名集非空（fail-closed，空即拒）──────────────
         val incoming = signaturesOf(archive)
@@ -236,5 +263,21 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
     private companion object {
         const val ACTION_RESULT = "com.abyss.tools.install.INSTALL_RESULT"
         const val TIMEOUT_SECONDS = 120L
+    }
+
+    /** 版本号读取（API 28+ longVersionCode，26/27 降级 int 字段）。 */
+    private fun versionCodeOf(info: PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+
+    /** 在装版本号（未安装 → null）。 */
+    private fun installedVersionCodeOf(pm: PackageManager, packageName: String): Long? = try {
+        versionCodeOf(pm.getPackageInfo(packageName, 0))
+    } catch (_: PackageManager.NameNotFoundException) {
+        null
     }
 }
