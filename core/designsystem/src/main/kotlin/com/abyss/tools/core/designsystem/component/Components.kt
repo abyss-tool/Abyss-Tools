@@ -1,10 +1,6 @@
 package com.abyss.tools.core.designsystem.component
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,19 +8,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorScheme
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,21 +59,32 @@ fun SectionHeader(
     }
 }
 
-/** 语气化状态徽章：PLUGIN(青) / READY(蓝) / FRAMEWORK(灰) / ERROR(红)。 */
-enum class ChipTone(val container: Color, val content: Color) {
-    INFO(Color(0xFF0F454F), Color(0xFFB4EBF7)),
-    OK(Color(0xFF0E425F), Color(0xFFCBE5FF)),
-    NEUTRAL(Color(0xFF1A222D), Color(0xFFB3C0CF)),
-    WARN(Color(0xFF4A2B00), Color(0xFFFFDDB0)),
-    ERROR(Color(0xFF93000A), Color(0xFFFFDAD6)),
+/**
+ * 语气化状态徽章语义：INFO / OK / NEUTRAL / WARN / ERROR。
+ *
+ * 颜色不再内联（v0.8.2）：[StatusChip] 按 M3 色角色（container 系列）
+ * 取色 —— 动态取色（Material You）开启时徽章自动跟随壁纸色系。
+ * 遗留硬编码取色仅 BlueprintShared 等处直接读 container/content 在用，
+ * 随各 feature 迁移逐步退役。
+ */
+enum class ChipTone { INFO, OK, NEUTRAL, WARN, ERROR }
+
+/** ChipTone → M3 container 色角色映射（单一事实源，业务页禁止散落）。 */
+private fun ChipTone.containerRole(scheme: ColorScheme) = when (this) {
+    ChipTone.INFO -> scheme.secondaryContainer to scheme.onSecondaryContainer
+    ChipTone.OK -> scheme.primaryContainer to scheme.onPrimaryContainer
+    ChipTone.NEUTRAL -> scheme.surfaceVariant to scheme.onSurfaceVariant
+    ChipTone.WARN -> scheme.tertiaryContainer to scheme.onTertiaryContainer
+    ChipTone.ERROR -> scheme.errorContainer to scheme.onErrorContainer
 }
 
 @Composable
 fun StatusChip(text: String, tone: ChipTone = ChipTone.NEUTRAL, modifier: Modifier = Modifier) {
+    val (container, content) = tone.containerRole(MaterialTheme.colorScheme)
     Surface(
-        color = tone.container,
-        contentColor = tone.content,
-        shape = RoundedCornerShape(8.dp),
+        color = container,
+        contentColor = content,
+        shape = MaterialTheme.shapes.small,
         modifier = modifier,
     ) {
         Text(
@@ -181,7 +186,13 @@ fun InfoRow(label: String, value: String, modifier: Modifier = Modifier, trailin
     }
 }
 
-/** 图标 + 标题 + 摘要 + 徽章 的行卡（导航页工具行 / 插件行通用骨架）。 */
+/**
+ * 图标 + 标题 + 摘要 + 徽章 的行卡（导航页工具行 / 插件行通用骨架）。
+ *
+ * v0.8.2 换装 Google 现成组件：M3 [ElevatedCard]（surfaceContainerLow
+ * 色阶 + 形状阶梯 large + 标准阴影与涟漪）—— 果冻缩放让位给 M3 标准
+ * 按压语言；pressScale 仍供伪装选项件等自持 interactionSource 场景。
+ */
 @Composable
 fun ListRowCard(
     icon: ImageVector,
@@ -191,53 +202,47 @@ fun ListRowCard(
     badge: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    // 按压反馈（v0.7.6）：interactionSource 自持并同步喂给 clickable +
-    // pressScale —— 按下整卡「按进液体」缩放，spring 回弹。
-    val interaction = remember { MutableInteractionSource() }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .pressScale(interaction)
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = interaction,
-                        indication = null, // 涟漪让位给果冻缩放（与底栏同款纪律）
-                        onClick = onClick,
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(12.dp),
+    val row: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier
-                    .padding(8.dp)
-                    .size(22.dp),
-            )
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(22.dp),
+                )
+            }
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(text = title, style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.size(2.dp))
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                )
+            }
+            badge?.invoke()
         }
-        Spacer(Modifier.size(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.size(2.dp))
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
+    }
+    if (onClick != null) {
+        ElevatedCard(onClick = onClick, shape = MaterialTheme.shapes.large, modifier = modifier.fillMaxWidth()) {
+            row()
         }
-        badge?.invoke()
+    } else {
+        ElevatedCard(shape = MaterialTheme.shapes.large, modifier = modifier.fillMaxWidth()) {
+            row()
+        }
     }
 }

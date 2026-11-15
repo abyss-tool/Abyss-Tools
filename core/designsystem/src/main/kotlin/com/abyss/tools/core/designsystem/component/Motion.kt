@@ -30,7 +30,8 @@ import androidx.compose.ui.unit.dp
  *  - [Modifier.entranceStagger]：卡片错峰入场（alpha 0→1 + 上滑 16dp），
  *    屏内序号决定延迟步进，每张只播一次（LazyColumn 滚动复用不重播）。
  *  - [Modifier.pressScale]：按压缩放反馈（1f → 0.97，spring 回弹）——
- *    玻璃件的「果冻」手感，配合 ListRowCard / 入口卡统一使用。
+ *    「按进液体」手感。v0.8.2 起 ListRowCard 换装 M3 ElevatedCard（自带
+ *    标准涟漪），本修饰符供伪装选项件等自持 interactionSource 场景。
  */
 
 /** 屏幕转场时长（ms）：返回栈推入 / 弹出 / tab 切换共用的时间基准。 */
@@ -102,7 +103,8 @@ fun Modifier.entranceStagger(index: Int): Modifier {
 /**
  * 按压缩放反馈：按下 1f → [PRESS_SCALE]，spring 回弹 —— 玻璃件被指尖
  * 「按进液体」的手感。`interactionSource` 由调用方持有并同步喂给
- * clickable（ListRowCard 内建此接线，业务页通常无需直接使用本修饰符）。
+ * clickable（v0.8.2 起 ListRowCard 换装 M3 ElevatedCard 标准涟漪 ——
+ * 本修饰符供伪装选项件等自持场景使用）。
  */
 @Composable
 fun Modifier.pressScale(interactionSource: MutableInteractionSource): Modifier {
