@@ -8,8 +8,10 @@ package com.abyss.tools.core.common
  *  - abyss-tool/Abyss-Tools-Release    发布仓库：version.json / patches.json /
  *                                       changelog.json + GitHub Releases 资产
  *  - abyss-tool/Abyss-Plugins          插件中心：plugins.json 索引 + 插件规范
- *  - abyss-tool/abyss-plugin-*         七个大插件仓库（小功能内置主壳，只有重型能力独立成仓，
- *                                       独立 CI + 独立补丁通道）
+ *  - abyss-tool/abyss-plugin-*         三个引擎级大插件仓库（应用构建器 / 病毒拦截 /
+ *                                       虚拟机 —— v0.8.0 起分界收紧：只有自带完整
+ *                                       引擎的能力才独立成仓；历史上的十三个轻量
+ *                                       插件仓已归档，能力全部内置主壳）
  *
  * App 侧与插件侧只认这里的 URL —— 渠道迁移时改一处。
  */

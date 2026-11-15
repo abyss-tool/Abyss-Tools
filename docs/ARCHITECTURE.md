@@ -64,9 +64,9 @@ TelephonyManager / WifiManager 拿到的仍是真实值（Hook 属 LSPatch / 沙
 | :feature:wallpaper | 液态玻璃光斑引擎（四主题/速度/视差）+ 预览 + 一键设为 | WallpaperService（30fps，不可见暂停） |
 | 任务蓝图×自动化 | 同一 BlueprintScreen 双入口：task-blueprint → 蓝图库；automation → 调度 Tab | — |
 
-## v0.8.0 大内置化六件套（原重型插件全部落地真实功能页）
+## v0.8.0 大内置化六件套（原重型插件仓已归档，能力全部落地真实功能页）
 
-| 模块 | 原插件 | 能力 | 通道 |
+| 模块 | 原插件仓（已归档） | 能力 | 通道 |
 | --- | --- | --- | --- |
 | :feature:terminal | abyss-plugin-terminal | 内置终端：指令输入 / 流式输出 / 历史（50 条）/ 快捷命令 / 字号分档 | Shizuku adb shell（gateway.exec） |
 | :feature:scriptlab | abyss-plugin-python-lab | 脚本实验室：Shell/Python 编辑 → 保存 → 执行；Python 运行时探测 | printf 管道经 Shizuku（app 私有目录 shell 不可读的诚实边界） |
@@ -80,8 +80,17 @@ TelephonyManager / WifiManager 拿到的仍是真实值（Hook 属 LSPatch / 沙
 | 模块 | 能力 | 通道 |
 | --- | --- | --- |
 | :feature:syspower | 系统控制中心：深色/亮度/DPI/分辨率/动画/休眠/Doze + **授权总管**（任意应用 AppOps allow/ignore/default + pm grant/revoke） | cmd uimode / wm / settings / appops / pm 全通道（指令编排纯 JVM 可单测） |
-| :feature:widgets | 组件工坊：**黑洞动态时钟桌面组件**（2×2 / 4×2）+ 实时预览 | AppWidgetProvider + AlarmManager 整分自续期链 + 开机重排；绘制单一实现（BlackHoleArt）与 Compose 预览共用 |
+| :feature:widgets | 组件工坊：黑洞动态时钟桌面组件（2×2 / 4×2）+ 实时预览 | AppWidgetProvider + AlarmManager 整分自续期链 + 开机重排；绘制单一实现（BlackHoleArt）与 Compose 预览共用 |
 | :core:designsystem | M3 完整规范：十五级字阶 + 形状阶梯 + 动态取色（Material You，Android 12+） | MaterialTheme typography/shapes/dynamicColorScheme |
+
+## v0.9.0「引力场」新能力
+
+| 模块 | 能力 | 通道 |
+| --- | --- | --- |
+| :feature:widgets | **组件银河四成员**：引力电池（吸积环电量刻度 + 充电极向喷流，档位热色 50/20 分档）/ 星轨日历（行星公转一年，年积日折算轨道角 + 月刻度）/ 深渊引力仪（内存·存储双引力环 + 引力尘埃粒子）；AbyssWidgetFamily 家族注册表（整分链一跳喂饱四家族，全无实例才拆链）；组件工坊四卡片画廊 | AppWidgetProvider ×5 + ACTION_BATTERY_CHANGED 粘性广播只读快照 + ActivityManager / StatFs 免权限读取；三个纯数学对象（GravityBatteryMath / StellarCalendarMath / AbyssGaugeMath）零 Android 依赖可单测；WidgetSpace 深空底共享层 |
+| :feature:syspower | **隐私与管控四面板**：权限审计（dumpsys package 运行时权限解析 + 危险权限白名单交集 + 逐项 pm grant/revoke + 批量回收 executeAll）/ 敏感操作记录（appops query-op 相机·麦克风·定位·剪贴板）/ Doze 白名单（dumpsys deviceidle whitelist 读写）/ 流量策略（cmd netpolicy 全局流量节省 + 按 uid 后台流量拒绝/解除）；控制中心 M3 SegmentedButton 四页签化（会话日志全页签常驻） | dumpsys package / appops / deviceidle / cmd netpolicy（指令编排纯 JVM 可单测）；uid 经 PackageManager 解析 |
+| :feature:blueprint | **双模式调度**：间隔循环（intervalMinutes ≥ 15）+ 每日定时（dailyAtMinute 0..1439，字段互斥、旧 JSON 向前兼容）；SchedulePlanner 纯排程（今天未到排今天 / 已过排明天 / 恰好此刻排明天防双触发）；到期重排按蓝图当前 schedule 收敛 | AlarmManager setExactAndAllowWhileIdle；编辑页 M3 TimePicker（ModalBottomSheet）；排程纯 JVM 可单测（含闰年 / 午夜边界） |
+| :feature:appmgr / plugins / terminal / settings | **M3 组件补全**：SearchBar（展开态搜索视图 + 关键词历史落盘 + 匹配行直达）/ PullToRefreshBox（retryKey 管线复用，数据态原地刷新）/ InputChip 历史（FlowRow + 单条删除）/ TooltipBox 图标提示 / SnackbarHost 动作反馈 | material3 1.4.0 实验性 API 显式 OptIn |
 
 Android 15/16 适配立场（16KB / edge-to-edge / RECEIVER 加固 / FGS 等
 逐项矩阵）见 [ANDROID_COMPAT.md](ANDROID_COMPAT.md)。

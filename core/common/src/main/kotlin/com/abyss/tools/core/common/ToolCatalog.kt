@@ -39,7 +39,7 @@ enum class ToolCategory(
     DISGUISE("disguise", "伪装与隐私", "伪装四件套（v0.3 内置）：机型 / 电量 / 信号 / 定位，Shizuku 免 Root 实时生效；隐私守卫路线图中"),
     MEDIA("media", "媒体工具", "MediaExtractor/MediaMuxer 级音视频处理：音频提取 / 去音轨 / 无重编码裁剪"),
     AUTOMATION("automation", "自动化", "任务蓝图 JSON 编排：步骤 / 重试 / 通知一站式"),
-    DESKTOP("desktop", "桌面美化", "黑洞时钟桌面组件 / 灵动岛悬浮球 / 动态壁纸与组件工坊"),
+    DESKTOP("desktop", "桌面美化", "组件银河四成员：黑洞时钟 / 引力电池 / 星轨日历 / 深渊引力仪，灵动岛悬浮球与动态壁纸"),
     NETWORK("network", "网络守护", "netstats 应用维度流量审计（内置）；VpnService 深度包审计路线图中"),
     DATA("data", "数据与备份", "APK 资料库 / 配置与插件包备份 / 带防护的恢复（内置）"),
 }
@@ -128,8 +128,9 @@ object ToolCatalog {
         ToolDef(
             id = ID_SYS_CONTROL,
             title = "系统控制中心",
-            summary = "Shizuku 授权深度利用：深色 / 亮度 / DPI / 分辨率 / 动画 / Doze 直改，" +
-                "授权总管对任意应用的 AppOps 与运行时权限 allow/ignore/default 一键改写。",
+            summary = "Shizuku 授权深度利用：显示 / 电源 / 授权总管 / 隐私与管控四域 —— " +
+                "深色·亮度·DPI·分辨率·动画·Doze 直改，任意应用 AppOps 与运行时权限改写，" +
+                "权限审计 / 敏感操作记录 / Doze 白名单 / 流量策略。",
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "tune",
@@ -191,7 +192,7 @@ object ToolCatalog {
         ToolDef(
             id = ID_TASK_BLUEPRINT,
             title = "任务蓝图",
-            summary = "JSON 任务编排：shell / python / ui_toast 步骤链 + 成功判定 + 进阶解锁。",
+            summary = "JSON 任务编排：shell / python / ui_toast 步骤链 + 成功判定 + 双模式调度（间隔循环 / 每日定时 TimePicker）。",
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "account_tree",
@@ -297,12 +298,14 @@ object ToolCatalog {
             iconKey = "bolt",
         ),
 
-        // ── 桌面美化（v0.8.0 新增：黑洞时钟桌面组件）───────────────────
+        // ── 桌面美化（v0.9.0 引力场：组件银河四成员）───────────────
         ToolDef(
             id = ID_WIDGET_STUDIO,
             title = "组件工坊",
-            summary = "黑洞动态时钟桌面组件（2×2 / 4×2，事件视界 + 吸积盘逐分钟重绘）+ " +
-                "灵动岛 / 悬浮球 / 动态壁纸的统一工坊入口。",
+            summary = "组件银河四成员（v0.9.0）：黑洞动态时钟（2×2/4×2，事件视界 + " +
+                "吸积盘整分重绘）/ 引力电池（吸积环电量刻度 + 充电喷流）/ 星轨日历" +
+                "（行星公转一年）/ 深渊引力仪（内存·存储双环）—— 同一深空引擎，" +
+                "统一主题与整分节奏；含灵动岛 / 悬浮球 / 动态壁纸入口。",
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "widgets",

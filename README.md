@@ -2,9 +2,9 @@
 
 # 深渊工具 Abyss Tools
 
-### 🕳 面向极客的 Android 系统级超级工具箱 —— 液态玻璃 M3 完整规范 · 大内置化（六插件并入主壳）· 三大引擎级插件 · 黑洞时钟桌面组件 · 补丁热更新 · Android 15/16 适配
+### 🕳 面向极客的 Android 系统级超级工具箱 —— 液态玻璃 M3 · 大内置化（仅三引擎级插件）· 隐私与管控四面板 · 组件银河四桌面组件 · 补丁热更新 · Android 15/16 适配
 
-**A system-level geek toolbox for Android — liquid glass M3 (full spec incl. Material You) · mass built-in-ization (6 plugins absorbed) · 3 engine-grade plugins (builder / antivirus / VM) · black-hole clock widget · patch updates.**
+**A system-level geek toolbox for Android — liquid glass M3 · mass built-in-ization (3 engine-grade plugins only) · privacy & control panels · 4-widget "gravity family" home screen · patch updates.**
 
 [![CI](https://github.com/abyss-tool/Abyss-Tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/abyss-tool/Abyss-Tools/actions/workflows/ci.yml)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.3.21-7F52FF?logo=kotlin&logoColor=white)
@@ -19,14 +19,14 @@
 
 ## 这是什么
 
-深渊工具是一个「主壳轻、能力重」的 Android 超级工具箱框架。**v0.2 起承载形态定型为三分法，v0.3 伪装四件套落地，v0.4 内置工具全部真实功能页，v0.8.0 大内置化 + M3 全面进化：**
+深渊工具是一个「主壳轻、能力重」的 Android 超级工具箱框架。**v0.2 起承载形态定型为三分法，v0.3 伪装四件套落地，v0.4 内置工具全部真实功能页，v0.8.0 大内置化 + M3 全面进化，v0.9.0「引力场」组件银河 + 隐私与管控：**
 
-- **除构建器外全部内置且真实可用**（v0.8.0 大内置化）：应用管理器 / Shizuku 工具箱 / 任务蓝图 / 自动化编排 / 灵动岛悬浮球 / 动态壁纸 / 二维码工坊 / 伪装四件套（机型·电量·信号·定位）+ **原六个重型插件全部并入主壳** —— 终端（Shizuku adb shell 真实执行）/ 脚本实验室（Shell+Python）/ 隔离空间（多用户双开）/ 媒体实验室（MediaMuxer 无重编码）/ 流量审计（netstats 画像）/ 备份迁移（APK 库 + zip 引擎），外加**系统控制中心**（授权总管：任意应用 AppOps + 运行时权限直改）与**组件工坊**（黑洞动态时钟桌面组件）；
-- **只有「自带完整引擎」的能力才做成插件**（v0.8.0 分界收紧）：应用构建器（旗舰）/ **病毒拦截（新）** / **虚拟机（新）** —— 独立仓库、独立 CI、独立补丁通道，可声明**独立 Shizuku 授权**；
-- **M3 全面进化**：十五级字阶 + 形状阶梯 + 动态取色（Material You，Android 12+）+ SearchBar / SegmentedButton / ModalBottomSheet / ListItem / Badge / Tooltip 等组件体系全面应用；
+- **除构建器外全部内置且真实可用**（v0.8.0 大内置化）：应用管理器 / Shizuku 工具箱 / 任务蓝图（v0.9.0 双模式调度：间隔循环 + 每日定时 TimePicker）/ 自动化编排 / 灵动岛悬浮球 / 动态壁纸 / 二维码工坊 / 伪装四件套（机型·电量·信号·定位）+ **原六个重型插件全部并入主壳** —— 终端（Shizuku adb shell 真实执行）/ 脚本实验室（Shell+Python）/ 隔离空间（多用户双开）/ 媒体实验室（MediaMuxer 无重编码）/ 流量审计（netstats 画像）/ 备份迁移（APK 库 + zip 引擎），外加**系统控制中心**（v0.9.0 四域：显示 / 电源 / 授权总管 / **隐私与管控** —— 权限审计 / 敏感操作记录 / Doze 白名单 / 流量策略）与**组件工坊**（v0.9.0 组件银河：黑洞时钟 + 引力电池 + 星轨日历 + 深渊引力仪）；
+- **只有「自带完整引擎」的能力才做成插件**（v0.8.0 分界收紧）：应用构建器（旗舰）/ 病毒拦截 / 虚拟机 —— 独立仓库、独立 CI、独立补丁通道，可声明**独立 Shizuku 授权**；
+- **M3 全面落地**：十五级字阶 + 形状阶梯 + 动态取色（Material You，Android 12+）+ SearchBar / TimePicker / PullToRefresh / InputChip / Tooltip / SegmentedButton / ModalBottomSheet / ListItem / Badge 组件体系真实应用；
 - **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/abyss-tool/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
 
-> 当前版本 **v0.8.1「黑洞」**（v0.8.0 为大内置化重构的首个自动发布切片）：**大内置化重构** —— 六个重型插件仓（终端 / Python / 沙箱 / 媒体 / 网络 / 备份）全部归档，能力以真实功能页并入主壳；插件中心收缩为三大引擎级插件（应用构建器 / 病毒拦截 / 虚拟机）；新增**系统控制中心**（Shizuku 授权深度利用：授权总管 AppOps + pm grant/revoke / 显示 / 电源 / Doze）；新增**组件工坊**（黑洞动态时钟桌面组件：2×2 / 4×2，事件视界 + 吸积盘整分重绘）；M3 完整规范落地（字阶 / 形状 / 动态取色）。
+> 当前版本 **v0.9.0「引力场」**：**组件银河** —— 黑洞时钟之外新增三个 Canvas 绘制桌面组件（引力电池 / 星轨日历 / 深渊引力仪，同一深空引擎与整分闹钟链，组件工坊四卡片画廊）；**隐私与管控**（Shizuku 深挖：权限审计批量回收 / appops query-op 敏感操作记录 / Doze 白名单 / netpolicy 流量策略）；**任务蓝图每日定时**（M3 TimePicker + SchedulePlanner 纯排程数学）；**M3 组件补全**（SearchBar / PullToRefreshBox / InputChip / TooltipBox / SnackbarHost 真实落地）。
 
 ## 主界面框架
 
@@ -64,7 +64,7 @@
 | `:core:plugin` | 插件框架：中心索引 / 安装器 / 插件补丁通道 |
 | `:core:shell` | Shizuku 执行层：adb shell 网关 + 指令编排（可单测）|
 | `:plugin-sdk:plugin-api` | 插件契约（宿主 ↔ 插件共享 ABI） |
-| `:feature:*` | dashboard / navhub / plugins / **disguise（伪装四件套）** / **onboarding（新手引导）** / settings / **appmgr（应用管理器）** / **shizukukit（Shizuku 工具箱）** / **qrcraft（二维码工坊）** / **blueprint（任务蓝图 + 自动化）** / **island（灵动岛悬浮球）** / **wallpaper（动态壁纸）** / **terminal（内置终端）** / **scriptlab（脚本实验室）** / **sandbox（隔离空间）** / **media（媒体实验室）** / **netaudit（流量审计）** / **backup（备份迁移）** / **syspower（系统控制中心）** / **widgets（组件工坊）** |
+| `:feature:*` | dashboard / navhub / plugins / **disguise（伪装四件套）** / **onboarding（新手引导）** / settings / **appmgr（应用管理器）** / **shizukukit（Shizuku 工具箱）** / **qrcraft（二维码工坊）** / **blueprint（任务蓝图 + 自动化，v0.9 双模式调度）** / **island（灵动岛悬浮球）** / **wallpaper（动态壁纸）** / **terminal（内置终端）** / **scriptlab（脚本实验室）** / **sandbox（隔离空间）** / **media（媒体实验室）** / **netaudit（流量审计）** / **backup（备份迁移）** / **syspower（系统控制中心，v0.9 四域 + 隐私与管控）** / **widgets（组件工坊，v0.9 组件银河四成员）** |
 
 详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
@@ -121,6 +121,7 @@ tag v* ──→ release.yml ──→ assembleRelease（secrets 注入签名材
 - [x] **伪装四件套全面深化**（v0.5.0）：机型伪装三级程度（L1 设备名 / L2 标准档案 / L3 深度全字段 + 蓝牙名）+ 档案库 10 → 26 款（v2 全量 Build 字段）；电量伪装持续保持守护（防 ROM 回写，显示恒为伪装值 + 一键恢复）；定位伪装移动模拟（静止/微漂移/步行/骑行/驾车 —— 轨迹 + 速度 + 航向 + 精度自然化）+ 漂移幅度三档 + 坐标收藏夹 + 26 城市预设；签名换用 meng411722 身份
 - [x] **信号显示伪装 + 发布信任链 P0 治理**（v0.6.0）：状态栏覆盖层（5G-A / 5G / 4G + 信号格 1-4 + Wi-Fi 图标伪造，无卡可用，Shizuku 一键授权，停止即恢复真实显示）；签名材料出库入 secrets + 发布者指纹硬校验 + versionCode 单调门禁；更新链 fail-closed（摘要强制 + GitHub 四域白名单）+ 插件索引运行时白名单（ChannelPolicy）+ 补丁引擎 zip bomb 防线；Shizuku 网关并发读管道 + 1MB 上限 + 30s 真超时；版本单一事实源（AppInfo）；返回栈持久化
 - [x] **大内置化 + M3 全面进化**（v0.8.1「黑洞」）：六重型插件内置化（终端 / 脚本实验室 / 隔离空间 / 媒体实验室 / 流量审计 / 备份迁移，全部真实功能页）；插件中心收缩为三大引擎级插件（构建器 / 病毒拦截 / 虚拟机）；**系统控制中心**（授权总管 AppOps + pm grant/revoke + 显示 / 电源 / Doze）；**组件工坊**（黑洞动态时钟桌面组件 2×2 / 4×2 + 整分自续期重绘 + Compose 实时预览）；M3 完整规范（十五级字阶 / 形状阶梯 / 动态取色 Material You）
+- [x] **组件银河 + 隐私与管控 + M3 补全**（v0.9.0「引力场」）：组件工坊扩为四成员银河（黑洞时钟 + **引力电池**（吸积环电量刻度 + 充电喷流）+ **星轨日历**（行星公转一年）+ **深渊引力仪**（内存·存储双环），AbyssWidgetFamily 家族注册表一跳喂饱全部）；系统控制中心新增**隐私与管控**四面板（权限审计批量回收 / appops query-op 敏感操作记录 / Doze 白名单 / netpolicy 流量策略）+ 标签化四页签；任务蓝图**双模式调度**（每日定时 M3 TimePicker + SchedulePlanner 纯排程）；M3 组件真实落地（SearchBar / PullToRefreshBox / InputChip / TooltipBox / SnackbarHost）
 - [ ] **Phase 1b 终端深化**：伪终端渲染内核（VT/ANSI）+ 本地 bootstrap
 - [ ] **Phase 2 任务系统与插件内核**：任务蓝图调用链 + DexClassLoader 插件加载
 - [ ] **Phase 3 硬核功能接入**：沙箱 Hook 层（机型档案消费方）/ Python 完整引擎
