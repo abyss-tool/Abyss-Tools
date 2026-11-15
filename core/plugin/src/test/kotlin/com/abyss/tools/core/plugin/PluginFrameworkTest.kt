@@ -21,12 +21,14 @@ class PluginFrameworkTest {
         javaClass.classLoader!!.getResourceAsStream(name)!!.readBytes().decodeToString()
 
     @Test
-    fun `解析 7 插件索引（伪装四件套内置化后）`() {
+    fun `解析 3 插件索引（v0_8_0 大内置化后只剩引擎级插件）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
         assertEquals("abyss-plugin-index-v1", index.schema)
-        assertEquals(7, index.plugins.size)
-        // 内置化后索引只剩重型插件；终端引擎仍在列
-        assertTrue(index.plugins.any { it.id == "abyss-plugin-terminal" && it.name == "终端引擎" })
+        assertEquals(3, index.plugins.size)
+        // v0.8.0 分界纪律：只保留「自带完整引擎」的插件（构建 / 病毒 / 虚拟机）
+        assertTrue(index.plugins.any { it.id == "abyss-plugin-app-builder" })
+        assertTrue(index.plugins.any { it.id == "abyss-plugin-virus-guard" && it.name == "病毒拦截" })
+        assertTrue(index.plugins.any { it.id == "abyss-plugin-virtual-machine" && it.name == "虚拟机" })
         assertTrue(index.plugins.all { it.versionSemVer != null })
         assertTrue(index.plugins.all { it.repo.startsWith("abyss-tool/abyss-plugin-") })
         assertTrue(index.plugins.all { it.patchChannel != null })
@@ -34,11 +36,13 @@ class PluginFrameworkTest {
         assertTrue(index.plugins.all { it.repo.endsWith(it.id) })
         // id 唯一
         assertEquals(index.plugins.size, index.plugins.map { it.id }.toSet().size)
-        // 已内置化的插件不再占据插件中心位次（v0.2 六个 + v0.3 伪装）
+        // v0.8.0 大内置化：原六重型插件仓已归档，不再占据插件中心位次
         val retired = setOf(
             "abyss-plugin-qr-craft", "abyss-plugin-island", "abyss-plugin-wallpaper",
             "abyss-plugin-shizuku-kit", "abyss-plugin-app-manager", "abyss-plugin-automation",
             "abyss-plugin-disguise",
+            "abyss-plugin-terminal", "abyss-plugin-python-lab", "abyss-plugin-sandbox",
+            "abyss-plugin-media-lab", "abyss-plugin-network-guard", "abyss-plugin-backup",
         )
         assertTrue(index.plugins.none { it.id in retired })
     }
@@ -52,14 +56,18 @@ class PluginFrameworkTest {
         val decl = builder.shizuku
         assertTrue(decl != null && decl.ownAuth)
         assertTrue(decl!!.reason.contains("Shizuku"))
+        // 病毒拦截同样声明独立授权（安装事件拦截通道）
+        val virus = index.plugins.first { it.id == "abyss-plugin-virus-guard" }
+        assertTrue(virus.shizuku != null && virus.shizuku!!.ownAuth)
         // 无声明插件解析为 null（字段缺省不炸）
-        assertTrue(index.plugins.first { it.id == "abyss-plugin-terminal" }.shizuku == null)
+        assertTrue(index.plugins.first { it.id == "abyss-plugin-virtual-machine" }.shizuku == null)
     }
 
     @Test
     fun `解析空补丁通道`() {
         val channel = PluginParsers.parsePatchChannel(resource("plugin-patch-channel.json"))
-        assertEquals("abyss-plugin-terminal", channel.plugin)
+        // v0.8.0：terminal 仓已归档，夹具改用病毒拦截（病毒拦截插件仓 v0.1.0 骨架）
+        assertEquals("abyss-plugin-virus-guard", channel.plugin)
         assertEquals("0.1.0", channel.latest)
         assertTrue(channel.patches.isEmpty())
     }
@@ -75,7 +83,7 @@ class PluginFrameworkTest {
         }
         val repo = PluginRepository(transport, "https://x/plugins.json")
         val result = repo.fetchIndex().getOrThrow()
-        assertEquals(7, result.plugins.size)
+        assertEquals(3, result.plugins.size)
     }
 
     // ── 安装器：未发布 APK fail-closed；数据补丁真实应用 ───────────────

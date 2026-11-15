@@ -1,6 +1,6 @@
 {
   "schema": "abyss-plugin-patches-v1",
-  "plugin": "abyss-plugin-terminal",
+  "plugin": "abyss-plugin-virus-guard",
   "latest": "0.1.0",
   "patches": []
 }

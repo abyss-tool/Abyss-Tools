@@ -3,21 +3,25 @@ package com.abyss.tools.core.common
 /**
  * 工具目录（导航页的数据底座）。
  *
- * 承载形态三分法（v0.3 起定型；v0.4 全部内置工具落地真实功能页）：
+ * 承载形态三分法（v0.8.0 大内置化重构定型）：
  *  - [ToolStatus.READY]      壳内已可用（当前为插件中心入口）
- *  - [ToolStatus.BUILT_IN]   主壳内置功能 —— 轻量能力直接写进主仓库，
- *                            随版本更新获得，无需安装插件（v0.2 起：
- *                            应用管理 / Shizuku 面板 / 自动化 / 灵动岛 /
- *                            壁纸 / 二维码 / 任务蓝图；v0.3 起：伪装四件套
- *                            —— 机型 / 电量 / 信号 / 定位，Shizuku 免 Root；
- *                            v0.4 起：上列内置全部真实功能页可用）
- *  - [ToolStatus.PLUGIN]     由大插件承载（重型能力：独立仓库 / 独立 CI /
- *                            独立补丁通道，点击跳到对应插件详情页安装）
+ *  - [ToolStatus.BUILT_IN]   主壳内置功能 —— v0.8.0 起承载形态大迁移：除
+ *                            应用构建器外的全部原重型插件（终端 / 脚本 /
+ *                            沙箱 / 媒体 / 网络 / 备份）全部内置化落地真实
+ *                            功能页（Shizuku Shell 终端 / 脚本实验室 /
+ *                            多用户隔离空间 / MediaMuxer 媒体实验室 /
+ *                            netstats 流量审计 / 备份迁移），外加 v0.8.0
+ *                            新增的系统控制中心（授权总管 AppOps + pm
+ *                            grant/revoke）与组件工坊（黑洞时钟桌面组件）
+ *  - [ToolStatus.PLUGIN]     由大插件承载 —— v0.8.0 起只保留「引擎级」重
+ *                            型能力：应用构建器（旗舰）+ 病毒拦截（新）+
+ *                            虚拟机（新）。曾经的六仓（终端 / Python /
+ *                            沙箱 / 媒体 / 网络 / 备份）已归档
  *  - [ToolStatus.FRAMEWORK]  框架占位（路线图内排期，当前不可用）
  *
- * 分界纪律：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 /
- * 大型框架 —— 终端 / Python / 沙箱 / 媒体 / 网络 / 备份 / 构建器）；
- * 轻量功能一律内置，避免插件中心的碎片化。
+ * 分界纪律（v0.8.0 收紧）：**只有「自带完整引擎」的能力才做成插件**——
+ * 构建底座（Alpine+PRoot）、病毒特征引擎（ClamAV 级）、整机虚拟机
+ * （QEMU 级）；其余一律内置，避免插件中心碎片化。
  *
  * 插件永远是导航页的第一个分类 —— 这是深渊工具「主壳轻、能力重」的
  * 产品结构表达。
@@ -27,17 +31,17 @@ enum class ToolCategory(
     val title: String,
     val description: String,
 ) {
-    PLUGINS("plugins", "插件", "七个大插件仓库构成的重型能力生态：终端 / Python / 沙箱 / 媒体 / 网络 / 备份 / 构建器 —— 小功能内置，大功能插件化"),
-    SYSTEM("system", "系统工具", "基于 Shizuku 的免 Root 系统管控：冻结 / 隐藏 / 提取 / 优化"),
-    TERMINAL("terminal", "终端与脚本", "内置 Linux 终端环境与 IDE 级代码编辑，任务蓝图驱动执行"),
-    DEV("dev", "开发与构建", "手机端 APK 构建器：Alpine + PRoot 底座 + 三条构建路径（大插件承载）"),
-    SANDBOX("sandbox", "沙箱与多开", "VirtualApp 血统的虚拟空间：免安装运行 / 应用双开 / 隔离管控"),
+    PLUGINS("plugins", "插件", "三个引擎级插件构成的重型能力生态：应用构建器 / 病毒拦截 / 虚拟机 —— 小功能内置，引擎级能力插件化"),
+    SYSTEM("system", "系统工具", "基于 Shizuku 的免 Root 系统管控：冻结 / 隐藏 / 提取 / 授权总管 / 系统控制"),
+    TERMINAL("terminal", "终端与脚本", "内置 Shizuku Shell 终端与脚本实验室：编辑 → 执行 → 历史一站直达"),
+    DEV("dev", "开发与构建", "手机端 APK 构建：Alpine + PRoot 底座 + 三条构建路径（引擎级大插件承载）"),
+    SANDBOX("sandbox", "沙箱与多开", "多用户隔离空间：免 Root 双开 / 独立数据域；整机虚拟机属插件能力"),
     DISGUISE("disguise", "伪装与隐私", "伪装四件套（v0.3 内置）：机型 / 电量 / 信号 / 定位，Shizuku 免 Root 实时生效；隐私守卫路线图中"),
-    MEDIA("media", "媒体工具", "FFmpeg 级音视频处理：批量剪辑 / 提取 / 无痕导出"),
+    MEDIA("media", "媒体工具", "MediaExtractor/MediaMuxer 级音视频处理：音频提取 / 去音轨 / 无重编码裁剪"),
     AUTOMATION("automation", "自动化", "任务蓝图 JSON 编排：步骤 / 重试 / 通知一站式"),
-    DESKTOP("desktop", "桌面美化", "灵动岛 / 悬浮球 / 动态壁纸与桌面组件"),
-    NETWORK("network", "网络守护", "VpnService 流量审计与异常传输拦截"),
-    DATA("data", "数据与备份", "应用数据备份 / 迁移 / 恢复工厂"),
+    DESKTOP("desktop", "桌面美化", "黑洞时钟桌面组件 / 灵动岛悬浮球 / 动态壁纸与组件工坊"),
+    NETWORK("network", "网络守护", "netstats 应用维度流量审计（内置）；VpnService 深度包审计路线图中"),
+    DATA("data", "数据与备份", "APK 资料库 / 配置与插件包备份 / 带防护的恢复（内置）"),
 }
 
 enum class ToolStatus(val label: String) {
@@ -57,11 +61,6 @@ data class ToolDef(
     val pluginId: String? = null,
     /** designsystem 侧图标键（AbyssIcons.icon(key) 映射）。 */
     val iconKey: String,
-    /**
-     * 交付里程碑（v0.7.6：ToolScreen 路线图时间轴）。数据摘自对应插件仓
-     * 的 ROADMAP —— 诚实数据纪律：没有排期的工具留空，绝不编造。
-     */
-    val roadmap: List<String> = emptyList(),
 )
 
 object ToolCatalog {
@@ -72,7 +71,7 @@ object ToolCatalog {
     const val ID_SIGNAL_DISGUISE = "signal-disguise"
     const val ID_LOCATION_DISGUISE = "location-disguise"
 
-    /** v0.4.0 内置功能页的稳定 id（占位页 → 真实功能页）。 */
+    /** 内置功能页的稳定 id。 */
     const val ID_APP_MANAGER = "app-manager"
     const val ID_SHIZUKU_KIT = "shizuku-kit"
     const val ID_QR_CRAFT = "qr-craft"
@@ -81,6 +80,17 @@ object ToolCatalog {
     const val ID_DYNAMIC_ISLAND = "dynamic-island"
     const val ID_LIVE_WALLPAPER = "live-wallpaper"
 
+    /** v0.8.0 大内置化：原六插件 + 新能力的稳定 id。 */
+    const val ID_TERMINAL = "terminal"
+    const val ID_SCRIPT_LAB = "script-lab"
+    const val ID_SANDBOX_SPACE = "sandbox-space"
+    const val ID_DUAL_OPEN = "dual-open"
+    const val ID_MEDIA_LAB = "media-lab"
+    const val ID_NET_AUDIT = "network-audit"
+    const val ID_BACKUP = "backup-master"
+    const val ID_SYS_CONTROL = "system-control"
+    const val ID_WIDGET_STUDIO = "widget-studio"
+
     val categories: List<ToolCategory> = ToolCategory.entries.toList()
 
     val tools: List<ToolDef> = listOf(
@@ -88,34 +98,27 @@ object ToolCatalog {
         ToolDef(
             id = "plugin-hub",
             title = "插件中心",
-            summary = "八个大插件仓库：浏览 / 安装 / 补丁更新，一站式重型能力生态入口。",
+            summary = "三个引擎级插件仓库：应用构建器 / 病毒拦截 / 虚拟机，浏览 / 安装 / 补丁更新一站式。",
             category = ToolCategory.PLUGINS,
             status = ToolStatus.READY,
             iconKey = "extension",
         ),
 
-        // ── 开发与构建 ─────────────────────────────────────────────
+        // ── 开发与构建（引擎级插件：构建底座）──────────────────────────
         ToolDef(
             id = "app-builder",
             title = "应用构建器",
             summary = "手机端 APK 构建器：Alpine + PRoot 底座，Anpyra / 内置工具链 / " +
-                "标准 Gradle 三路径自由选择，支持独立 Shizuku 授权（大插件承载）。",
+                "标准 Gradle 三路径自由选择，支持独立 Shizuku 授权（引擎级大插件）。",
             category = ToolCategory.DEV,
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-app-builder",
             iconKey = "construction",
-            roadmap = listOf(
-                "v0.2 底座拉起 —— Alpine rootfs + PRoot 可用性探测（Shizuku 优先，纯 PRoot 降级）",
-                "v0.3 路径一 —— Anpyra 纯 Python 构建（轻量项目）",
-                "v0.4 路径二 —— 内置工具链 aapt2 + 固定壳 DEX（资源 / HTML 打包）",
-                "v0.5 路径三 —— 标准 Gradle 构建（ARM64 工具链 + 资源约束）",
-                "v0.6 三选一交互层 —— 预检提示 / 推荐标记 / 失败切换 / 底座隔离",
-            ),
         ),
 
         // ── 系统工具 ───────────────────────────────────────────────────
         ToolDef(
-            id = "app-manager",
+            id = ID_APP_MANAGER,
             title = "应用管理器",
             summary = "应用冻结 / 隐藏 / 强制停止 / 提取安装包 / 图标伪装（pm hide / disable-user）。",
             category = ToolCategory.SYSTEM,
@@ -123,7 +126,16 @@ object ToolCatalog {
             iconKey = "apps",
         ),
         ToolDef(
-            id = "shizuku-kit",
+            id = ID_SYS_CONTROL,
+            title = "系统控制中心",
+            summary = "Shizuku 授权深度利用：深色 / 亮度 / DPI / 分辨率 / 动画 / Doze 直改，" +
+                "授权总管对任意应用的 AppOps 与运行时权限 allow/ignore/default 一键改写。",
+            category = ToolCategory.SYSTEM,
+            status = ToolStatus.BUILT_IN,
+            iconKey = "tune",
+        ),
+        ToolDef(
+            id = ID_SHIZUKU_KIT,
             title = "Shizuku 工具箱",
             summary = "免 Root 提权指令面板：appops / settings / dumpsys 的可视化封装。",
             category = ToolCategory.SYSTEM,
@@ -139,42 +151,34 @@ object ToolCatalog {
             iconKey = "bolt",
         ),
         ToolDef(
-            id = "time-shift",
-            title = "临时时间修改",
-            summary = "auto_time 关闭 + date 写入（高版本受限时走虚拟时钟）。",
+            id = "virus-guard",
+            title = "病毒拦截",
+            summary = "安装事件拦截 + 病毒特征引擎（ClamAV 级签名 + VirusTotal 云查询），" +
+                "引擎级能力由大插件承载。",
             category = ToolCategory.SYSTEM,
-            status = ToolStatus.FRAMEWORK,
-            iconKey = "schedule",
+            status = ToolStatus.PLUGIN,
+            pluginId = "abyss-plugin-virus-guard",
+            iconKey = "bug_report",
         ),
 
-        // ── 终端与脚本 ─────────────────────────────────────────────────
+        // ── 终端与脚本（v0.8.0 内置化：Shizuku Shell 真实执行）──────────
         ToolDef(
-            id = "terminal",
+            id = ID_TERMINAL,
             title = "内置终端",
-            summary = "Termux 血统的完整 Linux Shell：黑底白字 / 快捷命令键盘 / 前台服务保活。",
+            summary = "adb shell 上下文的真实终端（Shizuku 免 Root）：指令历史 / 快捷命令 / " +
+                "字号分档；本地 PTY 引擎（Termux 血统）属后续内置化路线。",
             category = ToolCategory.TERMINAL,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-terminal",
+            status = ToolStatus.BUILT_IN,
             iconKey = "terminal",
-            roadmap = listOf(
-                "v0.2 伪终端渲染内核（VT / ANSI）",
-                "v0.3 bootstrap 根文件系统",
-                "v0.4 快捷命令键盘与主题工坊",
-            ),
         ),
         ToolDef(
-            id = "python-lab",
-            title = "Python 游乐场",
-            summary = "Chaquopy 引擎：numpy / opencv 脚本执行 + HTML 实时渲染预览。",
+            id = ID_SCRIPT_LAB,
+            title = "脚本实验室",
+            summary = "Shell / Python 脚本编辑 → 保存 → 经 Shizuku 执行；Python 运行时探测" +
+                "（系统自带则可跑），完整引擎随内置化路线推进。",
             category = ToolCategory.TERMINAL,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-python-lab",
+            status = ToolStatus.BUILT_IN,
             iconKey = "code",
-            roadmap = listOf(
-                "v0.2 脚本编辑器与执行沙箱",
-                "v0.3 pip 离线包管理",
-                "v0.4 HTML 渲染预览",
-            ),
         ),
         ToolDef(
             id = "code-editor",
@@ -185,7 +189,7 @@ object ToolCatalog {
             iconKey = "edit",
         ),
         ToolDef(
-            id = "task-blueprint",
+            id = ID_TASK_BLUEPRINT,
             title = "任务蓝图",
             summary = "JSON 任务编排：shell / python / ui_toast 步骤链 + 成功判定 + 进阶解锁。",
             category = ToolCategory.TERMINAL,
@@ -193,34 +197,33 @@ object ToolCatalog {
             iconKey = "account_tree",
         ),
 
-        // ── 沙箱与多开 ────────────────────────────────────────────────
+        // ── 沙箱与多开（v0.8.0 内置化：多用户隔离引擎）──────────────────
         ToolDef(
-            id = "sandbox-space",
-            title = "虚拟空间",
-            summary = "VirtualApp 血统沙箱：外部 APK 免安装直接运行 + API 接管。",
+            id = ID_SANDBOX_SPACE,
+            title = "隔离空间",
+            summary = "Android 原生多用户引擎（pm create-user / install --user）：免 Root " +
+                "双开 + 独立数据域，Shizuku 直达；Hook 级沙箱属插件路线。",
             category = ToolCategory.SANDBOX,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-sandbox",
+            status = ToolStatus.BUILT_IN,
             iconKey = "layers",
-            roadmap = listOf(
-                "v0.2 沙箱容器引擎",
-                "v0.3 免安装运行",
-                "v0.4 Hook 层数据伪造",
-            ),
         ),
         ToolDef(
-            id = "dual-open",
+            id = ID_DUAL_OPEN,
             title = "应用双开",
-            summary = "沙箱内并行运行第二个实例：数据隔离 / 独立通知。",
+            summary = "把已装应用注册进隔离空间并行运行第二实例：数据天然隔离 / 独立通知。",
+            category = ToolCategory.SANDBOX,
+            status = ToolStatus.BUILT_IN,
+            iconKey = "copy",
+        ),
+        ToolDef(
+            id = "virtual-machine",
+            title = "虚拟机",
+            summary = "QEMU 级完整虚拟机：ARM/x86 系统镜像运行（Alpine / Windows / DOS），" +
+                "VNC 显示，引擎级能力由大插件承载。",
             category = ToolCategory.SANDBOX,
             status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-sandbox",
-            iconKey = "copy",
-            roadmap = listOf(
-                "v0.2 沙箱容器引擎",
-                "v0.3 免安装运行",
-                "v0.4 Hook 层数据伪造",
-            ),
+            pluginId = "abyss-plugin-virtual-machine",
+            iconKey = "dns",
         ),
 
         // ── 伪装与隐私（v0.3：四件套内置，Shizuku 免 Root）────────────
@@ -265,23 +268,18 @@ object ToolCatalog {
             iconKey = "visibility_off",
         ),
 
-        // ── 媒体工具 ──────────────────────────────────────────────────
+        // ── 媒体工具（v0.8.0 内置化：MediaMuxer 无重编码引擎）──────────
         ToolDef(
-            id = "media-lab",
+            id = ID_MEDIA_LAB,
             title = "媒体实验室",
-            summary = "FFmpeg 批量剪辑 / 音频提取 / 无痕导出（Python 后台执行）。",
+            summary = "MediaExtractor / MediaMuxer 无重编码处理：音频提取（AAC→M4A）/ " +
+                "去除音轨 / 关键帧对齐裁剪；FFmpeg 级转码属后续路线。",
             category = ToolCategory.MEDIA,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-media-lab",
+            status = ToolStatus.BUILT_IN,
             iconKey = "movie",
-            roadmap = listOf(
-                "v0.2 FFmpeg 管线封装",
-                "v0.3 批量剪辑 UI",
-                "v0.4 无痕导出",
-            ),
         ),
         ToolDef(
-            id = "qr-craft",
+            id = ID_QR_CRAFT,
             title = "二维码工坊",
             summary = "ZXing 生成 / 解析 / 网页转二维码，一键分享。",
             category = ToolCategory.MEDIA,
@@ -291,7 +289,7 @@ object ToolCatalog {
 
         // ── 自动化 ────────────────────────────────────────────────────
         ToolDef(
-            id = "automation",
+            id = ID_AUTOMATION,
             title = "自动化编排",
             summary = "任务蓝图调度引擎：定时任务 / 触发器 / 步骤重试。",
             category = ToolCategory.AUTOMATION,
@@ -299,17 +297,26 @@ object ToolCatalog {
             iconKey = "bolt",
         ),
 
-        // ── 桌面美化 ──────────────────────────────────────────────────
+        // ── 桌面美化（v0.8.0 新增：黑洞时钟桌面组件）───────────────────
         ToolDef(
-            id = "dynamic-island",
-            title = "灵动岛与悬浮球",
-            summary = "WindowManager 悬浮件：拖拽 / 吸附 / 状态岛动画。",
+            id = ID_WIDGET_STUDIO,
+            title = "组件工坊",
+            summary = "黑洞动态时钟桌面组件（2×2 / 4×2，事件视界 + 吸积盘逐分钟重绘）+ " +
+                "灵动岛 / 悬浮球 / 动态壁纸的统一工坊入口。",
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "widgets",
         ),
         ToolDef(
-            id = "live-wallpaper",
+            id = ID_DYNAMIC_ISLAND,
+            title = "灵动岛与悬浮球",
+            summary = "WindowManager 悬浮件：拖拽 / 吸附 / 状态岛动画。",
+            category = ToolCategory.DESKTOP,
+            status = ToolStatus.BUILT_IN,
+            iconKey = "swap",
+        ),
+        ToolDef(
+            id = ID_LIVE_WALLPAPER,
             title = "动态壁纸",
             summary = "WallpaperService 引擎：液态玻璃同源视觉的壁纸工坊。",
             category = ToolCategory.DESKTOP,
@@ -317,36 +324,36 @@ object ToolCatalog {
             iconKey = "wallpaper",
         ),
 
-        // ── 网络守护 ──────────────────────────────────────────────────
+        // ── 网络守护（v0.8.0 内置化：netstats 流量审计）────────────────
         ToolDef(
-            id = "network-guard",
+            id = ID_NET_AUDIT,
             title = "流量审计",
-            summary = "VpnService 虚拟网卡：域名画像 / 异常传输拦截 / 恶意行为告警。",
+            summary = "dumpsys netstats 应用维度流量画像：总览 / 应用榜单 / 系统与应用过滤" +
+                "（Shizuku 免 Root）；VpnService 深度包审计属插件路线。",
             category = ToolCategory.NETWORK,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-network-guard",
+            status = ToolStatus.BUILT_IN,
             iconKey = "lan",
-            roadmap = listOf(
-                "v0.2 VpnService 骨架",
-                "v0.3 流量画像",
-                "v0.4 VirusTotal 对接",
-            ),
         ),
 
-        // ── 数据与备份 ────────────────────────────────────────────────
+        // ── 数据与备份（v0.8.0 内置化：APK 库 + zip 引擎）──────────────
         ToolDef(
-            id = "backup-master",
+            id = ID_BACKUP,
             title = "备份迁移",
-            summary = "应用数据备份 / 跨设备迁移 / 恢复工厂。",
+            summary = "APK 资料库导出 / 主壳配置与插件清单包（zip）/ 带路径穿越与 zip 炸弹" +
+                "防护的恢复；应用私有数据抽取属插件能力（系统边界）。",
             category = ToolCategory.DATA,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-backup",
+            status = ToolStatus.BUILT_IN,
             iconKey = "backup",
-            roadmap = listOf(
-                "v0.2 配置与插件备份",
-                "v0.3 应用数据抽取",
-                "v0.4 跨设备迁移",
-            ),
+        ),
+
+        // ── 系统工具：临时时间修改（保留占位）──────────────────────────
+        ToolDef(
+            id = "time-shift",
+            title = "临时时间修改",
+            summary = "auto_time 关闭 + date 写入（高版本受限时走虚拟时钟）。",
+            category = ToolCategory.SYSTEM,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "schedule",
         ),
     )
 
@@ -358,6 +365,6 @@ object ToolCatalog {
     /** 插件承载形态的工具数（仪表盘统计用）。 */
     val pluginDrivenCount: Int get() = tools.count { it.status == ToolStatus.PLUGIN }
 
-    /** 主壳内置形态的工具数（v0.2 内置化重构后的一等公民）。 */
+    /** 主壳内置形态的工具数（v0.8 大内置化后的一等公民）。 */
     val builtInCount: Int get() = tools.count { it.status == ToolStatus.BUILT_IN }
 }
