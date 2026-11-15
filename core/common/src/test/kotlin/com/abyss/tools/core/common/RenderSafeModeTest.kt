@@ -113,6 +113,74 @@ class RenderSafeModeTest {
         assertEquals(t0 + 60_000, s.lastLaunchAt)
     }
 
+    // ── v0.7.8 分级降级：玻璃档位推导 ─────────────────────────────────
+
+    @Test
+    fun `档位推导 —— engage 压倒一切落 FROSTED`() {
+        assertEquals(
+            RenderSafeMode.GlassMode.FROSTED,
+            RenderSafeMode.deriveGlassMode(engage = true, crashStreak = 0),
+        )
+        assertEquals(
+            RenderSafeMode.GlassMode.FROSTED,
+            RenderSafeMode.deriveGlassMode(engage = true, crashStreak = 2),
+        )
+    }
+
+    @Test
+    fun `档位推导 —— 连崩 1到2 落 NO_LENS 中间档止血`() {
+        assertEquals(
+            RenderSafeMode.GlassMode.NO_LENS,
+            RenderSafeMode.deriveGlassMode(engage = false, crashStreak = 1),
+        )
+        assertEquals(
+            RenderSafeMode.GlassMode.NO_LENS,
+            RenderSafeMode.deriveGlassMode(engage = false, crashStreak = 2),
+        )
+    }
+
+    @Test
+    fun `档位推导 —— 连崩 0 为 FULL`() {
+        assertEquals(
+            RenderSafeMode.GlassMode.FULL,
+            RenderSafeMode.deriveGlassMode(engage = false, crashStreak = 0),
+        )
+    }
+
+    @Test
+    fun `单次异常终止 —— 下次会话 NO_LENS 而非等待三连崩`() {
+        coldStart(t0)
+        coldStart(t0 + 60_000) // streak = 1（会话崩溃，无干净退出标记）
+        val d = coldStart(t0 + 120_000)
+        assertFalse(d.engage)
+        assertEquals(1, d.rapidRestarts)
+        assertEquals(RenderSafeMode.GlassMode.NO_LENS, d.glassMode)
+    }
+
+    @Test
+    fun `干净退出自愈 —— 一档回 FULL`() {
+        coldStart(t0)
+        coldStart(t0 + 60_000) // streak = 1 → NO_LENS
+        RenderSafeMode.markCleanExit(file)
+        val d = coldStart(t0 + 120_000)
+        assertFalse(d.engage)
+        assertEquals(RenderSafeMode.GlassMode.FULL, d.glassMode)
+    }
+
+    @Test
+    fun `温重建档位一致 —— currentDecision 带 glassMode`() {
+        coldStart(t0)
+        coldStart(t0 + 60_000) // streak = 1
+        assertEquals(RenderSafeMode.GlassMode.NO_LENS, RenderSafeMode.currentDecision(file).glassMode)
+        RenderSafeMode.markCleanExit(file)
+        assertEquals(RenderSafeMode.GlassMode.FULL, RenderSafeMode.currentDecision(file).glassMode)
+        RenderSafeMode.reset(file)
+        coldStart(t0 + 5_000)
+        coldStart(t0 + 10_000)
+        assertTrue(RenderSafeMode.currentDecision(file).engage)
+        assertEquals(RenderSafeMode.GlassMode.FROSTED, RenderSafeMode.currentDecision(file).glassMode)
+    }
+
     // ── fail-open：绝不成为新的崩溃源 ─────────────────────────────────
 
     @Test

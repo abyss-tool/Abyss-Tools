@@ -70,8 +70,36 @@ object RenderSafeMode {
         val lastCleanExit: Boolean = true,
     )
 
-    /** 冷启动判定结果。 */
-    data class Decision(val engage: Boolean, val rapidRestarts: Int)
+    /**
+     * 玻璃档位（v0.7.8 分级降级）—— 在「正常渲染 ↔ 全 Frosted」之间
+     * 插入中间档，让断路器第一次异常终止就止血，而不是等满 3 连崩：
+     *
+     *  - [FULL]：vibrancy + blur + lens 全效果（默认档）；
+     *  - [NO_LENS]：停 AGSL RuntimeShader（lens 折射/色散）—— 各 OEM
+     *    GPU 驱动最脆弱的一环，保留 vibrancy + blur（代价最小的一档）；
+     *  - [FROSTED]：全 Frosted 降级（零 RenderEffect / 零采样，原断路器
+     *    engage 语义，阈值不变）。
+     *
+     * 映射（见 [deriveGlassMode]）：engage → FROSTED；连崩 1~2 →
+     * NO_LENS；连崩 0 → FULL。诚实声明：连崩计数把「滑卡清理 / LRU
+     * 回收」也计为异常终止（v2 已知取舍）—— 误伤代价 = lens 停一两个
+     * 会话，一次干净退出自愈，方向保守正确。
+     */
+    enum class GlassMode { FULL, NO_LENS, FROSTED }
+
+    /** 冷启动判定结果。[glassMode] 为本次会话应使用的玻璃档位。 */
+    data class Decision(
+        val engage: Boolean,
+        val rapidRestarts: Int,
+        val glassMode: GlassMode = if (engage) GlassMode.FROSTED else GlassMode.FULL,
+    )
+
+    /** 档位推导（纯函数，单测锚点）：engage 压倒一切，1~2 连崩落中间档。 */
+    fun deriveGlassMode(engage: Boolean, crashStreak: Int): GlassMode = when {
+        engage -> GlassMode.FROSTED
+        crashStreak in 1..2 -> GlassMode.NO_LENS
+        else -> GlassMode.FULL
+    }
 
     /**
      * 冷启动调用（进程首个 Activity.onCreate）：计数 + 判定 + 落盘。
@@ -98,13 +126,21 @@ object RenderSafeMode {
                 lastCleanExit = false,
             ),
         )
-        return Decision(engage = engage, rapidRestarts = rapid)
+        return Decision(
+            engage = engage,
+            rapidRestarts = rapid,
+            glassMode = deriveGlassMode(engage, streak),
+        )
     }
 
     /** 温重建调用（同进程内 Activity 重建）：只读判定，不计数。 */
     fun currentDecision(file: File): Decision {
         val s = readState(file)
-        return Decision(engage = s.engaged, rapidRestarts = s.rapidRestarts)
+        return Decision(
+            engage = s.engaged,
+            rapidRestarts = s.rapidRestarts,
+            glassMode = deriveGlassMode(s.engaged, s.crashStreak),
+        )
     }
 
     /**
