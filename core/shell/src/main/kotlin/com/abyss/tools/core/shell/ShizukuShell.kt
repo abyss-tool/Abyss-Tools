@@ -3,12 +3,14 @@ package com.abyss.tools.core.shell
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import moe.shizuku.server.IRemoteProcess
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
+import rikka.sui.Sui
 import java.io.FileInputStream
 import kotlin.concurrent.thread
 
@@ -17,6 +19,9 @@ import kotlin.concurrent.thread
  *
  * NotRunning 同时覆盖「未安装」与「未启动」—— 对用户而言动作一致
  * （去启动 Shizuku），区分两者的成本（跨进程探测）不值得。
+ *
+ * v0.8.3：服务端可能是任意 Shizuku 兼容变体（Shizuku / Shevery /
+ * Shizuku+ / Sui…），客户端 binder 机制对变体透明 —— 状态语义不变。
  */
 sealed interface ShizukuStatus {
     val binderAlive: Boolean
@@ -49,6 +54,12 @@ object ShizukuMonitor {
     private val lock = Any()
     private val listeners = mutableSetOf<(ShizukuStatus) -> Unit>()
     private var hooksRegistered = false
+    private var suiInitialized = false
+
+    /** Sui（Root 集成形态）在位：ensureInit 时探测一次，状态文案引用。 */
+    @Volatile
+    var suiAvailable: Boolean = false
+        private set
 
     private val binderReceived = Shizuku.OnBinderReceivedListener { refresh() }
     private val binderDead = Shizuku.OnBinderDeadListener { refresh() }
@@ -83,14 +94,47 @@ object ShizukuMonitor {
         }
     }
 
+    /**
+     * 进程早期的变体接线（AbyssApplication.onCreate 调用）：
+     * Sui 的 binder 经 `Sui.init(packageName)` 挂载，必须在任何 Shizuku
+     * API 调用前完成 —— 幂等，重复调用无害。
+     */
+    fun ensureInit(context: Context) {
+        if (suiInitialized) return
+        suiInitialized = true
+        suiAvailable = runCatching { Sui.init(context.packageName) }.getOrDefault(false)
+    }
+
     /** 拉起 Shizuku 的授权弹窗（Shizuku API 形态：requestPermission(requestCode)）。 */
     fun requestPermission() {
         runCatching { Shizuku.requestPermission(REQUEST_CODE) }
     }
 
-    /** 跳去 Shizuku App（未启动 / 配置无线调试时用）。 */
+    /**
+     * 跳去 Shizuku App（未启动 / 配置无线调试时用）。
+     *
+     * v0.8.3：按变体注册表逐个探测（官方包名同时是 Shevery / Shizuku-Next
+     * 等 fork 服务端 stub 的共用包名；另探测 Shevery / Shizuku+ 的独立
+     * 管理器），首个命中即返回。
+     */
     fun shizukuAppIntent(context: Context): Intent? =
-        context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+        ShizukuVariant.entries.firstNotNullOfOrNull { variant ->
+            runCatching {
+                context.packageManager.getLaunchIntentForPackage(variant.packageName)
+            }.getOrNull()
+        }
+
+    /**
+     * 打开 Shizuku 的统一入口：已装任一变体 → 打开它；一个都没装 →
+     * 兜底打开官方下载页（浏览器）。返回最终意图（调用方 startActivity）。
+     */
+    fun shizukuEntryIntent(context: Context): Intent =
+        shizukuAppIntent(context) ?: downloadIntent()
+
+    /** 下载页兜底意图（浏览器直开，NEW_TASK —— 兼容 Application Context）。 */
+    private fun downloadIntent(): Intent =
+        Intent(Intent.ACTION_VIEW, Uri.parse(ShizukuVariants.DOWNLOAD_URL))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /** 重算并扇出（binder / 授权事件回调线程不定，统一走这里）。 */
     fun refresh() {
@@ -114,7 +158,6 @@ object ShizukuMonitor {
     }
 
     private const val REQUEST_CODE = 4200
-    private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
 }
 
 /**
