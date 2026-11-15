@@ -2,36 +2,71 @@ package com.abyss.tools.core.designsystem.component
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.BrightnessMedium
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Construction
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentCut
+import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FolderZip
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Power
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SettingsBackupRestore
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Timeline
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Warning
@@ -82,6 +117,42 @@ object AbyssIcons {
         "open" -> Icons.Rounded.OpenInNew
         "warning" -> Icons.Rounded.Warning
         "search" -> Icons.Rounded.Search
+        // ── v0.8.0 新增键（内置化六件套 / 系统控制 / 组件工坊等）────────
+        "tune" -> Icons.Rounded.Tune
+        "brightness" -> Icons.Rounded.BrightnessMedium
+        "bug_report" -> Icons.Rounded.BugReport
+        "memory" -> Icons.Rounded.Memory
+        "dns" -> Icons.Rounded.Dns
+        "storage" -> Icons.Rounded.Storage
+        "folder" -> Icons.Rounded.Folder
+        "folder_zip" -> Icons.Rounded.FolderZip
+        "image" -> Icons.Rounded.Image
+        "brush" -> Icons.Rounded.Brush
+        "save" -> Icons.Rounded.Save
+        "restore" -> Icons.Rounded.SettingsBackupRestore
+        "play" -> Icons.Rounded.PlayArrow
+        "pause" -> Icons.Rounded.Pause
+        "stop" -> Icons.Rounded.Stop
+        "delete" -> Icons.Rounded.Delete
+        "send" -> Icons.Rounded.Send
+        "upload" -> Icons.Rounded.Upload
+        "science" -> Icons.Rounded.Science
+        "dark_mode" -> Icons.Rounded.DarkMode
+        "light_mode" -> Icons.Rounded.LightMode
+        "speed" -> Icons.Rounded.Speed
+        "power" -> Icons.Rounded.Power
+        "shield" -> Icons.Rounded.Shield
+        "verified" -> Icons.Rounded.Verified
+        "chart" -> Icons.Rounded.BarChart
+        "timeline" -> Icons.Rounded.Timeline
+        "network_check" -> Icons.Rounded.NetworkCheck
+        "perm" -> Icons.Rounded.AdminPanelSettings
+        "checklist" -> Icons.Rounded.Checklist
+        "music" -> Icons.Rounded.MusicNote
+        "eq" -> Icons.Rounded.GraphicEq
+        "group" -> Icons.Rounded.Group
+        "swap" -> Icons.Rounded.SwapHoriz
+        "cut" -> Icons.Rounded.ContentCut
         else -> Icons.Rounded.Extension
     }
 }
