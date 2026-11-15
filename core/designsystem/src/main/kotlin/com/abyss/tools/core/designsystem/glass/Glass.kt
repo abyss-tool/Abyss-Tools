@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.abyss.tools.core.common.GlassProbe
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.BackdropEffectScope
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -83,6 +84,14 @@ val LocalGlassNestingDepth = compositionLocalOf { 0 }
 /** 玻璃最大嵌套深度（第 0 层 = 顶层玻璃件，可再嵌 2 层）。 */
 const val MAX_GLASS_NESTING_DEPTH = 2
 
+/**
+ * lens（AGSL RuntimeShader 折射/色散）是否可用（v0.7.8 分级降级）：
+ * RenderSafeMode.GlassMode.NO_LENS 档由 MainActivity 置 false —— 全部
+ * 玻璃件跳过 lens，保留 vibrancy + blur。AGSL 是各 OEM GPU 驱动最脆弱
+ * 的一环，断路器第一次异常终止即停它止血（详见 RenderSafeMode 文档）。
+ */
+val LocalGlassLensEnabled = compositionLocalOf { true }
+
 @Composable
 fun rememberAbyssBackdrop(): LayerBackdrop = rememberLayerBackdrop()
 
@@ -125,6 +134,7 @@ fun AbyssGlassSurface(
 ) {
     val intensity = LocalGlassIntensity.current
     val nestingDepth = LocalGlassNestingDepth.current
+    val lensEnabled = LocalGlassLensEnabled.current
     val canRender = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     // 深度预算（v0.7.4）：玻璃套玻璃超限的内层降级 Frosted ——
     // 渲染树深度恒定有界，不受业务嵌套布局影响。
@@ -135,20 +145,30 @@ fun AbyssGlassSurface(
     // ── lambda 记忆化（键 = 捕获的全部值）────────────────────────────
     val shapeBlock = remember(shape) { { shape } }
 
-    val effectsBlock: BackdropEffectScope.() -> Unit = remember(style, intensity, hasLiveSource) {
+    val effectsBlock: BackdropEffectScope.() -> Unit = remember(style, intensity, hasLiveSource, lensEnabled) {
         {
             if (hasLiveSource) {
                 // OEM RenderEffect/AGSL 差异防御：单项失败降级为无该效果，
                 // 组合树与进程存活优先（参考仓 v1.4.9 同款纪律）。
+                // 管线探针（v0.7.8）：每个效果挂载成功即落里程碑 ——
+                // RenderThread 原生崩溃拿不到 Java 堆栈，探针尾部 =
+                // 死亡时管线推进到哪一步（见 GlassProbe 文档）。
                 runCatching { vibrancy() }
+                    .onSuccess { GlassProbe.mark(GlassProbe.STAGE_VIBRANCY) }
                 runCatching { blur((style.blurRadius * intensity).toPx()) }
+                    .onSuccess { GlassProbe.mark(GlassProbe.STAGE_BLUR) }
                 if (style.lensHeight > 0.dp) {
-                    runCatching {
-                        lens(
-                            refractionHeight = (style.lensHeight * intensity).toPx(),
-                            refractionAmount = (style.lensAmount * intensity).toPx(),
-                            chromaticAberration = style.chromaticAberration,
-                        )
+                    if (!lensEnabled) {
+                        // 分级降级档（NO_LENS）：AGSL 全跳，仅落探针
+                        GlassProbe.mark(GlassProbe.STAGE_LENS_SKIPPED)
+                    } else {
+                        runCatching {
+                            lens(
+                                refractionHeight = (style.lensHeight * intensity).toPx(),
+                                refractionAmount = (style.lensAmount * intensity).toPx(),
+                                chromaticAberration = style.chromaticAberration,
+                            )
+                        }.onSuccess { GlassProbe.mark(GlassProbe.STAGE_LENS) }
                     }
                 }
             }
@@ -191,6 +211,10 @@ fun AbyssGlassSurface(
     val surfaceBlock: DrawScope.() -> Unit = remember(hasLiveSource, style, frostBrush) {
         {
             if (hasLiveSource) {
+                // 管线探针：首个真实采样帧绘制完成（同阶段连续去重，
+                // 逐帧不刷屏）—— 探针尾部若停在 lens-applied 与此之间，
+                // 即 GPU 首帧执行期死亡（驱动嫌疑，见 GlassProbe 文档）
+                GlassProbe.mark(GlassProbe.STAGE_FIRST_FRAME)
                 drawRect(style.tint)
             } else {
                 drawRect(frostBrush)
