@@ -1,13 +1,13 @@
 package com.abyss.tools.core.designsystem.glass
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.asState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,17 +46,24 @@ class AbyssLiquidMotion internal constructor(
     private val stretchAnim = Animatable(0f)
     private val velocityAnim = Animatable(0f)
 
+    // Animatable.value 本身由 snapshot state 支撑 —— 经轻量 State 包装暴露
+    // （本 Compose 版本无 Animatable.asState() 扩展）：draw / graphicsLayer
+    // 阶段读取时照常注册快照观察，draw 失效语义不变。
+    private fun <T> stateOf(read: () -> T): State<T> = object : State<T> {
+        override val value: T get() = read()
+    }
+
     /** 连续选中位置（0 .. itemCount-1），draw 阶段读取。 */
-    val visualIndex: State<Float> = indexAnim.asState()
+    val visualIndex: State<Float> = stateOf { indexAnim.value }
 
     /** 按压体积 0..1，拖动 / 按下时膨胀。 */
-    val press: State<Float> = pressAnim.asState()
+    val press: State<Float> = stateOf { pressAnim.value }
 
     /** 横向拉伸 0..1，由速度驱动，松手回弹。 */
-    val stretch: State<Float> = stretchAnim.asState()
+    val stretch: State<Float> = stateOf { stretchAnim.value }
 
     /** 归一化拖动速度 -1..1，决定流光偏向哪一侧。 */
-    val velocity: State<Float> = velocityAnim.asState()
+    val velocity: State<Float> = stateOf { velocityAnim.value }
 
     /** 列表滚动相位（可选接线），量化后再传入，避免每像素 invalidate。 */
     private val _scrollPhase = mutableFloatStateOf(0f)
