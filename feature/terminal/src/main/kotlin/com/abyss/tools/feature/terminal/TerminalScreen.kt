@@ -53,7 +53,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberPlainTooltipPositionProvider
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -301,7 +301,7 @@ private fun TerminalHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TooltipBox(
-            positionProvider = TooltipDefaults.plainTooltipPositionProvider(),
+            positionProvider = rememberPlainTooltipPositionProvider(),
             tooltip = { PlainTooltip { Text("返回") } },
             state = rememberTooltipState(),
         ) {
@@ -320,7 +320,7 @@ private fun TerminalHeader(
         )
         StatusChip(text = shizukuChipText(shizukuStatus), tone = shizukuChipTone(shizukuStatus))
         TooltipBox(
-            positionProvider = TooltipDefaults.plainTooltipPositionProvider(),
+            positionProvider = rememberPlainTooltipPositionProvider(),
             tooltip = { PlainTooltip { Text("历史记录") } },
             state = rememberTooltipState(),
         ) {
