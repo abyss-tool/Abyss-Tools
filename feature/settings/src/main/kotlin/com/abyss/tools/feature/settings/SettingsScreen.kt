@@ -932,6 +932,8 @@ private fun DiagnosticsCard() {
                     }
                 }
             }
+        }
+    }
 
     if (showFullReport && lastReport != null) {
         AlertDialog(
