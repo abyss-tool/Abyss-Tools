@@ -35,6 +35,9 @@ dependencies {
     // 消费方（:app / :feature-*）推断类型时需要该模块在编译类路径上。
     api(project(":vendor:backdrop"))
 
+    // 玻璃管线探针（v0.7.8）：AbyssGlassSurface 效果链落 GlassProbe 里程碑
+    implementation(project(":core:common"))
+
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
