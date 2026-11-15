@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 引力电池（v0.9.0 引力场，2×2）：updatePeriodMillis 为系统下限 30 分钟
+     （兜底）；真实节奏由整分精确闹钟链驱动（BlackHoleTicker → 全家刷新）。 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/gravity_battery_widget"
+    android:description="@string/gravity_battery_widget_desc" />

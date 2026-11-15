@@ -3,4 +3,12 @@
     <string name="black_hole_widget_label">黑洞时钟</string>
     <string name="black_hole_widget_small_label">黑洞时钟 · 方形</string>
     <string name="black_hole_widget_desc">绘制的黑洞动态时钟：吸积盘随时间旋转，整分重绘（深渊工具 · 组件工坊）</string>
+
+    <!-- v0.9.0「引力场」新成员（组件银河） -->
+    <string name="gravity_battery_widget_label">引力电池</string>
+    <string name="gravity_battery_widget_desc">引力电池组件：吸积环随电量扫过，低电泛琥珀红，充电时极向喷流脉动（深渊工具 · 组件工坊）</string>
+    <string name="stellar_calendar_widget_label">星轨日历</string>
+    <string name="stellar_calendar_widget_desc">星轨日历组件：行星沿轨道绕黑洞运行一年，标记今日与年内进度（深渊工具 · 组件工坊）</string>
+    <string name="abyss_gauge_widget_label">深渊引力仪</string>
+    <string name="abyss_gauge_widget_desc">深渊引力仪组件：双引力环实时读数内存与存储占用（深渊工具 · 组件工坊）</string>
 </resources>

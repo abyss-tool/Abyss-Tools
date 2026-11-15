@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 引力电池宿主布局（与黑洞时钟同款纪律）：全部像素内容（星场 + 黑洞 +
+     吸积环 + 电量文字）绘制进 ImageView 的位图 —— 布局零文本节点，
+     RemoteViews 只做位图搬运。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_canvas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/gravity_battery_widget_label" />
+
+</FrameLayout>

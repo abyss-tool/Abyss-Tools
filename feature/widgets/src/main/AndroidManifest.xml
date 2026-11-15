@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  组件工坊模块 manifest —— 黑洞动态时钟桌面组件。
+  组件工坊模块 manifest（v0.9.0「引力场」起为四组件家族）：
+  黑洞动态时钟（宽 / 方）+ 引力电池 + 星轨日历 + 深渊引力仪。
 
   只声明组件，权限只有 RECEIVE_BOOT_COMPLETED（分钟级重排闹钟不随重启
-  存活，BootReceiver 负责重排；与 feature:blueprint 的 BootReceiver 同款
-  纪律 —— 宿主 targetSdk 28 < 31，setExactAndAllowWhileIdle 无需
-  SCHEDULE_EXACT_ALARM）。
+  存活，BootReceiver 负责重排并刷新全部四家族；与 feature:blueprint 的
+  BootReceiver 同款纪律 —— 宿主 targetSdk 28 < 31，
+  setExactAndAllowWhileIdle 无需 SCHEDULE_EXACT_ALARM）。
 
   exported=false：APPWIDGET_UPDATE / BOOT_COMPLETED 均为系统保护广播，
-  系统 UID 投递不受 exported 约束；自定义 ACTION_TICK 走显式 PendingIntent，
-  同样可达。组件不暴露任何跨应用入口。
+  系统 UID 投递不受 exported 约束；自定义 ACTION_TICK 走显式 PendingIntent
+  （目标 BlackHoleClockWidget，由其转手刷新全家），同样可达。组件不暴露
+  任何跨应用入口。
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -43,7 +45,46 @@
                 android:resource="@xml/black_hole_widget_small_info" />
         </receiver>
 
-        <!-- 开机重排分钟级重绘链 -->
+        <!-- 引力电池（v0.9.0 引力场，2×2）：吸积环电量刻度 -->
+        <receiver
+            android:name="com.abyss.tools.feature.widgets.GravityBatteryWidget"
+            android:exported="false"
+            android:label="@string/gravity_battery_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/gravity_battery_widget_info" />
+        </receiver>
+
+        <!-- 星轨日历（v0.9.0 引力场，2×2）：行星公转一年 -->
+        <receiver
+            android:name="com.abyss.tools.feature.widgets.StellarCalendarWidget"
+            android:exported="false"
+            android:label="@string/stellar_calendar_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stellar_calendar_widget_info" />
+        </receiver>
+
+        <!-- 深渊引力仪（v0.9.0 引力场，2×2）：内存 / 存储双环读数 -->
+        <receiver
+            android:name="com.abyss.tools.feature.widgets.AbyssGaugeWidget"
+            android:exported="false"
+            android:label="@string/abyss_gauge_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/abyss_gauge_widget_info" />
+        </receiver>
+
+        <!-- 开机重排分钟级重绘链（并刷新全部四家族） -->
         <receiver
             android:name="com.abyss.tools.feature.widgets.BlackHoleBootReceiver"
             android:exported="false">

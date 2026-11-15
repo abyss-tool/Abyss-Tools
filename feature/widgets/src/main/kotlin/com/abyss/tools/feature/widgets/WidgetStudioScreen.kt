@@ -1,6 +1,7 @@
 package com.abyss.tools.feature.widgets
 
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import androidx.compose.foundation.Canvas
@@ -8,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -35,15 +37,16 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
@@ -53,14 +56,19 @@ import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.designsystem.component.ChipTone
-import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 /**
- * 组件工坊 —— 桌面能力的中枢页（v0.8.0 新增）：
+ * 组件工坊 —— 桌面能力的中枢页（v0.8.0 新增；v0.9.0「引力场」重构为
+ * 四组件银河画廊）：
  *
- *  - 黑洞时钟实时预览（与桌面组件共用 BlackHoleArt 单一绘制实现，所
- *    见即所得）；尺寸 / 主题 / 节奏三件套即时预览 + 写偏好；
+ *  - 黑洞动态时钟实时预览（与桌面组件共用 BlackHoleArt 单一绘制实现，
+ *    所见即所得）；尺寸 / 主题 / 节奏三件套即时预览 + 写偏好 —— 主题
+ *    与整分开关现在统辖全部四组件；
+ *  - 引力家族三卡片（引力电池 / 星轨日历 / 深渊引力仪）：真实数据驱
+ *    动的动画预览（电池 / 日历逐帧读，内存 / 存储每秒采样一次 —— 每
+ *    帧读 ActivityManager/StatFs 过重）+ 各自的「添加到桌面」；
  *  - 「添加到桌面」走系统 requestPinAppWidget 通道（Android 8+ 官方
  *    通道，启动器不支持时诚实回退到手动指引）；
  *  - 灵动岛 / 动态壁纸快捷入口（同一「桌面美化」域）。
@@ -79,9 +87,12 @@ fun WidgetStudioScreen(
         mutableStateOf(WidgetStudioPrefs.minuteTickEnabled(context))
     }
     var previewWide by remember { mutableStateOf(true) }
-    var pinFeedback by remember { mutableStateOf<String?>(null) }
+    var pinFeedbackClock by remember { mutableStateOf<String?>(null) }
+    var pinFeedbackBattery by remember { mutableStateOf<String?>(null) }
+    var pinFeedbackCalendar by remember { mutableStateOf<String?>(null) }
+    var pinFeedbackGauge by remember { mutableStateOf<String?>(null) }
 
-    // 实时时钟（驱动预览每帧重绘 —— 桌面组件为整分粒度，预览更流畅）
+    // 实时时钟（驱动时钟预览每帧重绘 —— 桌面组件为整分粒度，预览更流畅）
     val nowMs by produceState(initialValue = System.currentTimeMillis()) {
         while (isActive) {
             withFrameNanos { }
@@ -110,17 +121,17 @@ fun WidgetStudioScreen(
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.size(8.dp))
-            StatusChip(text = "v0.8.0 新增", tone = ChipTone.OK)
+            StatusChip(text = "v0.9.0 引力场", tone = ChipTone.OK)
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            contentPadding = PaddingValues(
                 start = 20.dp, end = 20.dp, bottom = 32.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // ── 实时预览（所见即所得）──────────────────────────────────
+            // ── 黑洞动态时钟 · 实时预览（所见即所得）────────────────────
             item {
                 SectionHeader(
                     title = "黑洞动态时钟",
@@ -168,9 +179,9 @@ fun WidgetStudioScreen(
                 )
             }
 
-            // ── 主题 ───────────────────────────────────────────────────
+            // ── 吸积盘色系（全局主题：四组件共用）────────────────────────
             item {
-                SectionHeader(title = "吸积盘色系", subtitle = "切换后下一分钟生效，或点「立即刷新」")
+                SectionHeader(title = "吸积盘色系", subtitle = "全局主题：黑洞时钟与引力家族共用，切换后下一分钟生效（或点「立即刷新」）")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BlackHoleTheme.entries.forEach { t ->
                         FilterChip(
@@ -191,14 +202,15 @@ fun WidgetStudioScreen(
                 }
             }
 
-            // ── 节奏 ───────────────────────────────────────────────────
+            // ── 节奏（一个开关管全部四组件）─────────────────────────────
             item {
                 ListItem(
                     headlineContent = { Text("整分重绘（推荐）") },
                     supportingContent = {
                         Text(
-                            "AlarmManager 精确闹钟链：每个整分重绘位图（targetSdk 28 免授权）。" +
-                                "关闭后回到系统 30 分钟兜底节奏，仅时间跳变。",
+                            "AlarmManager 精确闹钟链：四个组件（时钟 / 电池 / 日历 / 引力仪）" +
+                                "每整分重绘位图（targetSdk 28 免授权）。关闭后全家统一回到系统 " +
+                                "30 分钟兜底节奏，仅整分跳变消失。",
                         )
                     },
                     trailingContent = {
@@ -216,35 +228,24 @@ fun WidgetStudioScreen(
                     OutlinedButton(onClick = { BlackHoleTicker.refreshNow(context) }) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null, Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
-                        Text("立即刷新")
+                        Text("立即刷新 · 全部四组件")
                     }
                 }
             }
 
-            // ── 添加到桌面 ────────────────────────────────────────────
+            // ── 黑洞时钟 · 添加到桌面 ──────────────────────────────────
             item {
-                SectionHeader(title = "添加到桌面", subtitle = "系统 requestPinAppWidget 官方通道（Android 8+）")
-                pinFeedback?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (it.contains("不支持")) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier.padding(vertical = 4.dp),
-                    )
-                }
+                SectionHeader(title = "添加黑洞时钟", subtitle = "系统 requestPinAppWidget 官方通道（Android 8+）")
+                PinFeedbackText(pinFeedbackClock)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = {
-                            pinFeedback = requestPin(context, wide = true)
+                            pinFeedbackClock = requestPin(context, BlackHoleClockWidget::class.java)
                         },
                     ) { Text("添加 4×2 宽版") }
                     FilledTonalButton(
                         onClick = {
-                            pinFeedback = requestPin(context, wide = false)
+                            pinFeedbackClock = requestPin(context, BlackHoleClockWidgetSmall::class.java)
                         },
                     ) { Text("添加 2×2 方版") }
                 }
@@ -253,6 +254,46 @@ fun WidgetStudioScreen(
                         "（Android 不允许应用未经用户确认直接添加桌面组件 —— 这是系统边界）",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // ── 引力家族（v0.9.0 三位新成员 · 组件银河）─────────────────
+            item {
+                SectionHeader(
+                    title = "引力家族",
+                    subtitle = "组件银河 · 三位新成员与黑洞时钟同源深空引擎、共用同一主题与整分节奏",
+                )
+                GravityFamilyCard(
+                    title = "引力电池",
+                    summary = "吸积环即电量刻度：环带随电量扫过，≥50% 主题色 / 20..49% 泛琥珀 / " +
+                        "低于 20% 泛红；充电时黑洞两极喷流缓慢脉动。",
+                    pinFeedback = pinFeedbackBattery,
+                    onPin = {
+                        pinFeedbackBattery = requestPin(context, GravityBatteryWidget::class.java)
+                    },
+                    preview = { GravityBatteryPreview(theme) },
+                )
+                Spacer(Modifier.height(12.dp))
+                GravityFamilyCard(
+                    title = "星轨日历",
+                    summary = "行星沿椭圆轨道绕黑洞公转一年：年积日折算轨道角，亮星标记今日，" +
+                        "十二枚月刻度逐一点亮。",
+                    pinFeedback = pinFeedbackCalendar,
+                    onPin = {
+                        pinFeedbackCalendar = requestPin(context, StellarCalendarWidget::class.java)
+                    },
+                    preview = { StellarCalendarPreview(theme) },
+                )
+                Spacer(Modifier.height(12.dp))
+                GravityFamilyCard(
+                    title = "深渊引力仪",
+                    summary = "双引力环实时读数：外环为内存占用、内环为存储占用，" +
+                        "引力尘埃沿扫过的弧段散布，读数行等宽字体对齐。",
+                    pinFeedback = pinFeedbackGauge,
+                    onPin = {
+                        pinFeedbackGauge = requestPin(context, AbyssGaugeWidget::class.java)
+                    },
+                    preview = { AbyssGaugePreview(theme) },
                 )
             }
 
@@ -278,19 +319,172 @@ fun WidgetStudioScreen(
     }
 }
 
-/** 系统固定通道；返回人话反馈（不支持时给手动指引文案）。 */
-private fun requestPin(context: Context, wide: Boolean): String {
+// ── 引力家族卡片 ────────────────────────────────────────────────────
+
+/**
+ * 引力家族卡片：动画预览（1:1 圆角裁切）+ 一行摘要 + 「添加到桌面」+
+ * 固定反馈文案。预览内容由调用方注入（三种数据源各取所需）。
+ */
+@Composable
+private fun GravityFamilyCard(
+    title: String,
+    summary: String,
+    pinFeedback: String?,
+    onPin: () -> Unit,
+    preview: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        preview()
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        FilledTonalButton(onClick = onPin) { Text("添加到桌面") }
+        PinFeedbackText(pinFeedback)
+    }
+}
+
+/** 引力家族共享预览框（1:1 · 圆角 24dp · 深色底承托星空）。 */
+@Composable
+private fun FamilyPreview(onDraw: DrawScope.() -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surface),
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize(), onDraw = onDraw)
+    }
+}
+
+/** 引力电池预览：真实电池数据 + 逐帧时钟（粘性广播只读不注册，逐帧读取开销可忽略）。 */
+@Composable
+private fun GravityBatteryPreview(theme: BlackHoleTheme) {
+    val context = LocalContext.current
+    val tick by produceState(
+        initialValue = System.currentTimeMillis() to GravityBatteryWidget.readSnapshot(context),
+    ) {
+        while (isActive) {
+            withFrameNanos { }
+            value = System.currentTimeMillis() to GravityBatteryWidget.readSnapshot(context)
+        }
+    }
+    FamilyPreview {
+        drawIntoCanvas { c ->
+            GravityBatteryArt.renderInto(
+                canvas = c.nativeCanvas,
+                widthPx = size.width.toInt(),
+                heightPx = size.height.toInt(),
+                timeMs = tick.first,
+                theme = theme,
+                snapshot = tick.second,
+            )
+        }
+    }
+}
+
+/** 星轨日历预览：日历即当前时刻（纯 JVM 折算，无需系统读取）。 */
+@Composable
+private fun StellarCalendarPreview(theme: BlackHoleTheme) {
+    val nowMs by produceState(initialValue = System.currentTimeMillis()) {
+        while (isActive) {
+            withFrameNanos { }
+            value = System.currentTimeMillis()
+        }
+    }
+    FamilyPreview {
+        drawIntoCanvas { c ->
+            StellarCalendarArt.renderInto(
+                canvas = c.nativeCanvas,
+                widthPx = size.width.toInt(),
+                heightPx = size.height.toInt(),
+                timeMs = nowMs,
+                theme = theme,
+            )
+        }
+    }
+}
+
+/**
+ * 深渊引力仪预览：时钟逐帧驱动动画，内存 / 存储每秒采样一次缓存复用
+ * （逐帧读 ActivityManager / StatFs 过重 —— 帧率优先，读数秒级足够）。
+ */
+@Composable
+private fun AbyssGaugePreview(theme: BlackHoleTheme) {
+    val context = LocalContext.current
+    val nowMs by produceState(initialValue = System.currentTimeMillis()) {
+        while (isActive) {
+            withFrameNanos { }
+            value = System.currentTimeMillis()
+        }
+    }
+    val snapshot by produceState(initialValue = AbyssGaugeWidget.readSnapshot(context)) {
+        while (isActive) {
+            value = AbyssGaugeWidget.readSnapshot(context)
+            delay(1000)
+        }
+    }
+    FamilyPreview {
+        drawIntoCanvas { c ->
+            AbyssGaugeArt.renderInto(
+                canvas = c.nativeCanvas,
+                widthPx = size.width.toInt(),
+                heightPx = size.height.toInt(),
+                timeMs = nowMs,
+                theme = theme,
+                snapshot = snapshot,
+            )
+        }
+    }
+}
+
+/** 固定通道反馈文案（不支持快捷固定时红字提示，与黑洞时钟同款语义）。 */
+@Composable
+private fun PinFeedbackText(text: String?) {
+    if (text != null) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (text.contains("不支持")) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+    }
+}
+
+/** 系统固定通道（按 provider 家族泛化）；返回人话反馈（不支持时给手动指引文案）。 */
+private fun requestPin(context: Context, provider: Class<out AppWidgetProvider>): String {
     val manager = AppWidgetManager.getInstance(context)
-    val component = ComponentName(
-        context,
-        if (wide) BlackHoleClockWidget::class.java else BlackHoleClockWidgetSmall::class.java,
-    )
+    val component = ComponentName(context, provider)
     return if (manager.isRequestPinAppWidgetSupported) {
         val ok = runCatching {
             manager.requestPinAppWidget(component, null, null)
         }.getOrDefault(false)
-        if (ok) "已请求固定到桌面 —— 在系统确认框里点「添加」。" else "固定请求未发出（启动器拒绝）—— 请用下方手动指引。"
+        if (ok) {
+            "已请求固定到桌面 —— 在系统确认框里点「添加」。"
+        } else {
+            "固定请求未发出（启动器拒绝）—— 请改用长按桌面 → 小组件手动添加。"
+        }
     } else {
-        "此启动器不支持快捷固定 —— 请用下方手动指引添加。"
+        "此启动器不支持快捷固定 —— 请改用长按桌面 → 小组件手动添加。"
     }
 }

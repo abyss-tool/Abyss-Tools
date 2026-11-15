@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -22,6 +21,11 @@ import com.abyss.tools.feature.widgets.WidgetStudioPrefs.minuteTickEnabled
  *    边界重绘位图（吸积盘旋转角由时间驱动，见 [BlackHoleMath]），
  *    开机经 [BlackHoleBootReceiver] 重排。targetSdk 28 < 31，无需
  *    SCHEDULE_EXACT_ALARM 用户授权。
+ *
+ * v0.9.0「引力场」起整分链服务全部四条家族（时钟宽/方 + 引力电池 +
+ * 星轨日历 + 深渊引力仪）—— tick 广播仍投递给本类（显式
+ * PendingIntent），由 [AbyssWidgetFamily.refreshAll] 转手刷新全家，
+ * 家族清单收敛在 [AbyssWidgetFamily]。
  */
 open class BlackHoleClockWidget : AppWidgetProvider() {
 
@@ -35,7 +39,8 @@ open class BlackHoleClockWidget : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
-        BlackHoleTicker.cancel(context)
+        // 四家族全部无实例才拆链 —— 时钟删了，电池 / 日历 / 引力仪还要整分重绘
+        AbyssWidgetFamily.cancelTickerIfIdle(context)
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -50,8 +55,8 @@ open class BlackHoleClockWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == BlackHoleTicker.ACTION_TICK) {
-            val manager = AppWidgetManager.getInstance(context)
-            pushUpdate(context, manager, allIds(context, manager))
+            // 一跳喂全家：tick 只打到时钟，转手刷新四条家族（含本家族）
+            AbyssWidgetFamily.refreshAll(context)
             BlackHoleTicker.scheduleNext(context)
         } else {
             super.onReceive(context, intent)
@@ -84,13 +89,6 @@ open class BlackHoleClockWidget : AppWidgetProvider() {
             }
         }
 
-        /** 本 provider 家族（宽版 + 方版）的全部实例 id。 */
-        fun allIds(context: Context, manager: AppWidgetManager): IntArray {
-            val wide = manager.getAppWidgetIds(ComponentName(context, BlackHoleClockWidget::class.java))
-            val small = manager.getAppWidgetIds(ComponentName(context, BlackHoleClockWidgetSmall::class.java))
-            return wide + small
-        }
-
         private const val TAG = "BlackHoleClock"
     }
 }
@@ -98,20 +96,23 @@ open class BlackHoleClockWidget : AppWidgetProvider() {
 /** 2×2 方版入口 —— 与宽版同一引擎，仅为桌面选择器提供第二个尺寸选项。 */
 class BlackHoleClockWidgetSmall : BlackHoleClockWidget()
 
-/** 开机重排分钟级重绘链（闹钟不随重启存活 —— 与 blueprint 同款纪律）。 */
+/** 开机重排分钟级重绘链（闹钟不随重启存活 —— 与 blueprint 同款纪律），并刷新全部四家族。 */
 class BlackHoleBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        val manager = AppWidgetManager.getInstance(context)
-        BlackHoleClockWidget.pushUpdate(context, manager, BlackHoleClockWidget.allIds(context, manager))
+        AbyssWidgetFamily.refreshAll(context)
         BlackHoleTicker.scheduleNext(context)
     }
 }
 
 /**
  * 「精确到分」自续期闹钟链：每个整分边界触发 ACTION_TICK → 重绘全部
- * 实例 → 重排下一次。用户可在组件工坊关闭（省电模式语义：回到 30 分钟
- * 系统兜底轨）。
+ * 四条家族实例（时钟宽/方 + 电池 + 日历 + 引力仪，见
+ * [AbyssWidgetFamily.refreshAll]）→ 重排下一次。用户可在组件工坊关闭
+ * （省电模式语义：全家回到 30 分钟系统兜底轨 —— 一个开关管四组件）。
+ *
+ * 公共面（ACTION_TICK / scheduleNext / cancel / refreshNow）自 v0.8.0
+ * 起保持不变 —— 工坊页的偏好流与「立即刷新」按钮零改动。
  */
 object BlackHoleTicker {
 
@@ -145,10 +146,9 @@ object BlackHoleTicker {
         am.cancel(pendingIntent(context))
     }
 
-    /** 立即触发一次重绘 + 重排（组件工坊「立即刷新」按钮消费）。 */
+    /** 立即触发一次全家重绘 + 重排（组件工坊「立即刷新」按钮消费）。 */
     fun refreshNow(context: Context) {
-        val manager = AppWidgetManager.getInstance(context)
-        BlackHoleClockWidget.pushUpdate(context, manager, BlackHoleClockWidget.allIds(context, manager))
+        AbyssWidgetFamily.refreshAll(context)
         scheduleNext(context)
     }
 
