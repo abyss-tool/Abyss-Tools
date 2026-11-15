@@ -10,13 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -276,11 +273,6 @@ fun ToolScreen(
                     item {
                         PluginCarrierCard(pluginId = tool.pluginId ?: "", onOpenPlugin = onOpenPlugin)
                     }
-                    // 交付里程碑时间轴（v0.7.6）：数据摘自插件仓 ROADMAP，
-                    // 占位页不再只有一张空卡 —— 用户能看到插件何时给到什么。
-                    if (tool.roadmap.isNotEmpty()) {
-                        item { RoadmapTimelineCard(tool.roadmap) }
-                    }
                 }
                 ToolStatus.BUILT_IN -> {
                     item { BuiltInFeatureCard(tool = tool) }
@@ -347,74 +339,9 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
 }
 
 /**
- * 插件交付里程碑时间轴（v0.7.6）：编号圆点 + 连接线的纵向 stepper ——
- * 数据由 ToolDef.roadmap 提供（摘自插件仓 ROADMAP），无排期不显示。
+ * 插件交付里程碑时间轴（v0.7.6 引入,v0.8.0 移除）：ToolDef.roadmap 随
+ * 六重型插件转内置而退役 —— 插件矩阵收缩后里程碑数据失去载体。
  */
-@Composable
-private fun RoadmapTimelineCard(phases: List<String>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-            .padding(16.dp),
-    ) {
-        Text(
-            text = "插件交付路线图",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.size(2.dp))
-        Text(
-            text = "独立仓库 · 独立 CI · 按里程碑逐步交付（摘自插件仓 ROADMAP）。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.size(12.dp))
-        phases.forEachIndexed { index, phase ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // 步骤圆点：首个 primary 实心（下一站），其余灰面
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (index == 0) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "${index + 1}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (index == 0) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-                Spacer(Modifier.size(10.dp))
-                Text(text = phase, style = MaterialTheme.typography.bodyMedium)
-            }
-            if (index != phases.lastIndex) {
-                // 连接线：纵向节奏感
-                Box(
-                    modifier = Modifier
-                        .padding(start = 12.dp)
-                        .width(2.dp)
-                        .height(14.dp)
-                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-                )
-                Spacer(Modifier.size(2.dp))
-            }
-        }
-    }
-}
 
 @Composable
 private fun BuiltInFeatureCard(tool: ToolDef) {
