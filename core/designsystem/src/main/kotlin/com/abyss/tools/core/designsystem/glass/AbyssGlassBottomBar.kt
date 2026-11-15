@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -76,7 +77,8 @@ data class AbyssNavItem(
     val badge: String? = null,
 )
 
-/** 玻璃底栏基准高度（页面 bottomClearance 的基准，保持 76dp 不动）。 */
+/** 玻璃底栏基准高度（页面 bottomClearance 的基准）。栏体 72dp + 宿主
+ *  纵向 padding 20dp ≈ 92dp,76dp+24dp clearance 覆盖有余,保持不动。 */
 val AbyssBottomBarHeight = 76.dp
 
 private val BarBodyHeight = 72.dp
@@ -219,8 +221,12 @@ fun AbyssGlassBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .graphicsLayer {
-                            // 选中项交给液滴层显示，避免重影；读 State 在 draw 阶段
-                            alpha = if (motion.visualIndex.value.roundToInt() == index) 0f else 1f
+                            // 液滴邻近即隐藏本槽图标、滑出渐显 —— 旧版按 round()
+                            // 中点翻转，拖尾阶段起始 tab 图标提前重现、与运动中
+                            // 的液滴短暂重影。d<0.5 全隐（液滴正覆盖），>0.75
+                            // 全显；读 State 在 draw 阶段，零重组。
+                            val d = abs(motion.visualIndex.value - index)
+                            alpha = ((d - 0.5f) / 0.25f).coerceIn(0f, 1f)
                         }
                         .clip(CircleShape)
                         .clickable(
@@ -249,11 +255,14 @@ fun AbyssGlassBottomBar(
                         }
                         .clip(CircleShape),
                 ) {
-                    // 4a 玻璃透镜：折射放大其下方图标（消费 ② 的独立采样源）
+                    // 4a 玻璃透镜：折射放大其下方图标（消费 ② 的独立采样源）；
+                    // M3 档（安全模式/API<31）抬一级 Highest —— 与整栏 High
+                    // 同色会淹没液滴
                     AbyssGlassSurface(
                         backdrop = lensBackdrop,
                         shape = CircleShape,
                         style = DropletStyle,
+                        m3Container = MaterialTheme.colorScheme.surfaceContainerHighest,
                         modifier = Modifier.matchParentSize(),
                     ) {}
 

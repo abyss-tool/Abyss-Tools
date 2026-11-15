@@ -136,6 +136,9 @@ fun AbyssGlassSurface(
     backdrop: Backdrop? = null,
     shape: Shape = MaterialTheme.shapes.extraLarge,
     style: AbyssGlassStyle = AbyssGlassStyle(),
+    /** M3 卡面档容器色覆写（缺省 surfaceContainerHigh）—— 同屏多档时让
+     *  降级件仍可分辨（如安全模式下液滴相对整栏抬一级 Highest）。 */
+    m3Container: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val intensity = LocalGlassIntensity.current
@@ -155,7 +158,7 @@ fun AbyssGlassSurface(
         Surface(
             modifier = modifier,
             shape = shape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = m3Container ?: MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 1.dp,
         ) {
             // 子树嵌套深度语义不变：M3 卡内的玻璃件按预算判定

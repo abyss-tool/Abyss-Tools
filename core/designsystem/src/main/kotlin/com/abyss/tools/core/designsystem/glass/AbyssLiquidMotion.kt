@@ -32,8 +32,9 @@ import kotlin.math.roundToInt
  * 3. **静止不跑任何循环动画**：常驻底栏做无限缓动高光会让背景每帧重录，
  *    Convx 实测约 45fps 全屏重采样、耗电 ~400mA，最终把高光角度冻结在中点。
  *    本类只在拖动 / 切 tab / 显式滚动相位更新时变值，静止时零 invalidate。
- * 4. **速度驱动拉伸**：velocity 归一化到 [-1,1]，stretch = |velocity| 决定
- *    液滴横向拉长与光带被「甩」到后方的距离，松手 spring 回弹。
+ * 4. **速度驱动拉伸与动量**：velocity 归一化到 [-1,1]，stretch = |velocity|
+ *    决定液滴横向拉长与光带被「甩」到后方的距离；松手按速度外推 ~0.4
+ *    个 tab 再吸附（快甩多走一档，慢拖不受影响），spring 回弹。
  */
 @Stable
 class AbyssLiquidMotion internal constructor(
@@ -114,12 +115,19 @@ class AbyssLiquidMotion internal constructor(
         }
     }
 
-    /** 松手：吸附到最近 tab，拉伸/速度/按压三项并行回弹，最后提交路由。 */
+    /**
+     * 松手：吸附 + 惯性预测，拉伸/速度/按压三项并行回弹，最后提交路由。
+     *
+     * 动量（v0.8.4 调优）：快甩按归一化速度外推 ~0.4 个 tab 再吸附 ——
+     * 手指跟手、动量交给弹簧（iOS 液滴手感）；慢速拖动 velocity≈0 不
+     * 外推，行为与纯吸附一致。cancelDrag 不做预测（手势被打断 = 保守回位）。
+     */
     fun endDrag(onSettle: (Int) -> Unit) {
         _isDragging.value = false
         dragJob?.cancel()
         dragJob = null
-        val target = indexAnim.value.roundToInt().coerceIn(0, itemCount - 1)
+        val projected = indexAnim.value + velocityAnim.value * 0.4f
+        val target = projected.roundToInt().coerceIn(0, itemCount - 1)
         scope.launch {
             launch { stretchAnim.animateTo(0f, spring(0.70f, 300f)) }
             launch { velocityAnim.animateTo(0f, spring(0.70f, 260f)) }
