@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份迁移 —— 模块 manifest。
+
+  无权限声明、无组件：zip 引擎纯 JVM（单测覆盖），UI 走 SAF
+  （CreateDocument / OpenDocument，无存储权限需求）；APK 导出读
+  PackageManager.sourceDir（本应用可读任意已装应用 base APK，无需授权）。
+-->
+<manifest />

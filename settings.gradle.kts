@@ -72,3 +72,4 @@ include(":feature:qrcraft")     // 二维码工坊（ZXing 生成 / 相册解析
 include(":feature:blueprint")   // 任务蓝图 + 自动化编排（JSON 步骤链 + 定时调度）
 include(":feature:island")      // 灵动岛与悬浮球（WindowManager overlay）
 include(":feature:wallpaper")   // 动态壁纸（WallpaperService 液态玻璃光斑引擎）
+include(":feature:backup")      // 备份迁移（主壳配置包 zip 引擎 + APK 资料库导出）
