@@ -339,8 +339,8 @@ object ToolCatalog {
         ToolDef(
             id = ID_BACKUP,
             title = "备份迁移",
-            summary = "APK 资料库导出 / 主壳配置与插件清单包（zip）/ 带路径穿越与 zip 炸弹" +
-                "防护的恢复；应用私有数据抽取属插件能力（系统边界）。",
+            summary = "主壳配置包（任务蓝图 / 渲染探针 / 安全模式状态，zip 导入导出，" +
+                "带路径穿越与 zip 炸弹防护）/ APK 资料库导出；应用私有数据抽取属插件能力（系统边界）。",
             category = ToolCategory.DATA,
             status = ToolStatus.BUILT_IN,
             iconKey = "backup",

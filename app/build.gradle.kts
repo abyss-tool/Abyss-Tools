@@ -141,6 +141,7 @@ dependencies {
     implementation(project(":feature:blueprint"))
     implementation(project(":feature:island"))
     implementation(project(":feature:wallpaper"))
+    implementation(project(":feature:backup"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

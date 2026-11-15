@@ -47,6 +47,8 @@ import com.abyss.tools.core.designsystem.glass.abyssBackdropSource
 import com.abyss.tools.core.designsystem.glass.rememberAbyssBackdrop
 import com.abyss.tools.core.shell.ShizukuStatus
 import com.abyss.tools.feature.appmgr.AppDetailScreen
+import com.abyss.tools.feature.backup.BackupScreen
+import com.abyss.tools.feature.backup.ExportableApp
 import com.abyss.tools.feature.appmgr.AppManagerScreen
 import com.abyss.tools.feature.appmgr.AbyssAppInfo
 import com.abyss.tools.feature.blueprint.BlueprintScreen
@@ -451,6 +453,25 @@ fun AbyssRoot(
 
                             ToolCatalog.ID_LIVE_WALLPAPER -> WallpaperScreen(
                                 onBack = { backStack.pop() },
+                            )
+
+                            // ── v0.8.1：备份迁移真实功能页（zip 引擎 + SAF）────
+                            ToolCatalog.ID_BACKUP -> BackupScreen(
+                                appSource = {
+                                    registry.appInfoProvider.installedApps().map { info ->
+                                        ExportableApp(
+                                            packageName = info.packageName,
+                                            label = info.label,
+                                            versionName = info.versionName,
+                                            versionCode = info.versionCode,
+                                            sourceDir = info.sourceDir,
+                                            apkSize = info.apkSize,
+                                            isSystem = info.isSystem,
+                                        )
+                                    }
+                                },
+                                onBack = { backStack.pop() },
+                                bottomClearance = bottomClearance,
                             )
 
                             // ── 其余工具：通用占位页（内置卡 / 插件卡 / 路线图卡）──
