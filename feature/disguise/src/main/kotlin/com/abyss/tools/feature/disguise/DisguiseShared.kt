@@ -2,6 +2,7 @@ package com.abyss.tools.feature.disguise
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.InfoRow
 import com.abyss.tools.core.designsystem.component.StatusChip
+import com.abyss.tools.core.designsystem.component.pressScale
 import com.abyss.tools.core.shell.ShizukuStatus
 
 /**
@@ -178,6 +181,10 @@ internal fun SelectableChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 按压反馈（v0.7.6）：interactionSource 自持同步喂给 clickable +
+    // pressScale —— 电量档位 / 信号格数等选项按下有「按进液体」手感
+    // （四件套共用本组件，一处生效）。
+    val interaction = remember { MutableInteractionSource() }
     Surface(
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
@@ -191,8 +198,13 @@ internal fun SelectableChip(
         },
         shape = RoundedCornerShape(12.dp),
         modifier = modifier
+            .pressScale(interaction)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            ),
     ) {
         Text(
             text = text,
