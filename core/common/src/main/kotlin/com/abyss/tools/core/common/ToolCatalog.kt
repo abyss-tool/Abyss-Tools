@@ -57,6 +57,11 @@ data class ToolDef(
     val pluginId: String? = null,
     /** designsystem 侧图标键（AbyssIcons.icon(key) 映射）。 */
     val iconKey: String,
+    /**
+     * 交付里程碑（v0.7.6：ToolScreen 路线图时间轴）。数据摘自对应插件仓
+     * 的 ROADMAP —— 诚实数据纪律：没有排期的工具留空，绝不编造。
+     */
+    val roadmap: List<String> = emptyList(),
 )
 
 object ToolCatalog {
@@ -99,6 +104,13 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-app-builder",
             iconKey = "construction",
+            roadmap = listOf(
+                "v0.2 底座拉起 —— Alpine rootfs + PRoot 可用性探测（Shizuku 优先，纯 PRoot 降级）",
+                "v0.3 路径一 —— Anpyra 纯 Python 构建（轻量项目）",
+                "v0.4 路径二 —— 内置工具链 aapt2 + 固定壳 DEX（资源 / HTML 打包）",
+                "v0.5 路径三 —— 标准 Gradle 构建（ARM64 工具链 + 资源约束）",
+                "v0.6 三选一交互层 —— 预检提示 / 推荐标记 / 失败切换 / 底座隔离",
+            ),
         ),
 
         // ── 系统工具 ───────────────────────────────────────────────────
@@ -144,6 +156,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-terminal",
             iconKey = "terminal",
+            roadmap = listOf(
+                "v0.2 伪终端渲染内核（VT / ANSI）",
+                "v0.3 bootstrap 根文件系统",
+                "v0.4 快捷命令键盘与主题工坊",
+            ),
         ),
         ToolDef(
             id = "python-lab",
@@ -153,6 +170,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-python-lab",
             iconKey = "code",
+            roadmap = listOf(
+                "v0.2 脚本编辑器与执行沙箱",
+                "v0.3 pip 离线包管理",
+                "v0.4 HTML 渲染预览",
+            ),
         ),
         ToolDef(
             id = "code-editor",
@@ -180,6 +202,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-sandbox",
             iconKey = "layers",
+            roadmap = listOf(
+                "v0.2 沙箱容器引擎",
+                "v0.3 免安装运行",
+                "v0.4 Hook 层数据伪造",
+            ),
         ),
         ToolDef(
             id = "dual-open",
@@ -189,6 +216,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-sandbox",
             iconKey = "copy",
+            roadmap = listOf(
+                "v0.2 沙箱容器引擎",
+                "v0.3 免安装运行",
+                "v0.4 Hook 层数据伪造",
+            ),
         ),
 
         // ── 伪装与隐私（v0.3：四件套内置，Shizuku 免 Root）────────────
@@ -242,6 +274,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-media-lab",
             iconKey = "movie",
+            roadmap = listOf(
+                "v0.2 FFmpeg 管线封装",
+                "v0.3 批量剪辑 UI",
+                "v0.4 无痕导出",
+            ),
         ),
         ToolDef(
             id = "qr-craft",
@@ -289,6 +326,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-network-guard",
             iconKey = "lan",
+            roadmap = listOf(
+                "v0.2 VpnService 骨架",
+                "v0.3 流量画像",
+                "v0.4 VirusTotal 对接",
+            ),
         ),
 
         // ── 数据与备份 ────────────────────────────────────────────────
@@ -300,6 +342,11 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-backup",
             iconKey = "backup",
+            roadmap = listOf(
+                "v0.2 配置与插件备份",
+                "v0.3 应用数据抽取",
+                "v0.4 跨设备迁移",
+            ),
         ),
     )
 
