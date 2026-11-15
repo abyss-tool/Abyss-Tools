@@ -259,7 +259,7 @@ class SysPrivacyCommandsTest {
     }
 
     @Test
-    fun `parseQueryOp 空 / 坏输出 → 空表（无使用记录是合法答案）`() {
+    fun `parseQueryOp 空·坏输出 → 空表（无使用记录是合法答案）`() {
         assertEquals(emptyList<OpUsage>(), SensitiveOpsCommands.parseQueryOp(""))
         assertEquals(emptyList<OpUsage>(), SensitiveOpsCommands.parseQueryOp("Error: unknown op"))
         assertEquals(emptyList<OpUsage>(), SensitiveOpsCommands.parseQueryOp("No such app ops: CAMERA for 10123"))
@@ -281,7 +281,7 @@ class SysPrivacyCommandsTest {
     }
 
     @Test
-    fun `parseWhitelist 提取包名 token（段头 / 时效尾注 / 重复全拒）`() {
+    fun `parseWhitelist 提取包名 token（段头·时效尾注·重复全拒）`() {
         val dump = """
             system whitelist:
               com.android.providers.downloads
@@ -308,7 +308,7 @@ class SysPrivacyCommandsTest {
     }
 
     @Test
-    fun `parseWhitelist 空 / 坏输出 → 空表`() {
+    fun `parseWhitelist 空·坏输出 → 空表`() {
         assertEquals(emptyList<String>(), DeviceIdleCommands.parseWhitelist(""))
         assertEquals(emptyList<String>(), DeviceIdleCommands.parseWhitelist("Error: service not found"))
         assertEquals(emptyList<String>(), DeviceIdleCommands.parseWhitelist("can't find service: deviceidle"))
