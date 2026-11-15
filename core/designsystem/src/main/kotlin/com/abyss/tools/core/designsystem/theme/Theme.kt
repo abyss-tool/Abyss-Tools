@@ -57,6 +57,15 @@ private val AbyssDarkColors = darkColorScheme(
     onBackground = Color(0xFFDCE3EA),
     surface = Color(0xFF0F141B),
     onSurface = Color(0xFFDCE3EA),
+    // surfaceContainer 五级色阶（v0.8.2）：M3 卡片层级语言 —— Google Apps
+    // 的容器/卡片/ElevatedCard 全靠它表达海拔,必须显式钉进深渊色系,
+    // 否则 M3 默认的紫灰色阶会渗进来与深渊蓝黑打架（动态取色时由系统
+    // 色板接管,无碍）。
+    surfaceContainerLowest = Color(0xFF090D12),
+    surfaceContainerLow = Color(0xFF12171E),
+    surfaceContainer = Color(0xFF161C24),
+    surfaceContainerHigh = Color(0xFF1C242E),
+    surfaceContainerHighest = Color(0xFF27303C),
     surfaceVariant = Color(0xFF1A222D),
     onSurfaceVariant = Color(0xFFB3C0CF),
     outline = Color(0xFF5A6B7D),
@@ -87,6 +96,11 @@ private val AbyssLightColors = lightColorScheme(
     onBackground = Color(0xFF101418),
     surface = Color(0xFFFDFCFF),
     onSurface = Color(0xFF101418),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF0F5FA),
+    surfaceContainer = Color(0xFFEAF0F6),
+    surfaceContainerHigh = Color(0xFFE4EBF2),
+    surfaceContainerHighest = Color(0xFFDEE6EE),
     surfaceVariant = Color(0xFFDEE8F1),
     onSurfaceVariant = Color(0xFF41484F),
     outline = Color(0xFF717881),
