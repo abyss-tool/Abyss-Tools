@@ -64,8 +64,9 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
         store.appendRun(run)
 
         // 重排下一次：schedule 已被关闭 / 蓝图已删 → 不再排，闹钟链自然结束
+        // （v0.9.0：双模式 —— 间隔 now+N / 每日按 SchedulePlanner 折算今天或明天）
         manifest.schedule?.let { schedule ->
-            scheduleNext(context, blueprintId, schedule.intervalMinutes)
+            scheduleNext(context, blueprintId, schedule)
         }
     }
 
@@ -89,17 +90,28 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
     companion object {
 
         private const val EXTRA_BLUEPRINT_ID = "blueprint_id"
-        private const val EXTRA_INTERVAL_MINUTES = "interval_minutes"
 
         /**
-         * 排下一次执行：setExactAndAllowWhileIdle（RTC_WAKEUP，doze 也能触发），
-         * now + interval；SecurityException（精确闹钟权限被收回，targetSdk 28
-         * 场景极罕见）→ 降级 setAndAllowWhileIdle。
+         * 排下一次执行（v0.9.0 双模式）：
+         *  - 间隔模式：setExactAndAllowWhileIdle（RTC_WAKEUP，doze 也能触发），
+         *    now + interval；
+         *  - 每日模式：SchedulePlanner 折算今天 / 明天的固定时刻。
+         *  SecurityException（精确闹钟权限被收回，targetSdk 28 场景极罕见）
+         *  → 降级 setAndAllowWhileIdle。intent 不再携带间隔 extra —— 到期后
+         *  由 store 重读蓝图，模式变更 / 删除都能在下一次重排时自然收敛。
          */
-        fun scheduleNext(context: Context, blueprintId: String, intervalMinutes: Int) {
+        fun scheduleNext(context: Context, blueprintId: String, schedule: BlueprintSchedule) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val pending = pendingIntent(context, blueprintId, intervalMinutes)
-            val triggerAtMillis = System.currentTimeMillis() + intervalMinutes * 60_000L
+            val pending = pendingIntent(context, blueprintId)
+            val triggerAtMillis = when {
+                schedule.intervalMinutes != null ->
+                    System.currentTimeMillis() + schedule.intervalMinutes * 60_000L
+
+                schedule.dailyAtMinute != null ->
+                    SchedulePlanner.nextDailyAt(schedule.dailyAtMinute, System.currentTimeMillis())
+
+                else -> return // 数据契约双保险（init 已闸互斥；理论上不可达）
+            }
             try {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
             } catch (e: SecurityException) {
@@ -124,11 +136,11 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
             Intent(context, ScheduleAlarmReceiver::class.java)
                 .putExtra(EXTRA_BLUEPRINT_ID, blueprintId)
 
-        private fun pendingIntent(context: Context, blueprintId: String, intervalMinutes: Int): PendingIntent =
+        private fun pendingIntent(context: Context, blueprintId: String): PendingIntent =
             PendingIntent.getBroadcast(
                 context,
                 blueprintId.hashCode(),
-                intent(context, blueprintId).putExtra(EXTRA_INTERVAL_MINUTES, intervalMinutes),
+                intent(context, blueprintId),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
     }

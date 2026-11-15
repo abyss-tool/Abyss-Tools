@@ -432,7 +432,7 @@ private fun BlueprintLibraryRow(
                         tone = if (isUser) ChipTone.INFO else ChipTone.NEUTRAL,
                     )
                     manifest.schedule?.let {
-                        StatusChip(text = "每 ${it.intervalMinutes} 分钟", tone = ChipTone.WARN)
+                        StatusChip(text = SchedulePlanner.scheduleLabel(it), tone = ChipTone.WARN)
                     }
                 }
                 if (manifest.description.isNotBlank()) {
@@ -576,7 +576,7 @@ private fun AutomationTab(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = "AlarmManager 精确闹钟 · 每 N 分钟自动执行 · 重启自动恢复",
+                            text = "AlarmManager 精确闹钟 · 间隔循环或每日定时 · 重启自动恢复",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -618,7 +618,7 @@ private fun AutomationTab(
                         ) {
                             EmptyState(
                                 title = "暂无调度中的蓝图",
-                                message = "在蓝图编辑页打开「定时调度」开关即可；内置蓝图需先" +
+                                message = "在蓝图编辑页打开「定时调度」并选间隔或每日模式即可；内置蓝图需先" +
                                     "「复制为用户版」再开启（间隔最小 " +
                                     "${BlueprintParser.MIN_INTERVAL_MINUTES} 分钟）。",
                             )
@@ -653,7 +653,7 @@ private fun AutomationTab(
                                 )
                             }
                             StatusChip(
-                                text = "每 ${manifest.schedule?.intervalMinutes ?: 0} 分钟",
+                                text = manifest.schedule?.let(SchedulePlanner::scheduleLabel) ?: "未调度",
                                 tone = ChipTone.WARN,
                             )
                             Spacer(Modifier.size(10.dp))

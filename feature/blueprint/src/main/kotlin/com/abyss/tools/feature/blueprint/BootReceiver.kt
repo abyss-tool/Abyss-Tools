@@ -18,7 +18,7 @@ class BootReceiver : BroadcastReceiver() {
         val store = BlueprintStore.create(context)
         store.loadAll().blueprints.forEach { manifest ->
             manifest.schedule?.let { schedule ->
-                ScheduleAlarmReceiver.scheduleNext(context, manifest.id, schedule.intervalMinutes)
+                ScheduleAlarmReceiver.scheduleNext(context, manifest.id, schedule)
             }
         }
     }

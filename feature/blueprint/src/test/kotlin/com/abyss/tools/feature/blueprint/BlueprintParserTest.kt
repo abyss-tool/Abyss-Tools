@@ -251,6 +251,58 @@ class BlueprintParserTest {
         assertEquals(15, BlueprintParser.parse(raw).getOrThrow().schedule?.intervalMinutes)
     }
 
+    // ── v0.9.0 调度双模式 ───────────────────────────────────────────────
+
+    @Test
+    fun `每日模式合法解析`() {
+        val raw = """
+            {
+              "id": "night-off",
+              "name": "每晚断网",
+              "steps": [ { "type": "SHELL", "content": "svc wifi disable" } ],
+              "schedule": { "dailyAtMinute": 1385 }
+            }
+        """.trimIndent()
+
+        val schedule = BlueprintParser.parse(raw).getOrThrow().schedule
+        assertEquals(1385, schedule?.dailyAtMinute)
+        assertNull(schedule?.intervalMinutes)
+        assertEquals("23:05", schedule?.dailyLabel)
+    }
+
+    @Test
+    fun `每日模式日内分钟越界被拒绝`() {
+        val raw = """
+            {
+              "id": "bad-daily",
+              "name": "越界时刻",
+              "steps": [ { "type": "TOAST", "content": "hi" } ],
+              "schedule": { "dailyAtMinute": 1440 }
+            }
+        """.trimIndent()
+
+        val message = BlueprintParser.parse(raw).exceptionOrNull()?.message.orEmpty()
+        assertTrue(message.contains("dailyAtMinute"))
+        assertTrue(message.contains("1439"))
+    }
+
+    @Test
+    fun `两模式同时出现被数据契约拒绝`() {
+        // init 闸：互斥字段同时非 null → IllegalArgumentException（fail-closed）
+        val thrown = runCatching {
+            BlueprintSchedule(intervalMinutes = 30, dailyAtMinute = 480)
+        }.exceptionOrNull()
+        assertTrue(thrown is IllegalArgumentException)
+    }
+
+    @Test
+    fun `两模式同时缺省被数据契约拒绝`() {
+        val thrown = runCatching {
+            BlueprintSchedule()
+        }.exceptionOrNull()
+        assertTrue(thrown is IllegalArgumentException)
+    }
+
     @Test
     fun `编辑器 JSON 剥离 schedule 且可回环解析`() {
         val original = BlueprintManifest(

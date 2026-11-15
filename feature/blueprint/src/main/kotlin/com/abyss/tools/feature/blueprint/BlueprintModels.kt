@@ -36,11 +36,72 @@ data class BlueprintStep(
     val timeoutSeconds: Int = 30,
 )
 
-/** 定时调度（AlarmManager 精确闹钟，每 intervalMinutes 分钟一轮）。 */
+/**
+ * 定时调度（AlarmManager 精确闹钟）。v0.9.0 起双模式：
+ *  - 间隔模式：[intervalMinutes] 每 N 分钟一轮（省电纪律 ≥ 15）；
+ *  - 每日模式：[dailyAtMinute] 每天固定时刻（日内分钟 0..1439，如 8:05 = 485）。
+ *
+ * 两字段互斥（恰好一个非 null）—— 序列化双双带默认值，旧版蓝图的
+ * `{"intervalMinutes": 30}` 形态反序列化后就是纯间隔模式，向前兼容。
+ */
 @Serializable
 data class BlueprintSchedule(
-    val intervalMinutes: Int,
-)
+    val intervalMinutes: Int? = null,
+    val dailyAtMinute: Int? = null,
+) {
+    init {
+        require((intervalMinutes != null) xor (dailyAtMinute != null)) {
+            "schedule 必须二选一：intervalMinutes（间隔模式）或 dailyAtMinute（每日模式）"
+        }
+    }
+
+    /** 每日模式的时刻文案（HH:mm，24 小时制）。 */
+    val dailyLabel: String
+        get() = SchedulePlanner.formatDailyMinute(dailyAtMinute ?: 0)
+}
+
+/**
+ * 调度排程纯数学（零 Android 依赖 —— 可单测）。
+ *
+ * 每日模式的下一次触发点：今天已过（当前时刻 ≥ 今日的 dailyAtMinute）
+ * 则排明天，否则排今天 —— 经 java.util.Calendar 以本地时区折算（纯 JVM，
+ * 单测可控）。间隔模式直接 now + N 分钟，无需本对象。
+ */
+object SchedulePlanner {
+
+    /** 每日模式合法区间：0..1439（0:00 .. 23:59）。 */
+    const val DAILY_MIN = 0
+    const val DAILY_MAX = 24 * 60 - 1
+
+    /** 日内分钟 → "HH:mm"（零填充，24 小时制）。 */
+    fun formatDailyMinute(minuteOfDay: Int): String {
+        require(minuteOfDay in DAILY_MIN..DAILY_MAX) { "日内分钟非法：$minuteOfDay" }
+        return "%02d:%02d".format(minuteOfDay / 60, minuteOfDay % 60)
+    }
+
+    /** 日内分钟 → 下一次触发的墙钟时间戳（今天未到排今天，否则明天）。 */
+    fun nextDailyAt(dailyAtMinute: Int, now: Long): Long {
+        require(dailyAtMinute in DAILY_MIN..DAILY_MAX) { "日内分钟非法：$dailyAtMinute" }
+        val calendar = java.util.Calendar.getInstance()
+        calendar.timeInMillis = now
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, dailyAtMinute / 60)
+        calendar.set(java.util.Calendar.MINUTE, dailyAtMinute % 60)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        // 今天该时刻已过（含“恰好此刻” —— 排明天避免双触发）→ 加一天
+        if (calendar.timeInMillis <= now) {
+            calendar.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        return calendar.timeInMillis
+    }
+
+    /** 调度的人话标签（列表徽章 / 调度清单共用）。 */
+    fun scheduleLabel(schedule: BlueprintSchedule): String = when {
+        schedule.intervalMinutes != null -> "每 ${schedule.intervalMinutes} 分钟"
+        schedule.dailyAtMinute != null -> "每天 ${formatDailyMinute(schedule.dailyAtMinute)}"
+        else -> "未调度"
+    }
+}
 
 /** 蓝图清单（filesDir/blueprints/&lt;id&gt;.json 的落盘形态）。 */
 @Serializable
@@ -57,7 +118,7 @@ data class BlueprintManifest(
  *  - kotlinx JSON 反序列化（ignoreUnknownKeys，向前兼容）；
  *  - 反序列化后校验：id 非空且 ^[a-z0-9-]+$（id 同时是存储文件名）、
  *    name 非空、steps 非空、SHELL 命令非空、DELAY 毫秒 1..600000、
- *    调度间隔 ≥ 15 分钟（省电纪律）；
+ *    调度双模式值域（间隔 ≥ 15 分钟 / 每日日内分钟 0..1439）；
  *  - 任何失败 → Result.failure（人话错误带字段名，绝不部分放行）。
  */
 object BlueprintParser {
@@ -118,9 +179,19 @@ object BlueprintParser {
         }
 
         manifest.schedule?.let { schedule ->
-            require(schedule.intervalMinutes >= MIN_INTERVAL_MINUTES) {
-                "schedule.intervalMinutes 必须 ≥ $MIN_INTERVAL_MINUTES 分钟（省电纪律），" +
-                    "当前是 ${schedule.intervalMinutes}"
+            // 双模式校验（v0.9.0）：字段互斥在 BlueprintSchedule.init 闸住，
+            // 这里补各自值域 —— 每种模式的人话错误分开给。
+            schedule.intervalMinutes?.let { minutes ->
+                require(minutes >= MIN_INTERVAL_MINUTES) {
+                    "schedule.intervalMinutes 必须 ≥ $MIN_INTERVAL_MINUTES 分钟（省电纪律），" +
+                        "当前是 $minutes"
+                }
+            }
+            schedule.dailyAtMinute?.let { minute ->
+                require(minute in SchedulePlanner.DAILY_MIN..SchedulePlanner.DAILY_MAX) {
+                    "schedule.dailyAtMinute 必须在 ${SchedulePlanner.DAILY_MIN}.." +
+                        "${SchedulePlanner.DAILY_MAX}（日内分钟），当前是 $minute"
+                }
             }
         }
     }
