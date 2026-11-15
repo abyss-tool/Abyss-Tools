@@ -23,12 +23,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // ── 渲染安全模式断路器（v0.7.3）────────────────────────────────
+        // ── 渲染安全模式断路器（v0.7.3 → v2，v0.7.4）──────────────────
         // 原生崩溃（RenderThread SIGSEGV 类）Java 层拦不住 —— 从「进程死亡
         // → 秒级重启」的外部特征识别闪退循环：连续快速冷启动 ≥ 3 次即令
         // 本次会话 glassEnabled=false（全玻璃 Frosted 降级，零 RenderEffect
         // / 零 backdrop 采样），保证主壳能打开、诊断可读。会话存活 45s
         // 自动恢复（下次冷启动回到正常渲染档）。
+        // v2 起另认慢性循环：连续 3 次「异常终止」（崩溃 / 被杀，无干净
+        // 退出标记）同样触发、与间隔无关 —— 存活数分钟才崩的渲染栈慢性
+        // 增长类闪退（PLE110 2026-11-15：472s）不再漏网。
         val safeModeFile = File(filesDir, RenderSafeMode.FILE_NAME)
         val safeModeDecision = if (!processGateEntered) {
             processGateEntered = true
@@ -80,6 +83,17 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 干净退出标记（v2）：isFinishing 的销毁 = 用户主动离开（返回键 /
+        // finish()）。崩溃、系统杀死（LRU 回收、滑卡清理）走不到这里 ——
+        // 下次冷启动即按「上一会话异常终止」计连崩（慢性闪退循环防线，
+        // bugreport PLE110 2026-11-15：存活 472s 后崩，v1 快速窗口盖不住）。
+        if (isFinishing) {
+            RenderSafeMode.markCleanExit(File(filesDir, RenderSafeMode.FILE_NAME))
         }
     }
 
