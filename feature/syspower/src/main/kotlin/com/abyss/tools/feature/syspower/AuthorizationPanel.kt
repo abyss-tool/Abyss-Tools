@@ -3,8 +3,10 @@ package com.abyss.tools.feature.syspower
 /**
  * 授权总管（syspower 的拆分文件，spec 的「internal composables」位）：
  * 模块共享脚手架（SysRunner 执行器 / SectionCard 卡容器 / 页头 /
- * Shizuku 门禁卡 / inline 错误条）+ 授权总管本体（应用选择器与
- * AppOps / 运行时权限的 BottomSheet 授权面板）。
+ * Shizuku 门禁卡 / inline 错误条 / 应用清单加载与行组件）+ 授权总管本体
+ * （应用选择器与 AppOps / 运行时权限的 BottomSheet 授权面板）。
+ * 脚手架同时供 PrivacyPanels.kt（隐私与管控四面板）复用 —— 共享件
+ * internal，行为两处一致。
  */
 import android.content.Context
 import android.content.pm.PackageManager
@@ -117,6 +119,38 @@ internal class SysRunner(
         scope.launch {
             try {
                 onDone(runCommand(action.command))
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    /**
+     * 批量顺序执行（「回收全部已授予」这类成组动作）：busy 单旗全程持有，
+     * 逐条走 runCommand、成功逐条入日志；首条失败即中断后续（已成功条目
+     * 照常入日志可逐条撤销，失败详情经 error 如实回报 —— 绝不把半程失败
+     * 伪装成整体成功）。为什么不用循环调 execute：它是异步返回的，连发
+     * 会被 busy 守卫丢弃，只剩第一条真执行。
+     */
+    fun executeAll(
+        scope: CoroutineScope,
+        actions: List<Pair<SysAction, SysAction?>>,
+        onDone: suspend (Boolean) -> Unit = {},
+    ) {
+        if (busy || actions.isEmpty()) return
+        error = null
+        busy = true
+        scope.launch {
+            try {
+                var allOk = true
+                for ((action, undo) in actions) {
+                    if (!runCommand(action.command)) {
+                        allOk = false
+                        break
+                    }
+                    journal.record(action, undo)
+                }
+                onDone(allOk)
             } finally {
                 busy = false
             }
@@ -273,7 +307,7 @@ internal fun InlineErrorChip(message: String?) {
     }
 }
 
-/** 敏感 op 的人话标签（授权面板展示序 = INTERESTING_OPS 顺序）。 */
+/** 敏感 op 的人话标签（授权面板 / 敏感操作记录面板共用，展示序 = INTERESTING_OPS 顺序）。 */
 private val OP_LABELS: Map<String, String> = mapOf(
     "CAMERA" to "相机",
     "MICROPHONE" to "麦克风",
@@ -289,10 +323,10 @@ private val OP_LABELS: Map<String, String> = mapOf(
     "POST_NOTIFICATION" to "通知",
 )
 
-private fun opLabel(op: String): String = OP_LABELS[op] ?: op
+internal fun opLabel(op: String): String = OP_LABELS[op] ?: op
 
-/** 常见危险权限人话（未命中回退尾段，原文始终完整展示在 supporting）。 */
-private fun permLabel(perm: String): String = when (perm) {
+/** 常见危险权限人话（授权面板 / 权限审计面板共用；未命中回退尾段，原文始终完整展示在 supporting）。 */
+internal fun permLabel(perm: String): String = when (perm) {
     "android.permission.CAMERA" -> "相机"
     "android.permission.RECORD_AUDIO" -> "麦克风"
     "android.permission.ACCESS_FINE_LOCATION" -> "精确定位"
@@ -397,9 +431,9 @@ internal fun AuthorizationPanel(
     }
 }
 
-/** 应用清单行：圆形图标（转换失败/无图标 → 首字母占位）+ 名称 + 包名。 */
+/** 应用清单行：圆形图标（转换失败/无图标 → 首字母占位）+ 名称 + 包名（授权总管 / 隐私与管控各选择器共用）。 */
 @Composable
-private fun AppRow(app: InstalledAppInfo, onClick: () -> Unit) {
+internal fun AppRow(app: InstalledAppInfo, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -726,8 +760,8 @@ private fun PermRow(
     )
 }
 
-/** 已装应用清单（一次全量；单包 label 读取失败回退包名，不丢行）。 */
-private fun loadInstalledApps(context: Context): List<InstalledAppInfo> {
+/** 已装应用清单（一次全量；单包 label 读取失败回退包名，不丢行；授权总管 / 隐私与管控各面板共用）。 */
+internal fun loadInstalledApps(context: Context): List<InstalledAppInfo> {
     val pm = context.packageManager
     return runCatching {
         pm.getInstalledApplications(0).map { app ->

@@ -336,3 +336,279 @@ private fun formatScale(scale: Float): String = when {
     scale == scale.toInt().toFloat() -> "${scale.toInt()}.0"
     else -> scale.toString()
 }
+
+// ── 隐私与管控：权限审计（dumpsys package 只读盘点）───────────────────────
+
+/** 单条危险运行时权限的真实授予态（dumpsys package 的 runtime permissions 段）。 */
+data class RuntimePermissionState(
+    val perm: String,
+    val granted: Boolean,
+)
+
+/**
+ * 权限审计（隐私域）：dumpsys package 原始输出解析 —— 盘点目标应用声明的
+ * 危险运行时权限与真实授予态。为什么走 dumpsys 而不是 PackageManager：
+ * granted 标志位（USER_SET / USER_FIXED 等）与其它工具改过的痕迹只有
+ * dumpsys 全量吐出，这里是 adb 通道看到的系统真值。
+ */
+object PermissionAuditCommands {
+
+    /**
+     * 审计聚焦的危险权限白名单（顺序即展示序）。为什么收窄：全量 dump
+     * 出几十条安装期权限只会淹没视线 —— 隐私敏感面就这十六类。
+     */
+    val DANGEROUS_PERMS: List<String> = listOf(
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_CONTACTS",
+        "android.permission.READ_CALL_LOG",
+        "android.permission.READ_SMS",
+        "android.permission.SEND_SMS",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.CALL_PHONE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_CALENDAR",
+        "android.permission.BODY_SENSORS",
+        "android.permission.ACTIVITY_RECOGNITION",
+    )
+
+    /** granted 行形态（缩进 + 权限名 + granted=，容忍尾随 flags 括注）。 */
+    private val GRANTED_LINE = Regex("^\\s+([a-zA-Z0-9._]+): granted=(true|false)")
+
+    /** 段头边界：全小写开头的裸「xxx:」行（install permissions: 等）。 */
+    private val SECTION_HEADER = Regex("^[a-z][a-zA-Z ]*:$")
+
+    /** requested 段的裸权限名行（缩进、无 granted= 尾缀）。 */
+    private val PERM_NAME_LINE = Regex("^\\s+([a-zA-Z0-9._]+)$")
+
+    fun dumpPackage(pkg: String): String =
+        "dumpsys package " + ShizukuCommands.requireSafeToken(pkg, "包名")
+
+    /**
+     * runtime permissions 段解析（历代形态）：
+     * ```
+     * runtime permissions:
+     *   android.permission.CAMERA: granted=true, flags=[ USER_SET ]
+     *   android.permission.RECORD_AUDIO: granted=false, flags=[0x0]
+     * ```
+     * 段边界 = 下一个全小写裸段头（install permissions: / requested
+     * permissions:…）；「User 0:」「Queries:」等非小写行不终止段（其后
+     * 无 granted= 形态行，不会误收）。顶层段与 User 段会重复同名权限 ——
+     * 首见为准（两处数据一致，多用户工作资料不在审计面）。整段缺失 →
+     * null（fail-closed：UI 显示「读取失败」，绝不当空表假装成功）。
+     */
+    fun parseRuntimePermissions(output: String): List<RuntimePermissionState>? {
+        var sawSection = false
+        var inSection = false
+        val collected = mutableListOf<RuntimePermissionState>()
+        output.lineSequence().forEach { raw ->
+            val line = raw.trimEnd()
+            val trimmed = line.trim()
+            if (trimmed == "runtime permissions:") {
+                sawSection = true
+                inSection = true
+                return@forEach
+            }
+            if (!inSection) return@forEach
+            if (SECTION_HEADER.matches(trimmed)) {
+                inSection = false
+                return@forEach
+            }
+            val match = GRANTED_LINE.find(line) ?: return@forEach
+            val perm = match.groupValues[1]
+            if (collected.none { it.perm == perm }) {
+                collected.add(RuntimePermissionState(perm, match.groupValues[2].toBoolean()))
+            }
+        }
+        return if (sawSection) collected else null
+    }
+
+    /**
+     * requested permissions 段解析（裸权限名行，顺序保留）。与 runtime 段
+     * 不同，裸名形态太泛（dump 其它段也全是包名行）—— 段内首个「非空、
+     * 非裸名」行即视为段尾（fail-closed），避免把 Queries 段的包名误收
+     * 成权限。整段缺失 → null。
+     */
+    fun parseRequestedPermissions(output: String): List<String>? {
+        var sawSection = false
+        var inSection = false
+        val collected = mutableListOf<String>()
+        output.lineSequence().forEach { raw ->
+            val line = raw.trimEnd()
+            val trimmed = line.trim()
+            if (trimmed == "requested permissions:") {
+                sawSection = true
+                inSection = true
+                return@forEach
+            }
+            if (!inSection) return@forEach
+            if (SECTION_HEADER.matches(trimmed)) {
+                inSection = false
+                return@forEach
+            }
+            if (trimmed.isEmpty()) return@forEach // 段内空行容忍，继续等名单行
+            val match = PERM_NAME_LINE.find(line)
+            if (match == null) {
+                inSection = false // 陌生形态 → 段尾（宁可少收，不误收）
+                return@forEach
+            }
+            if (!collected.contains(match.groupValues[1])) {
+                collected.add(match.groupValues[1])
+            }
+        }
+        return if (sawSection) collected else null
+    }
+
+    /** 白名单序交集（requested ∩ 危险白名单；null 透传 —— 解析失败不猜）。 */
+    fun filterDangerous(requested: List<String>?): List<String>? =
+        requested?.let { list -> DANGEROUS_PERMS.filter { perm -> perm in list } }
+}
+
+// ── 隐私与管控：敏感操作记录（appops query-op 记账回溯）───────────────────
+
+/** 单条 op 记账行：哪个包 + 处于什么模式。 */
+data class OpUsage(
+    val pkg: String,
+    val mode: String,
+)
+
+/**
+ * 敏感操作记录（隐私域）：appops query-op 按 op 反查「谁用过」—— 记账
+ * 只在操作发生后有条目，空结果是合法答案（近期无使用）而非错误。
+ */
+object SensitiveOpsCommands {
+
+    /**
+     * 记账查询 op 集合（拼写即 appops CLI 接受的名 —— MICROPHONE 与
+     * RECORD_AUDIO 在记账层同名，此处统一用 MICROPHONE）。
+     */
+    val QUERY_OPS: List<String> = listOf(
+        "CAMERA", "MICROPHONE", "FINE_LOCATION", "COARSE_LOCATION", "READ_CLIPBOARD",
+    )
+
+    /**
+     * query-op 行形态（宽容两种历史格式）：
+     * `Package com.foo: CAMERA (allow)` / `com.foo: CAMERA (allow)`。
+     */
+    private val QUERY_OP_LINE = Regex("^(?:Package\\s+)?([a-zA-Z0-9._]+):\\s+([A-Z_]+)\\s*\\(([a-z]+)\\)")
+
+    fun queryOp(op: String): String =
+        "appops query-op " + ShizukuCommands.requireSafeToken(op, "appop 名")
+
+    /**
+     * 逐行匹配，坏行跳过；空 / 全坏 → 空列表（「近期无应用使用该 op」
+     * 是合法答案；命令失败由 runner 层区分 —— 输出为 null 走读取失败）。
+     */
+    fun parseQueryOp(output: String): List<OpUsage> =
+        output.lineSequence().mapNotNull { raw ->
+            val match = QUERY_OP_LINE.find(raw.trim()) ?: return@mapNotNull null
+            OpUsage(pkg = match.groupValues[1], mode = match.groupValues[3])
+        }.toList()
+}
+
+// ── 隐私与管控：Doze 白名单（dumpsys deviceidle whitelist）────────────────
+
+/**
+ * Doze 白名单（隐私域 / 省电域交界）：白名单内应用在 Doze 深睡期保留
+ * 网络 / 同步豁免。诚实边界：系统内置条目由系统维护，移除会被服务拒绝
+ * —— 原样报错（错误条），不静默吞掉。
+ */
+object DeviceIdleCommands {
+
+    /** 白名单条目形态：小写包名，至少一个点分段。 */
+    private val WHITELIST_TOKEN = Regex("^[a-z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$")
+
+    fun whitelist(): String = "dumpsys deviceidle whitelist"
+
+    /**
+     * 解析：逐行按逗号切分后逐 token 匹配包名形态 —— 段头（system
+     * whitelist:）与带过期时间尾注的条目（com.foo: 626s-left）天然被拒。
+     * 空 / 无匹配 → 空列表（如实展示「无条目」）。
+     */
+    fun parseWhitelist(output: String): List<String> {
+        val seen = LinkedHashSet<String>()
+        output.lineSequence().forEach { raw ->
+            raw.split(',').forEach { part ->
+                val token = part.trim()
+                if (WHITELIST_TOKEN.matches(token)) seen.add(token)
+            }
+        }
+        return seen.toList()
+    }
+
+    fun add(pkg: String): String =
+        "dumpsys deviceidle whitelist +" + ShizukuCommands.requireSafeToken(pkg, "包名")
+
+    fun remove(pkg: String): String =
+        "dumpsys deviceidle whitelist -" + ShizukuCommands.requireSafeToken(pkg, "包名")
+
+    /**
+     * UI 输入门禁：看起来像包名（字母开头、至少一个点分段）才放行 ——
+     * 构造器的 requireSafeToken 异常若在点击处抛会闪退，先在 UI 层拦。
+     */
+    fun looksLikePackageName(value: String): Boolean =
+        value.matches(Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$"))
+}
+
+// ── 隐私与管控：流量策略（cmd netpolicy）──────────────────────────────────
+
+/**
+ * 流量策略（隐私域）：全局数据节省（restrict-background）与单应用后台
+ * 流量管制（uid-policy）。uid-policy 二值通道：1 = 拒绝后台流量
+ * （POLICY_REJECT_METERED_BACKGROUND），0 = 清回默认；4（显式允许）只读
+ * 汇报，构造器不写 4 —— 0/1 通道还原不回「显式允许」，撤销链诚实弃权。
+ */
+object NetPolicyCommands {
+
+    /** uid-policy 输出里的整数 token（官方形态 "POLICY_NONE (0)" / "1"）。 */
+    private val INT_TOKEN = Regex("\\d+")
+
+    fun getRestrictBackground(): String = "cmd netpolicy get restrict-background"
+
+    /**
+     * 宽容解析（官方形态 "restrict-background: enabled/disabled"，历代
+     * 亦有 "restricted: true/false"）：含 true/enabled → 开；含 false/
+     * disabled/not restricted → 关；其余（空 / 报错文案）→ null —— 绝不猜。
+     */
+    fun parseRestrictBackground(output: String): Boolean? {
+        val text = output.trim().lowercase()
+        return when {
+            text.isEmpty() -> null
+            text.contains("true") || text.contains("enabled") -> true
+            text.contains("false") || text.contains("disabled") ||
+                text.contains("not restricted") -> false
+            else -> null
+        }
+    }
+
+    fun setRestrictBackground(enable: Boolean): String =
+        "cmd netpolicy set restrict-background " + if (enable) "true" else "false"
+
+    fun getUidPolicy(uid: Int): String {
+        require(uid >= 0) { "非法 uid（须为非负）：$uid" }
+        return "cmd netpolicy get uid-policy $uid"
+    }
+
+    /**
+     * 取输出首个整数（0 = 默认 / 1 = 拒绝后台流量 / 4 = 显式允许后台
+     * 流量）。无整数（纯策略名、空、报错文案）→ null。诚实边界：若个别
+     * ROM 回显「uid 10123: …」会把 uid 当策略值 —— 已知形态都不带 uid
+     * 回显，遇到未知形态宁 null 不猜。
+     */
+    fun parseUidPolicy(output: String): Int? {
+        val text = output.trim()
+        if (text.isEmpty()) return null
+        val match = INT_TOKEN.find(text) ?: return null
+        return match.value.toIntOrNull()
+    }
+
+    /** 单应用策略直改（reject=true 写 1，false 清 0 回默认）。 */
+    fun setUidPolicy(uid: Int, reject: Boolean): String {
+        require(uid >= 0) { "非法 uid（须为非负）：$uid" }
+        return "cmd netpolicy set uid-policy $uid " + if (reject) "1" else "0"
+    }
+}

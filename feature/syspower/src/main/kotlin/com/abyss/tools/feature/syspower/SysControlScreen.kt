@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +85,18 @@ private val SIZE_INPUT = Regex("^\\d{3,4}$")
 /** 自定义 DPI 输入门禁：3 位数字（120-640 全域覆盖）。 */
 private val DENSITY_INPUT = Regex("^\\d{3}$")
 
+/**
+ * 四域分页（M3 SegmentedButton）：显示 / 电源 / 授权 / 隐私与管控 ——
+ * 会话日志是全部页动作的撤销面，不随页签切换（始终在页尾）。选中页经
+ * rememberSaveable 持久，旋转 / 重建不丢。
+ */
+private enum class SysTab(val label: String) {
+    DISPLAY("显示"),
+    POWER("电源"),
+    AUTH("授权"),
+    PRIVACY("隐私管控"),
+}
+
 private fun flagText(flag: Boolean?): String = when (flag) {
     true -> "开"
     false -> "关"
@@ -97,13 +110,18 @@ private fun timeoutLabel(seconds: Int): String =
     TIMEOUT_OPTIONS.firstOrNull { it.second == seconds }?.first ?: "${seconds}s"
 
 /**
- * 系统控制中心 —— Shizuku 系统级通道的深度利用（显示 / 电源 / 授权总管）。
+ * 系统控制中心 —— Shizuku 系统级通道的深度利用（显示 / 电源 / 授权 /
+ * 隐私与管控四域，M3 SegmentedButton 分页）。
  *
  * 分区（对齐伪装四件套的「官方通道 + 诚实边界」纪律）：
  *  - 显示与外观：settings / cmd uimode 官方设置项，即时生效、重启保持；
  *  - 显示进阶（危险区）：wm size / density 覆写 —— 误设可致 UI 错乱，reset 可救；
  *  - 电源与性能：充电常亮位掩码 / 强制 Doze / 省电模式；
- *  - 授权总管：任意应用的敏感 AppOps 与运行时权限直改（adb 官方通道）。
+ *  - 授权总管：任意应用的敏感 AppOps 与运行时权限直改（adb 官方通道）；
+ *  - 隐私与管控：权限审计 / 敏感操作记录 / Doze 白名单 / 流量策略。
+ *
+ * 门禁卡 / inline 错误条 / 会话日志在页签外共用（日志是每个域已应用
+ * 动作的撤销面）；只读回读留在页面级，面板内读发生在面板里。
  *
  * 诚实纪律：读不到 = 「未知」/「读取失败」，绝不用假数据占位；未授权时
  * 页面照常展示，动作以 ShizukuUnavailableException 失败并经 inline 错误条
@@ -137,6 +155,7 @@ fun SysControlScreen(
     var lowPower by remember { mutableStateOf<Boolean?>(null) }
     var selectedApp by remember { mutableStateOf<InstalledAppInfo?>(null) }
     var journalRows by remember { mutableStateOf<List<Pair<SysAction, Boolean>>>(emptyList()) }
+    var selectedTab by rememberSaveable { mutableStateOf(SysTab.DISPLAY) }
 
     fun refreshJournal() {
         journalRows = journal.entriesWithUndo()
@@ -296,87 +315,139 @@ fun SysControlScreen(
             item { ShizukuGateCard(shizukuStatus, onRequestShizukuPermission, onOpenShizuku) }
             item { InlineErrorChip(runner.error) }
 
+            // 域分页（M3 SegmentedButton）：门禁卡 / 错误条 / 会话日志在页签外共用
             item {
-                SectionHeader(
-                    title = "显示与外观",
-                    subtitle = "深色模式 / 亮度 / 动画速度 / 熄屏 —— 官方设置项，即时生效",
-                )
-            }
-            item {
-                DisplayAppearanceCard(
-                    darkMode = darkMode,
-                    onDarkModeChange = { applyDarkMode(it) },
-                    brightnessRead = brightnessRead,
-                    brightnessSlider = brightnessSlider,
-                    onBrightnessChange = { brightnessSlider = it },
-                    onBrightnessApply = { applyBrightness() },
-                    autoBrightness = autoBrightness,
-                    onAutoBrightnessChange = { applyAutoBrightness(it) },
-                    animScale = animScale,
-                    onAnimScaleSelect = { applyAnimScale(it) },
-                    timeoutSeconds = timeoutSeconds,
-                    onTimeoutSelect = { applyTimeout(it) },
-                    busy = runner.busy,
-                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SysTab.entries.forEachIndexed { index, tab ->
+                        SegmentedButton(
+                            selected = selectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = SysTab.entries.size,
+                            ),
+                        ) { Text(tab.label) }
+                    }
+                }
             }
 
-            item {
-                SectionHeader(
-                    title = "显示进阶（危险区）",
-                    subtitle = "wm 分辨率 / DPI 覆写 —— 误设可致 UI 错乱，reset 可救",
-                )
-            }
-            item {
-                DisplayDangerCard(
-                    activeSize = activeSize,
-                    activeDensity = activeDensity,
-                    customW = customW,
-                    onCustomWChange = { customW = it.filter(Char::isDigit).take(4) },
-                    customH = customH,
-                    onCustomHChange = { customH = it.filter(Char::isDigit).take(4) },
-                    onApplyCustomSize = { applyCustomSize() },
-                    customDensity = customDensity,
-                    onCustomDensityChange = { customDensity = it.filter(Char::isDigit).take(3) },
-                    onApplyCustomDensity = { applyCustomDensity() },
-                    onSizePreset = { w, h -> applySize(w, h) },
-                    onResetSize = { applySizeReset() },
-                    onDensityPreset = { applyDensity(it) },
-                    onResetDensity = { applyDensityReset() },
-                    busy = runner.busy,
-                )
+            when (selectedTab) {
+                SysTab.DISPLAY -> {
+                    item {
+                        SectionHeader(
+                            title = "显示与外观",
+                            subtitle = "深色模式 / 亮度 / 动画速度 / 熄屏 —— 官方设置项，即时生效",
+                        )
+                    }
+                    item {
+                        DisplayAppearanceCard(
+                            darkMode = darkMode,
+                            onDarkModeChange = { applyDarkMode(it) },
+                            brightnessRead = brightnessRead,
+                            brightnessSlider = brightnessSlider,
+                            onBrightnessChange = { brightnessSlider = it },
+                            onBrightnessApply = { applyBrightness() },
+                            autoBrightness = autoBrightness,
+                            onAutoBrightnessChange = { applyAutoBrightness(it) },
+                            animScale = animScale,
+                            onAnimScaleSelect = { applyAnimScale(it) },
+                            timeoutSeconds = timeoutSeconds,
+                            onTimeoutSelect = { applyTimeout(it) },
+                            busy = runner.busy,
+                        )
+                    }
+                    item {
+                        SectionHeader(
+                            title = "显示进阶（危险区）",
+                            subtitle = "wm 分辨率 / DPI 覆写 —— 误设可致 UI 错乱，reset 可救",
+                        )
+                    }
+                    item {
+                        DisplayDangerCard(
+                            activeSize = activeSize,
+                            activeDensity = activeDensity,
+                            customW = customW,
+                            onCustomWChange = { customW = it.filter(Char::isDigit).take(4) },
+                            customH = customH,
+                            onCustomHChange = { customH = it.filter(Char::isDigit).take(4) },
+                            onApplyCustomSize = { applyCustomSize() },
+                            customDensity = customDensity,
+                            onCustomDensityChange = { customDensity = it.filter(Char::isDigit).take(3) },
+                            onApplyCustomDensity = { applyCustomDensity() },
+                            onSizePreset = { w, h -> applySize(w, h) },
+                            onResetSize = { applySizeReset() },
+                            onDensityPreset = { applyDensity(it) },
+                            onResetDensity = { applyDensityReset() },
+                            busy = runner.busy,
+                        )
+                    }
+                }
+
+                SysTab.POWER -> {
+                    item {
+                        SectionHeader(
+                            title = "电源与性能",
+                            subtitle = "充电常亮 / 强制 Doze / 省电模式 —— dumpsys 与官方设置项",
+                        )
+                    }
+                    item {
+                        PowerCard(
+                            stayOnPlugged = stayOnPlugged,
+                            onStayOnChange = { applyStayOn(it) },
+                            lowPower = lowPower,
+                            onLowPowerChange = { applyLowPower(it) },
+                            onForceDoze = { applyDoze(true) },
+                            onUnforceDoze = { applyDoze(false) },
+                            busy = runner.busy,
+                        )
+                    }
+                }
+
+                SysTab.AUTH -> {
+                    item {
+                        SectionHeader(
+                            title = "授权总管（AppOps + 运行时权限）",
+                            subtitle = "对任意应用的敏感授权直改 —— adb 官方通道，免 Root",
+                        )
+                    }
+                    item {
+                        AuthorizationPanel(
+                            runner = runner,
+                            onAppSelected = { selectedApp = it },
+                        )
+                    }
+                }
+
+                SysTab.PRIVACY -> {
+                    item {
+                        SectionHeader(
+                            title = "隐私与管控",
+                            subtitle = "Shizuku 深度利用：权限审计 / 敏感操作记录 / Doze 白名单 / 流量策略",
+                        )
+                    }
+                    item {
+                        PermissionAuditPanel(
+                            runner = runner,
+                            onJournalChanged = { refreshJournal() },
+                        )
+                    }
+                    item { SensitiveOpsPanel(runner = runner) }
+                    item {
+                        DeviceIdlePanel(
+                            runner = runner,
+                            onJournalChanged = { refreshJournal() },
+                        )
+                    }
+                    item {
+                        NetPolicyPanel(
+                            runner = runner,
+                            onJournalChanged = { refreshJournal() },
+                        )
+                    }
+                }
             }
 
-            item {
-                SectionHeader(
-                    title = "电源与性能",
-                    subtitle = "充电常亮 / 强制 Doze / 省电模式 —— dumpsys 与官方设置项",
-                )
-            }
-            item {
-                PowerCard(
-                    stayOnPlugged = stayOnPlugged,
-                    onStayOnChange = { applyStayOn(it) },
-                    lowPower = lowPower,
-                    onLowPowerChange = { applyLowPower(it) },
-                    onForceDoze = { applyDoze(true) },
-                    onUnforceDoze = { applyDoze(false) },
-                    busy = runner.busy,
-                )
-            }
-
-            item {
-                SectionHeader(
-                    title = "授权总管（AppOps + 运行时权限）",
-                    subtitle = "对任意应用的敏感授权直改 —— adb 官方通道，免 Root",
-                )
-            }
-            item {
-                AuthorizationPanel(
-                    runner = runner,
-                    onAppSelected = { selectedApp = it },
-                )
-            }
-
+            // 会话日志：全部页签可见 —— 它是每个域已应用动作的撤销面
             item {
                 SectionHeader(
                     title = "会话日志",
