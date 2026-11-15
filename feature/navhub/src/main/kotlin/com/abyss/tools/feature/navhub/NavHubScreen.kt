@@ -1,6 +1,8 @@
 package com.abyss.tools.feature.navhub
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
@@ -34,6 +37,8 @@ import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.ListRowCard
 import com.abyss.tools.core.designsystem.component.SectionHeader
+import com.abyss.tools.core.designsystem.component.entranceStagger
+import com.abyss.tools.core.designsystem.component.pressScale
 import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.kyant.backdrop.Backdrop
@@ -80,14 +85,24 @@ fun NavHubScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            ToolCatalog.categories.forEach { category ->
+            ToolCatalog.categories.forEachIndexed { catIndex, category ->
+                // 错峰入场（v0.7.5）：屏内序号 = 分类偏移 + 分类内序号 ——
+                // 前 ENTRANCE_MAX_STAGGER_STEPS 张依次延迟形成波浪，更深的
+                // 卡片立即入场（滚动复用不让人等）。分类内工具数 < 10。
                 item(key = "header-${category.id}") {
                     if (category == ToolCategory.PLUGINS) {
-                        PluginHubEntry(onOpenPluginHub = onOpenPluginHub)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
+                        ) {
+                            PluginHubEntry(onOpenPluginHub = onOpenPluginHub)
+                        }
                     } else {
                         SectionHeader(
                             title = category.title,
                             subtitle = category.description,
+                            modifier = Modifier.entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
                         )
                     }
                 }
@@ -96,7 +111,13 @@ fun NavHubScreen(
                     key = { index -> "tool-${ToolCatalog.toolsOf(category)[index].id}" },
                 ) { index ->
                     val tool = ToolCatalog.toolsOf(category)[index]
-                    ToolRow(tool = tool, onClick = { onOpenTool(tool.id) })
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .entranceStagger(catIndex * ENTRIES_PER_CATEGORY + index + 1),
+                    ) {
+                        ToolRow(tool = tool, onClick = { onOpenTool(tool.id) })
+                    }
                 }
             }
         }
@@ -106,17 +127,27 @@ fun NavHubScreen(
 /** 插件分类的特殊入口卡（玻璃件，导航页的门面）。 */
 @Composable
 private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
+    // 点击接线修复（v0.7.5）：onOpenPluginHub 此前从未接线 —— 门面入口卡
+    // 点不动。interactionSource 自持并同步喂给 clickable + pressScale，
+    // 按下整卡「按进液体」缩放（涟漪让位给果冻手感，与底栏同款纪律）。
+    val interaction = remember { MutableInteractionSource() }
     AbyssGlassSurface(
         backdrop = null, // NavHub 内无采样源 → Frosted 档（霜面 + 边缘光）
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
+            .pressScale(interaction)
             .clip(RoundedCornerShape(24.dp)),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    onClick = onOpenPluginHub,
+                )
                 .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -383,3 +414,6 @@ private fun ReadyPlaceholderCard() {
         )
     }
 }
+
+/** 错峰入场的分类偏移步长：每分类占 10 个入场序号（分类内工具数 < 10）。 */
+private const val ENTRIES_PER_CATEGORY = 10
