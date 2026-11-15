@@ -7,6 +7,16 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.abyss.tools.core.designsystem.component.ChipTone
+import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
+import com.abyss.tools.core.designsystem.component.rememberReducedMotion
 import com.abyss.tools.core.shell.ShizukuStatus
 
 /**
@@ -129,15 +141,20 @@ fun OnboardingScreen(
             )
         }
 
-        // ── 步骤圆点 ───────────────────────────────────────────────
+        // ── 步骤圆点（v0.7.6：当前步形变为药丸，宽窄过渡动画）──────
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(horizontal = 24.dp),
         ) {
             repeat(TOTAL_STEPS) { index ->
+                val width by animateDpAsState(
+                    targetValue = if (index == step) 22.dp else 8.dp,
+                    animationSpec = tween(NAV_TRANSITION_MS),
+                    label = "onboarding_dot_$index",
+                )
                 Box(
                     modifier = Modifier
-                        .size(if (index == step) 22.dp else 8.dp, 8.dp)
+                        .size(width, 8.dp)
                         .clip(CircleShape)
                         .background(
                             if (index <= step) {
@@ -152,16 +169,39 @@ fun OnboardingScreen(
 
         Spacer(Modifier.size(12.dp))
 
-        // ── 步骤内容 ───────────────────────────────────────────────
-        Column(
+        // ── 步骤内容（v0.7.6：切换随步进方向滑动 —— 前进自右入，后退
+        //    自左入；系统移除动画时直切，见 rememberReducedMotion）────
+        val reducedMotion = rememberReducedMotion()
+        AnimatedContent(
+            targetState = step,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            when (step) {
+                .fillMaxWidth(),
+            transitionSpec = {
+                if (reducedMotion) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    val forward = targetState > initialState
+                    val slideSpec = tween<androidx.compose.ui.unit.IntOffset>(NAV_TRANSITION_MS)
+                    (
+                        slideInHorizontally(slideSpec) { if (forward) it / 5 else -it / 5 } +
+                            fadeIn(tween(NAV_TRANSITION_MS))
+                        ) togetherWith (
+                        slideOutHorizontally(slideSpec) { if (forward) -it / 5 else it / 5 } +
+                            fadeOut(tween(NAV_TRANSITION_MS))
+                        )
+                }
+            },
+            label = "onboarding-step",
+        ) { currentStep ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                when (currentStep) {
                 0 -> WelcomeStep(disclaimerAccepted) { disclaimerAccepted = it }
 
                 1 -> ShizukuStep(
@@ -209,6 +249,7 @@ fun OnboardingScreen(
                         }
                     },
                 )
+                }
             }
         }
 
