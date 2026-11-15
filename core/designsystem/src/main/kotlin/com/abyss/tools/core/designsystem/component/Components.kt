@@ -2,6 +2,7 @@ package com.abyss.tools.core.designsystem.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -189,14 +191,22 @@ fun ListRowCard(
     badge: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
+    // 按压反馈（v0.7.5）：interactionSource 自持并同步喂给 clickable +
+    // pressScale —— 按下整卡「按进液体」缩放，spring 回弹。
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .pressScale(interaction)
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(onClick = onClick)
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = null, // 涟漪让位给果冻缩放（与底栏同款纪律）
+                        onClick = onClick,
+                    )
                 } else {
                     Modifier
                 }
