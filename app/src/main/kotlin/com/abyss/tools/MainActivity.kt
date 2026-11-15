@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.abyss.tools.core.common.GlassProbe
 import com.abyss.tools.core.common.RenderSafeMode
 import com.abyss.tools.core.shell.ShizukuMonitor
 import com.abyss.tools.core.designsystem.theme.AbyssTheme
@@ -46,6 +47,13 @@ class MainActivity : ComponentActivity() {
             RenderSafeMode.STABLE_AFTER_MS,
         )
 
+        // ── 玻璃管线探针（v0.7.8）：RenderThread 原生崩溃拿不到 Java 堆栈，
+        // 诊断页靠探针尾部定位死亡时管线推进到哪一步（GlassProbe 文档）。
+        // 早于 setContent 挂载 —— 首帧玻璃组合前必须就位。
+        val glassMode = safeModeDecision.glassMode
+        GlassProbe.install(File(filesDir, GlassProbe.FILE_NAME))
+        GlassProbe.mark(GlassProbe.STAGE_SESSION_START)
+
         setContent {
             AbyssTheme {
                 val registry = ServiceRegistry
@@ -79,7 +87,8 @@ class MainActivity : ComponentActivity() {
                             ShizukuMonitor.shizukuAppIntent(this)?.let(::startActivity)
                         },
                         onReopenOnboarding = { onboardingDone = false },
-                        glassEnabled = !safeModeDecision.engage,
+                        glassEnabled = glassMode != RenderSafeMode.GlassMode.FROSTED,
+                        lensEnabled = glassMode == RenderSafeMode.GlassMode.FULL,
                     )
                 }
             }

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.CrashGuard
+import com.abyss.tools.core.common.GlassProbe
 import com.abyss.tools.core.common.RenderSafeMode
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.UiState
@@ -787,6 +788,10 @@ private fun DiagnosticsCard() {
     val safeModeFile = remember { java.io.File(context.filesDir, RenderSafeMode.FILE_NAME) }
     var safeMode by remember { mutableStateOf(RenderSafeMode.readState(safeModeFile)) }
 
+    // 玻璃管线探针现场（v0.7.8）：RenderThread 原生崩溃唯一进程内取证
+    var probeLines by remember { mutableStateOf(GlassProbe.readAll()) }
+    var showProbe by remember { mutableStateOf(false) }
+
     AbyssGlassSurface(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
@@ -876,8 +881,45 @@ private fun DiagnosticsCard() {
                     }
                 }
             }
-        }
-    }
+
+            // ── 玻璃管线探针（v0.7.8）：RenderThread 原生崩溃的进程内
+            // 取证 —— Java 层 CrashGuard 抓不到 SIGSEGV，探针尾部是唯一
+            // 现场（各阶段里程碑，见 GlassProbe 文档）。
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "玻璃管线探针",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (probeLines.isEmpty()) {
+                            "暂无记录 —— 玻璃管线未启动（安全模式）或已被清除"
+                        } else {
+                            "最近里程碑：${formatProbeLine(probeLines.last())}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (probeLines.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showProbe = true }) { Text("查看现场") }
+                        TextButton(
+                            onClick = {
+                                if (GlassProbe.clear()) probeLines = emptyList()
+                            },
+                        ) {
+                            Text("清除", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
 
     if (showFullReport && lastReport != null) {
         AlertDialog(
@@ -897,4 +939,33 @@ private fun DiagnosticsCard() {
             },
         )
     }
+
+    if (showProbe && probeLines.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showProbe = false },
+            title = { Text("玻璃管线探针现场") },
+            text = {
+                Text(
+                    text = probeLines.joinToString(separator = "\n") { formatProbeLine(it) },
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showProbe = false }) { Text("关闭") }
+            },
+        )
+    }
+}
+
+/** 探针行（epochMs|stage）→ 「MM-dd HH:mm:ss stage」（损坏行原样展示）。 */
+private fun formatProbeLine(line: String): String {
+    val ts = line.substringBefore('|').toLongOrNull() ?: return line
+    val stage = line.substringAfter('|', missingDelimiterValue = line)
+    val time = java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
+        .withZone(java.time.ZoneId.systemDefault())
+        .format(java.time.Instant.ofEpochMilli(ts))
+    return "$time $stage"
 }

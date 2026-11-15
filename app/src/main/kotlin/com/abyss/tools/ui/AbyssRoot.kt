@@ -42,6 +42,7 @@ import com.abyss.tools.core.designsystem.glass.AbyssBottomBarHeight
 import com.abyss.tools.core.designsystem.glass.AbyssGlassBottomBar
 import com.abyss.tools.core.designsystem.glass.AbyssNavItem
 import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
+import com.abyss.tools.core.designsystem.glass.LocalGlassLensEnabled
 import com.abyss.tools.core.designsystem.glass.abyssBackdropSource
 import com.abyss.tools.core.designsystem.glass.rememberAbyssBackdrop
 import com.abyss.tools.core.shell.ShizukuStatus
@@ -216,6 +217,7 @@ fun AbyssRoot(
     onOpenShizuku: () -> Unit,
     onReopenOnboarding: () -> Unit,
     glassEnabled: Boolean = true,
+    lensEnabled: Boolean = true,
 ) {
     val registry = ServiceRegistry
     // 渲染安全模式（v0.7.3）：glassEnabled=false → backdrop 为空 →
@@ -258,7 +260,11 @@ fun AbyssRoot(
     // Motion.kt 同款开关各自把关。
     val reducedMotion = rememberReducedMotion()
 
-    CompositionLocalProvider(LocalGlassIntensity provides settings.glassIntensity) {
+    CompositionLocalProvider(
+        LocalGlassIntensity provides settings.glassIntensity,
+        // 分级降级（v0.7.8）：NO_LENS 档全玻璃件跳过 AGSL lens，其余效果保留
+        LocalGlassLensEnabled provides lensEnabled,
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -459,9 +465,14 @@ fun AbyssRoot(
                 }
             }
 
-            // 渲染安全模式横幅（顶部，告知降级原因与恢复路径）
+            // 降级横幅（顶部，告知降级原因与恢复路径）：全 Frosted 与
+            // NO_LENS 中间档互斥，同一位置二选一
             if (!glassEnabled) {
                 RenderSafeModeBanner(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            } else if (!lensEnabled) {
+                LensDegradedBanner(
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
@@ -502,6 +513,29 @@ private fun RenderSafeModeBanner(modifier: Modifier = Modifier) {
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+}
+
+/**
+ * lens 降级横幅（v0.7.8 分级降级中间档）：上会话异常退出，本次只停
+ * AGSL 折射效果 —— 比全 Frosted 轻，一次干净退出自愈。
+ */
+@Composable
+private fun LensDegradedBanner(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 4.dp,
+    ) {
+        Text(
+            text = "🧪 检测到上次异常退出，本次已停用镜头折射效果（更稳）；" +
+                "正常退出一次即可恢复完整玻璃效果",
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
         )
     }
 }
