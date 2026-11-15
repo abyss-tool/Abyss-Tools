@@ -19,4 +19,22 @@ interface ApkInstallGateway {
 
     /** 提交 APK 给系统安装器并等待最终结果。 */
     fun install(apk: File): Result<Unit>
+
+    /**
+     * 带期望门禁的安装（v0.7.8：自更新专用）—— 通道清单声明与实际
+     * APK 必须对得上号，不符即拒（fail-closed）。默认实现忽略门禁直接
+     * 转发（插件安装等无清单期望的调用方零感知）；Android 实现覆写收紧。
+     */
+    fun install(apk: File, expectation: InstallExpectation): Result<Unit> = install(apk)
 }
+
+/**
+ * 自更新期望（v0.7.8）：version.json 声明的版本号 —— 下载完成的 APK
+ * 必须与之一致才允许提交安装。镜像错位 / 通道未滚动 / 资产指错版本等
+ * 一类「清单与资产漂移」在进入系统安装器之前就地拦截，不再依赖系统
+ * 返回难懂的 INSTALL_FAILED_VERSION_DOWNGRADE 之类错误码。
+ */
+data class InstallExpectation(
+    /** 通道清单声明的 versionCode（下载的 APK 必须严格相等）。 */
+    val expectedVersionCode: Long,
+)
