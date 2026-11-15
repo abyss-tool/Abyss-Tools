@@ -53,6 +53,7 @@ import com.abyss.tools.core.designsystem.component.InfoRow
 import com.abyss.tools.core.designsystem.component.LoadingState
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
+import com.abyss.tools.core.designsystem.component.entranceStagger
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
 import com.abyss.tools.core.update.ChangelogManifest
@@ -281,53 +282,66 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // ── 外观：液态玻璃强度（实时生效）─────────────────────────
+            // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
             item {
-                SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
-                GlassIntensityCard(settings)
+                Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                    SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
+                    GlassIntensityCard(settings)
+                }
             }
 
             // ── 补丁更新 ─────────────────────────────────────────────
             item {
-                SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
-                UpdateSectionCard(
-                    checkUi = checkUi,
-                    settings = settings,
-                    selfPhase = selfPhase,
-                    selfProgress = selfProgress,
-                    selfFailure = selfFailure,
-                    onCheck = checkUpdate,
-                    onDownloadAndInstall = downloadAndInstall,
-                    onOpenChangelog = openChangelog,
-                )
+                Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                    SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
+                    UpdateSectionCard(
+                        checkUi = checkUi,
+                        settings = settings,
+                        selfPhase = selfPhase,
+                        selfProgress = selfProgress,
+                        selfFailure = selfFailure,
+                        onCheck = checkUpdate,
+                        onDownloadAndInstall = downloadAndInstall,
+                        onOpenChangelog = openChangelog,
+                    )
+                }
             }
 
             // ── 插件 ─────────────────────────────────────────────────
             item {
-                SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
-                PluginSectionCard(onClearPluginCache = onClearPluginCache)
+                Box(Modifier.fillMaxWidth().entranceStagger(2)) {
+                    SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
+                    PluginSectionCard(onClearPluginCache = onClearPluginCache)
+                }
             }
 
             // ── 诊断（v0.7.0：崩溃防护网本地取证）────────────────────
             item {
-                SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
-                DiagnosticsCard()
+                Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                    SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
+                    DiagnosticsCard()
+                }
             }
 
             // ── 权限与新手引导 ──────────────────────────────────────
             if (onRestartOnboarding != null) {
                 item {
-                    SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
-                    OnboardingSectionCard(onRestart = onRestartOnboarding)
+                    Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+                        SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
+                        OnboardingSectionCard(onRestart = onRestartOnboarding)
+                    }
                 }
             }
 
             // ── 关于 ─────────────────────────────────────────────────
             item {
-                SectionHeader(title = "关于")
-                AboutCard(
-                    versionName = versionName,
-                    onShowLicense = { showLicense = true },
-                )
+                Box(Modifier.fillMaxWidth().entranceStagger(5)) {
+                    SectionHeader(title = "关于")
+                    AboutCard(
+                        versionName = versionName,
+                        onShowLicense = { showLicense = true },
+                    )
+                }
             }
         }
     }
