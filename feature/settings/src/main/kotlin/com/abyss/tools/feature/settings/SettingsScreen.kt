@@ -58,6 +58,7 @@ import com.abyss.tools.core.designsystem.component.entranceStagger
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
 import com.abyss.tools.core.update.ChangelogManifest
+import com.abyss.tools.core.update.InstallExpectation
 import com.abyss.tools.core.update.UpdateCheckResult
 import com.abyss.tools.core.update.UpdateManager
 import com.abyss.tools.core.update.VersionManifest
@@ -165,7 +166,7 @@ private sealed interface CheckUi {
 }
 
 /** 自更新整包下载安装阶段。 */
-private enum class SelfUpdatePhase { IDLE, DOWNLOADING, VERIFYING, INSTALLING, DONE, FAILED }
+private enum class SelfUpdatePhase { IDLE, DOWNLOADING, INSTALLING, DONE, FAILED }
 
 @Composable
 fun SettingsScreen(
@@ -199,29 +200,31 @@ fun SettingsScreen(
         val state = checkUi as? CheckUi.Available
         val download = state?.manifest?.download
         val busy = selfPhase == SelfUpdatePhase.DOWNLOADING ||
-            selfPhase == SelfUpdatePhase.VERIFYING ||
             selfPhase == SelfUpdatePhase.INSTALLING
         if (state != null && download != null && !busy) {
             selfPhase = SelfUpdatePhase.DOWNLOADING
             selfFailure = null
             scope.launch {
-                updateManager.downloadApk(download) { read, total ->
+                // v0.7.8 管线：下载（.part 断点续传 + 原子落盘）→ SHA-256
+                // 内聚校验（失败即弃缓存，不留 30 MB 坏文件占坑）→ 缓存命中
+                // 秒回（安装失败重试不重付流量）；期望门禁在网关侧 ——
+                // APK versionCode 必须与通道清单一致 + 拒绝降级包。
+                updateManager.downloadVerifiedApk(download) { read, total ->
                     selfProgress = if (total > 0) read.toFloat() / total else -1f
                 }.onSuccess { file ->
-                    selfPhase = SelfUpdatePhase.VERIFYING
-                    if (!updateManager.verify(file, download.sha256)) {
-                        selfPhase = SelfUpdatePhase.FAILED
-                        selfFailure = "SHA-256 校验失败 —— 拒绝安装（fail-closed）"
-                    } else {
-                        selfPhase = SelfUpdatePhase.INSTALLING
-                        val result = withContext(Dispatchers.IO) { updateManager.installApk(file) }
-                        result
-                            .onSuccess { selfPhase = SelfUpdatePhase.DONE }
-                            .onFailure {
-                                selfPhase = SelfUpdatePhase.FAILED
-                                selfFailure = it.message ?: "安装失败"
-                            }
+                    selfPhase = SelfUpdatePhase.INSTALLING
+                    val expectation = InstallExpectation(
+                        expectedVersionCode = state.manifest.versionCode.toLong(),
+                    )
+                    val result = withContext(Dispatchers.IO) {
+                        updateManager.installApk(file, expectation)
                     }
+                    result
+                        .onSuccess { selfPhase = SelfUpdatePhase.DONE }
+                        .onFailure {
+                            selfPhase = SelfUpdatePhase.FAILED
+                            selfFailure = it.message ?: "安装失败"
+                        }
                 }.onFailure {
                     selfPhase = SelfUpdatePhase.FAILED
                     selfFailure = it.message ?: "下载失败"
@@ -476,9 +479,14 @@ private fun UpdateSectionCard(
                 append("：")
                 append(available.manifest.notes ?: "（未附说明）")
                 append(" · ")
+                // 诚实声明（v0.7.8）：客户端二进制合成引擎（vcdiff）尚未
+                // 接入 —— 通道即便带增量补丁资产，本次仍走整包覆盖安装。
                 append(
-                    if (available.patchApplicable) "支持增量补丁升级"
-                    else "需整包安装"
+                    if (available.patchApplicable) {
+                        "含增量补丁资产（客户端合成引擎接入前，本次仍整包安装）"
+                    } else {
+                        "需整包安装"
+                    }
                 )
             }
 
@@ -504,6 +512,7 @@ private fun UpdateSectionCard(
                 progress = selfProgress,
                 failure = selfFailure,
                 downloadUrl = available.manifest.download?.url,
+                sizeBytes = available.manifest.download?.sizeBytes ?: 0L,
                 onInstall = onDownloadAndInstall,
             )
         }
@@ -537,13 +546,22 @@ private fun SelfUpdateUi(
     progress: Float,
     failure: String?,
     downloadUrl: String?,
+    sizeBytes: Long,
     onInstall: () -> Unit,
 ) {
     Column {
         when (phase) {
             SelfUpdatePhase.IDLE -> {
                 if (downloadUrl != null) {
-                    Button(onClick = onInstall) { Text("下载并安装整包") }
+                    Button(onClick = onInstall) {
+                        Text(
+                            if (sizeBytes > 0) {
+                                "下载并安装整包（${humanizeBytes(sizeBytes)}）"
+                            } else {
+                                "下载并安装整包"
+                            }
+                        )
+                    }
                 } else {
                     Text(
                         text = "通道尚未发布 APK 资产（download 为空）—— v0.2 发布流水线起提供整包下载。",
@@ -554,7 +572,7 @@ private fun SelfUpdateUi(
             }
 
             SelfUpdatePhase.DOWNLOADING -> {
-                Text("下载整包…", style = MaterialTheme.typography.bodySmall)
+                Text("下载整包…（中断自动续传）", style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.size(6.dp))
                 if (progress >= 0f) {
                     LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
@@ -563,16 +581,10 @@ private fun SelfUpdateUi(
                 }
             }
 
-            SelfUpdatePhase.VERIFYING -> Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.size(8.dp))
-                Text("SHA-256 校验中…", style = MaterialTheme.typography.bodySmall)
-            }
-
             SelfUpdatePhase.INSTALLING -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.size(8.dp))
-                Text("提交系统安装器（确认页如弹出请允许）…", style = MaterialTheme.typography.bodySmall)
+                Text("校验通过 · 提交系统安装器（确认页如弹出请允许）…", style = MaterialTheme.typography.bodySmall)
             }
 
             SelfUpdatePhase.DONE -> Text(
@@ -968,4 +980,12 @@ private fun formatProbeLine(line: String): String {
         .withZone(java.time.ZoneId.systemDefault())
         .format(java.time.Instant.ofEpochMilli(ts))
     return "$time $stage"
+}
+
+/** 字节量人话化（v0.7.8）：整包体积显示在安装按钮上 —— 用户知道要下多大。 */
+private fun humanizeBytes(bytes: Long): String = when {
+    bytes >= 1024L * 1024 * 1024 -> "%.2f GB".format(bytes / 1024f / 1024f / 1024f)
+    bytes >= 1024L * 1024 -> "%.1f MB".format(bytes / 1024f / 1024f)
+    bytes >= 1024L -> "%.0f KB".format(bytes / 1024f)
+    else -> "$bytes B"
 }
