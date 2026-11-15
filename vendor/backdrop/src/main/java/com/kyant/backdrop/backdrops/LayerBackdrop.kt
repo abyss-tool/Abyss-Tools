@@ -80,8 +80,9 @@ class LayerBackdrop internal constructor(
         if (isRecordingSelf) return // 防自嵌套：见属性注释（v1.1 快路径）
         // 成环断路器（v3）：跨 backdrop 链式成环在此就地拒绝 ——
         // 帧内自嵌套（推广形态）与跨帧增长两类全覆盖。
-        if (!GlassRecordingGuard.canSample(this)) return
-        GlassRecordingGuard.registerSample(this)
+        // （扩展函数内的 this 是 DrawScope 接收者 —— 限定 @LayerBackdrop）
+        if (!GlassRecordingGuard.canSample(this@LayerBackdrop)) return
+        GlassRecordingGuard.registerSample(this@LayerBackdrop)
         withTransform({
             if (layerBlock != null) {
                 with(obtainInverseLayerScope()) { inverseTransform(density, layerBlock) }
