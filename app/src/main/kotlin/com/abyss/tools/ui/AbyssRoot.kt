@@ -1,7 +1,15 @@
 package com.abyss.tools.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +36,8 @@ import com.abyss.tools.ServiceRegistry
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.designsystem.component.AbyssIcons
+import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
+import com.abyss.tools.core.designsystem.component.rememberReducedMotion
 import com.abyss.tools.core.designsystem.glass.AbyssBottomBarHeight
 import com.abyss.tools.core.designsystem.glass.AbyssGlassBottomBar
 import com.abyss.tools.core.designsystem.glass.AbyssNavItem
@@ -78,6 +88,13 @@ sealed interface Screen {
 }
 
 /**
+ * 导航动作（v0.7.5）：屏幕转场动效的方向依据 —— push 新页自右滑入、
+ * pop 反向滑出、tab 淡切。运行时状态，不参与序列化 —— 进程恢复后
+ * 首帧按 TAB 处理（恢复现场不播放推入动画）。
+ */
+enum class NavAction { PUSH, POP, TAB }
+
+/**
  * 深渊工具主壳：
  *
  *  ┌────────────────────────────┐
@@ -96,6 +113,10 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
 
     private var stack by mutableStateOf(initialStack.ifEmpty { listOf(Screen.Dashboard) })
 
+    /** 最近一次导航动作（v0.7.5）：转场动效的方向依据，随动作即时更新。 */
+    var lastAction by mutableStateOf(NavAction.TAB)
+        private set
+
     /** 恢复出的待重挂应用详情包名（一次性；查不到则丢弃，诚实降级）。 */
     var pendingAppDetailPackage: String? = null
 
@@ -111,11 +132,15 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
         }
 
     fun push(screen: Screen) {
+        lastAction = NavAction.PUSH
         stack = stack + screen
     }
 
     fun pop() {
-        if (canPop) stack = stack.dropLast(1)
+        if (canPop) {
+            lastAction = NavAction.POP
+            stack = stack.dropLast(1)
+        }
     }
 
     fun selectTab(index: Int) {
@@ -124,6 +149,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
             1 -> Screen.NavHub
             else -> Screen.Settings
         }
+        lastAction = NavAction.TAB
         stack = listOf(target)
     }
 
@@ -228,6 +254,10 @@ fun AbyssRoot(
 
     val bottomClearance = AbyssBottomBarHeight + 24.dp
 
+    // 系统移除动画（无障碍）→ 屏幕转场直切；卡片入场 / 按压反馈由
+    // Motion.kt 同款开关各自把关。
+    val reducedMotion = rememberReducedMotion()
+
     CompositionLocalProvider(LocalGlassIntensity provides settings.glassIntensity) {
         Box(
             modifier = Modifier
@@ -241,8 +271,27 @@ fun AbyssRoot(
                     .fillMaxSize()
                     .then(if (backdrop != null) Modifier.abyssBackdropSource(backdrop) else Modifier),
             ) {
-                Crossfade(
+                // 屏幕转场（v0.7.5）：方向随返回栈语义 —— push 新页自右
+                // 滑入（旧页视差左移让位），pop 反向，tab 平级淡切；
+                // 系统移除动画时直切（无障碍，见 rememberReducedMotion）。
+                AnimatedContent(
                     targetState = backStack.current,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            when (backStack.lastAction) {
+                                NavAction.PUSH ->
+                                    (slideInHorizontally(tween(NAV_TRANSITION_MS)) { it / 4 } + fadeIn(tween(NAV_TRANSITION_MS))) togetherWith
+                                        (slideOutHorizontally(tween(NAV_TRANSITION_MS)) { -it / 6 } + fadeOut(tween(NAV_TRANSITION_MS)))
+                                NavAction.POP ->
+                                    (slideInHorizontally(tween(NAV_TRANSITION_MS)) { -it / 6 } + fadeIn(tween(NAV_TRANSITION_MS))) togetherWith
+                                        (slideOutHorizontally(tween(NAV_TRANSITION_MS)) { it / 4 } + fadeOut(tween(NAV_TRANSITION_MS)))
+                                NavAction.TAB ->
+                                    fadeIn(tween(NAV_TRANSITION_MS)) togetherWith fadeOut(tween(NAV_TRANSITION_MS / 2))
+                            }
+                        }
+                    },
                     label = "abyss-screen",
                 ) { screen ->
                     when (screen) {
