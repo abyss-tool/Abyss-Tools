@@ -64,6 +64,25 @@ TelephonyManager / WifiManager 拿到的仍是真实值（Hook 属 LSPatch / 沙
 | :feature:wallpaper | 液态玻璃光斑引擎（四主题/速度/视差）+ 预览 + 一键设为 | WallpaperService（30fps，不可见暂停） |
 | 任务蓝图×自动化 | 同一 BlueprintScreen 双入口：task-blueprint → 蓝图库；automation → 调度 Tab | — |
 
+## v0.8.0 大内置化六件套（原重型插件全部落地真实功能页）
+
+| 模块 | 原插件 | 能力 | 通道 |
+| --- | --- | --- | --- |
+| :feature:terminal | abyss-plugin-terminal | 内置终端：指令输入 / 流式输出 / 历史（50 条）/ 快捷命令 / 字号分档 | Shizuku adb shell（gateway.exec） |
+| :feature:scriptlab | abyss-plugin-python-lab | 脚本实验室：Shell/Python 编辑 → 保存 → 执行；Python 运行时探测 | printf 管道经 Shizuku（app 私有目录 shell 不可读的诚实边界） |
+| :feature:sandbox | abyss-plugin-sandbox | 隔离空间：多用户引擎（pm create-user / install --user --existing）免 Root 双开 | Shizuku + pm/am 通道 |
+| :feature:media | abyss-plugin-media-lab | 媒体实验室：音频提取（AAC→M4A）/ 去音轨 / 关键帧对齐裁剪 | MediaExtractor + MediaMuxer 无重编码；MediaStore 输出 |
+| :feature:netaudit | abyss-plugin-network-guard | 流量审计：应用维度流量画像 / 榜单 / 双向流量条 | dumpsys netstats（解析器纯 JVM 可单测） |
+| :feature:backup | abyss-plugin-backup | 备份迁移：APK 资料库 / 配置与插件包 zip / 带防护恢复 | zip 引擎（ZipGuard：路径穿越 + zip 炸弹 + 根白名单三重门） |
+
+## v0.8.0 新能力（非插件化的新增）
+
+| 模块 | 能力 | 通道 |
+| --- | --- | --- |
+| :feature:syspower | 系统控制中心：深色/亮度/DPI/分辨率/动画/休眠/Doze + **授权总管**（任意应用 AppOps allow/ignore/default + pm grant/revoke） | cmd uimode / wm / settings / appops / pm 全通道（指令编排纯 JVM 可单测） |
+| :feature:widgets | 组件工坊：**黑洞动态时钟桌面组件**（2×2 / 4×2）+ 实时预览 | AppWidgetProvider + AlarmManager 整分自续期链 + 开机重排；绘制单一实现（BlackHoleArt）与 Compose 预览共用 |
+| :core:designsystem | M3 完整规范：十五级字阶 + 形状阶梯 + 动态取色（Material You，Android 12+） | MaterialTheme typography/shapes/dynamicColorScheme |
+
 Android 15/16 适配立场（16KB / edge-to-edge / RECEIVER 加固 / FGS 等
 逐项矩阵）见 [ANDROID_COMPAT.md](ANDROID_COMPAT.md)。
 
@@ -116,12 +135,17 @@ App UpdateChecker（比对 SemVer）→ 增量命中 / 整包
 
 ## 插件体系
 
-- 中心索引：`Abyss-Plugins/plugins.json`（7 个重型插件聚合，v0.3 伪装内置化后；
-  `sync-index.yml` 每日 / 手动自动聚合，APK 资产自动探测）
+- 中心索引：`Abyss-Plugins/plugins.json`（3 个引擎级插件聚合，v0.8.0 大内置化后：
+  应用构建器 / 病毒拦截 / 虚拟机；`sync-index.yml` 每日 / 手动自动聚合，APK 资产自动探测）
 - 插件仓约定：`plugin.json`（manifest）+ `patches/index.json`（补丁通道）
   + `tools/validate_plugin.py`（CI 门禁）+ `patch-release.yml`
   （数据补丁发布流水线：make_patch → publish_patch → 三处一致性门禁）
-- 分界纪律（v0.2 定型，v0.3 延续）：**只有「重」的能力才做成插件**（原生工具链 / 独立进程 / 大型框架）；轻量功能（应用管理 / Shizuku 面板 / 任务蓝图 / 自动化 / 灵动岛 / 壁纸 / 二维码，及 v0.3 伪装四件套）一律 `ToolStatus.BUILT_IN` 内置主壳，随版本更新获得
+- 分界纪律（v0.2 定型，v0.3 延续，**v0.8.0 大幅收紧**）：**只有「自带
+  完整引擎」的能力才做成插件**（构建底座 / 病毒特征引擎 / 整机虚拟机）；
+  其余一律 `ToolStatus.BUILT_IN` 内置主壳 —— v0.8.0 将原六个重型插件
+  （终端 / Python / 沙箱 / 媒体 / 网络 / 备份）全部内置化落地真实功能页
+  （:feature:terminal / :feature:scriptlab / :feature:sandbox /
+  :feature:media / :feature:netaudit / :feature:backup），对应六仓归档
 - Shizuku 授权声明：独立 APK 插件可在 manifest 声明 `shizuku.ownAuth`（per-app 授权，不继承宿主）—— 插件详情页展示独立授权引导
 - 宿主契约：`PluginContract.HOST_API_VERSION`（只增不减），
   `filesDir/plugins/<id>/plugin.json` 为安装态单一事实源
