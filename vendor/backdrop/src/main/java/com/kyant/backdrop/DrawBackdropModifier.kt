@@ -341,12 +341,22 @@ private class DrawBackdropNode(
         drawContent()
         onDrawFront?.invoke(this)
 
-        exportedBackdrop?.graphicsLayer?.let { layer ->
-            recordLayer(this@DrawBackdropNode, layer) {
-                onDrawBehind?.invoke(this)
-                drawBackdropLayer()
-                onDrawSurface?.invoke(this)
-                onDrawFront?.invoke(this)
+        exportedBackdrop?.let { exported ->
+            // 成环断路器（本仓补丁 v3）：导出源也是采样源 —— 录制期间压入
+            // 守卫栈，其内采样经统一判定。堵住 A(采样 S,导出 E)/B(采样 E,
+            // 位于 S 子树)的跨帧链式成环入口：E 的录制若每帧嵌入 S@前帧，
+            // S@本帧再经 B 嵌入 E@前帧 → 深度每帧无界增长 → RenderThread
+            // prepareTree 栈溢出（bugreport PLE110 2026-11-15）。
+            GlassRecordingGuard.beginRecord(exported)
+            try {
+                recordLayer(this@DrawBackdropNode, exported.graphicsLayer) {
+                    onDrawBehind?.invoke(this)
+                    drawBackdropLayer()
+                    onDrawSurface?.invoke(this)
+                    onDrawFront?.invoke(this)
+                }
+            } finally {
+                GlassRecordingGuard.endRecord(exported)
             }
         }
     }

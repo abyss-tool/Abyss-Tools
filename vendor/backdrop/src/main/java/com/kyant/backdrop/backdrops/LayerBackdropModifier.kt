@@ -8,6 +8,7 @@ import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.platform.InspectorInfo
+import com.kyant.backdrop.GlassRecordingGuard
 import com.kyant.backdrop.recordLayer
 
 fun Modifier.layerBackdrop(backdrop: LayerBackdrop): Modifier =
@@ -60,9 +61,14 @@ private class LayerBackdropNode(
         // 防御"多个采样源共用同一 backdrop"时内层 finally 提前复位。
         val wasRecording = backdrop.isRecordingSelf
         backdrop.isRecordingSelf = true
+        // 成环断路器（本仓补丁 v3）：本源进入录制栈 —— 录制期间任何采样
+        // 都经 GlassRecordingGuard 判定（源录制期间采样自身 / 跨帧成环
+        // 就地拒绝）。跨 backdrop 链式成环的通用防线，见其文档。
+        GlassRecordingGuard.beginRecord(backdrop)
         try {
             recordLayer(this@LayerBackdropNode, backdrop.graphicsLayer) { backdrop.onDraw(this@draw) }
         } finally {
+            GlassRecordingGuard.endRecord(backdrop)
             backdrop.isRecordingSelf = wasRecording
         }
     }

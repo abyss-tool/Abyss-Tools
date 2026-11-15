@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.Density
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.GlassRecordingGuard
 import com.kyant.backdrop.InverseLayerScope
 
 private val DefaultOnDraw: ContentDrawScope.() -> Unit = { drawContent() }
@@ -59,6 +60,14 @@ class LayerBackdrop internal constructor(
      */
     internal var isRecordingSelf = false
 
+    /**
+     * 成环断路器（本仓补丁 v3）：本采样源的层内容可传递地嵌入了哪些
+     * 采样源（含经玻璃层中转的）。由 [GlassRecordingGuard.registerSample]
+     * 在采样执行时登记 —— 一旦「采样 X 时 X 的传递源含本源」判定成立，
+     * 即为跨帧无界增长的环，采样被就地拒绝。见 GlassRecordingGuard 文档。
+     */
+    internal val transitiveSources = HashSet<LayerBackdrop>()
+
     private var inverseLayerScope: InverseLayerScope? = null
 
     override fun DrawScope.drawBackdrop(
@@ -68,7 +77,11 @@ class LayerBackdrop internal constructor(
     ) {
         val coordinates = coordinates ?: return
         val layerCoordinates = layerCoordinates ?: return
-        if (isRecordingSelf) return // 防自嵌套：见属性注释
+        if (isRecordingSelf) return // 防自嵌套：见属性注释（v1.1 快路径）
+        // 成环断路器（v3）：跨 backdrop 链式成环在此就地拒绝 ——
+        // 帧内自嵌套（推广形态）与跨帧增长两类全覆盖。
+        if (!GlassRecordingGuard.canSample(this)) return
+        GlassRecordingGuard.registerSample(this)
         withTransform({
             if (layerBlock != null) {
                 with(obtainInverseLayerScope()) { inverseTransform(density, layerBlock) }
