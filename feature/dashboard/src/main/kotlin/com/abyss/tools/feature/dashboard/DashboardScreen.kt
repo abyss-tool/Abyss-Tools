@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.common.toUiState
@@ -39,6 +43,7 @@ import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.designsystem.component.entranceStagger
+import com.abyss.tools.core.designsystem.component.rememberReducedMotion
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.abyss.tools.core.plugin.PluginIndex
 import com.abyss.tools.core.plugin.PluginRepository
@@ -245,25 +250,42 @@ private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int
     val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 7
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(
-            value = "${ToolCatalog.builtInCount}",
+            value = ToolCatalog.builtInCount,
             label = "主壳内置工具",
             modifier = Modifier.weight(1f),
         )
         StatCard(
-            value = "$pluginCount",
+            value = pluginCount,
             label = "大插件仓库",
             modifier = Modifier.weight(1f),
         )
         StatCard(
-            value = "$installedPluginCount",
+            value = installedPluginCount,
             label = "本机已装插件",
             modifier = Modifier.weight(1f),
         )
     }
 }
 
+/**
+ * 单张统计卡：数值从 0 滚动到目标值（v0.7.6）—— 与卡片错峰入场同步的
+ * 仪式感。系统移除动画时直接显示终值；目标值变化时从当前值续动
+ * （插件安装 / 索引刷新不跳变）。
+ */
 @Composable
-private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
+private fun StatCard(value: Int, label: String, modifier: Modifier = Modifier) {
+    val reducedMotion = rememberReducedMotion()
+    val count = remember { Animatable(if (reducedMotion) value.toFloat() else 0f) }
+    LaunchedEffect(value) {
+        if (reducedMotion) {
+            count.snapTo(value.toFloat())
+        } else {
+            count.animateTo(
+                targetValue = value.toFloat(),
+                animationSpec = tween(durationMillis = 900, delayMillis = 220, easing = FastOutSlowInEasing),
+            )
+        }
+    }
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
@@ -272,7 +294,7 @@ private fun StatCard(value: String, label: String, modifier: Modifier = Modifier
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = value,
+            text = "${count.value.roundToInt()}",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
