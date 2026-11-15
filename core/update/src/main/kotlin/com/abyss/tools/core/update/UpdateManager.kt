@@ -92,10 +92,13 @@ class UpdateManager(
      * （覆盖完成，30 MB 不再占坑；失败保留 —— 重试时缓存命中秒回）。
      */
     fun installApk(file: File, expectation: InstallExpectation? = null): Result<Unit> {
-        val result = apkGateway?.install(file, expectation)
-            ?: Result.failure(
-                IllegalStateException("APK 安装网关未装配（core:update 保持纯 JVM，由 :app 注入 Android PackageInstaller 实现）"),
-            )
+        val result = if (expectation == null) {
+            apkGateway?.install(file)
+        } else {
+            apkGateway?.install(file, expectation)
+        } ?: Result.failure(
+            IllegalStateException("APK 安装网关未装配（core:update 保持纯 JVM，由 :app 注入 Android PackageInstaller 实现）"),
+        )
         if (result.isSuccess) runCatching { file.delete() }
         return result
     }
