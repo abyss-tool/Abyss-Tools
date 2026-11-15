@@ -1,6 +1,8 @@
 package com.abyss.tools.feature.plugins
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.abyss.tools.core.designsystem.component.entranceStagger
+import com.abyss.tools.core.designsystem.component.pressScale
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -197,28 +201,33 @@ fun PluginHubScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     // ── 下载镜像（v0.7.0：国内反代 + 延迟实测）──────────
+                    // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
                     if (mirrorRouter != null) {
                         item {
-                            MirrorSection(
-                                mirrorRouter = mirrorRouter,
-                                preference = mirrorPreference,
-                                onPreference = onMirrorPreference,
-                            )
+                            Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                                MirrorSection(
+                                    mirrorRouter = mirrorRouter,
+                                    preference = mirrorPreference,
+                                    onPreference = onMirrorPreference,
+                                )
+                            }
                         }
                     }
 
                     // ── 我的插件（本机已装）───────────────────────────────
                     if (installedPlugins.isNotEmpty()) {
                         item {
-                            SectionHeader(
-                                title = "我的插件",
-                                subtitle = "本机已装 ${installedPlugins.size} 个 · 数据层登记 + 补丁通道",
-                                trailing = {
-                                    androidx.compose.material3.TextButton(
-                                        onClick = { checkUpdates(state.value) },
-                                    ) { Text(if (updatesChecked) "重新检查" else "检查更新") }
-                                },
-                            )
+                            Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                                SectionHeader(
+                                    title = "我的插件",
+                                    subtitle = "本机已装 ${installedPlugins.size} 个 · 数据层登记 + 补丁通道",
+                                    trailing = {
+                                        androidx.compose.material3.TextButton(
+                                            onClick = { checkUpdates(state.value) },
+                                        ) { Text(if (updatesChecked) "重新检查" else "检查更新") }
+                                    },
+                                )
+                            }
                         }
                         // 检查结果摘要（人话：N 个可更新 / 全部最新 / 检查失败可重试）
                         if (updatesChecked) {
@@ -275,31 +284,37 @@ fun PluginHubScreen(
                             key = { "mine-$stateVersion-${installedPlugins[it].id}" },
                         ) { index ->
                             val manifest = installedPlugins[index]
-                            InstalledPluginRow(
-                                name = manifest.name,
-                                id = manifest.id,
-                                localVersion = manifest.version,
-                                updatable = manifest.id in updatableIds,
-                                onClick = { onOpenPlugin(manifest.id) },
-                            )
+                            Box(Modifier.fillMaxWidth().entranceStagger(2 + index)) {
+                                InstalledPluginRow(
+                                    name = manifest.name,
+                                    id = manifest.id,
+                                    localVersion = manifest.version,
+                                    updatable = manifest.id in updatableIds,
+                                    onClick = { onOpenPlugin(manifest.id) },
+                                )
+                            }
                         }
                         item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
                         item { Box(Modifier.size(4.dp)) }
                     }
 
                     item {
-                        SectionHeader(title = "插件生态", subtitle = "${entries.size} 个大插件仓库 · 独立 CI · 独立补丁通道")
+                        Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                            SectionHeader(title = "插件生态", subtitle = "${entries.size} 个大插件仓库 · 独立 CI · 独立补丁通道")
+                        }
                     }
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(text = "全部 ${entries.size}", selected = categoryFilter == null) {
-                                categoryFilter = null
-                            }
-                            categories.forEach { cat ->
-                                FilterChip(
-                                    text = categoryLabel(cat),
-                                    selected = categoryFilter == cat,
-                                ) { categoryFilter = cat }
+                        Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FilterChip(text = "全部 ${entries.size}", selected = categoryFilter == null) {
+                                    categoryFilter = null
+                                }
+                                categories.forEach { cat ->
+                                    FilterChip(
+                                        text = categoryLabel(cat),
+                                        selected = categoryFilter == cat,
+                                    ) { categoryFilter = cat }
+                                }
                             }
                         }
                     }
@@ -309,11 +324,13 @@ fun PluginHubScreen(
                         key = { "hub-$stateVersion-${visible[it].id}" },
                     ) { index ->
                         val entry = visible[index]
-                        PluginCard(
-                            entry = entry,
-                            installed = installer.isInstalled(entry.id),
-                            onClick = { onOpenPlugin(entry.id) },
-                        )
+                        Box(Modifier.fillMaxWidth().entranceStagger(5 + index)) {
+                            PluginCard(
+                                entry = entry,
+                                installed = installer.isInstalled(entry.id),
+                                onClick = { onOpenPlugin(entry.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -329,11 +346,20 @@ private fun InstalledPluginRow(
     updatable: Boolean = false,
     onClick: () -> Unit,
 ) {
+    // 点击接线修复（v0.7.6）：onClick 此前从未接线 —— 已装插件行点不进
+    // 详情页（补丁更新入口）。接线方式与 PluginCard 一致。
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .pressScale(interaction)
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -376,11 +402,21 @@ private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun PluginCard(entry: PluginIndexEntry, installed: Boolean, onClick: () -> Unit) {
+    // 点击接线修复（v0.7.6）：onClick 此前从未接线 —— 插件中心生态卡片
+    // 整页点不进详情页（与导航页入口卡同族 bug）。interactionSource 自持
+    // 同步喂给 clickable + pressScale，果冻按压反馈（与底栏同款纪律）。
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .pressScale(interaction)
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
