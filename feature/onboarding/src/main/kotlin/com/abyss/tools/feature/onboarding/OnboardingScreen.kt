@@ -52,21 +52,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.abyss.tools.core.common.ToolCatalog
+import com.abyss.tools.core.common.ToolCategory
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
 import com.abyss.tools.core.designsystem.component.rememberReducedMotion
+import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.shell.ShizukuStatus
+import com.abyss.tools.core.shell.ShizukuVariant
+import com.abyss.tools.core.shell.ShizukuVariants
 
 /**
  * 首启新手引导 —— 权限一站式申请（完成前不进主界面）。
  *
- * 设计纪律：权限不是一次性全要 —— 每一步讲清楚「干什么用 / 不给会怎样」：
+ * v0.8.5 丰富为七步（用户反馈「引导页太单薄」）：
  *  0. 欢迎 + 免责声明（系统级能力，学习研究用途）；
- *  1. Shizuku 授权 —— 全部系统级功能的钥匙（可跳过，用到时再引导）；
- *  2. 安装未知应用 —— 插件安装 / App 自更新（可跳过）；
- *  3. 可选权限（定位基准 / 通知）+ 完成。
+ *  1. 认识 Shizuku —— 它是什么 / 为什么免 Root / 兼容哪些实现；
+ *  2. 启动并授权 Shizuku —— 实时状态 + 无线调试激活教程（可跳过）；
+ *  3. 安装未知应用 —— 插件安装 / App 自更新（可跳过）；
+ *  4. 可选权限（定位基准 / 通知）；
+ *  5. 功能导览 —— 主界面有什么、去哪找；
+ *  6. 一切就绪 —— 状态回顾 + 上手贴士。
+ *
+ * 设计纪律：权限不是一次性全要 —— 每一步讲清楚「干什么用 / 不给会怎样」。
  */
-private const val TOTAL_STEPS = 4
+private const val TOTAL_STEPS = 7
 
 @Composable
 fun OnboardingScreen(
@@ -80,17 +90,17 @@ fun OnboardingScreen(
     var step by remember { mutableStateOf(0) }
     var disclaimerAccepted by remember { mutableStateOf(false) }
 
-    // 步 2：安装未知应用（进入该步时重查真值）
+    // 步 3：安装未知应用（进入该步时重查真值）
     var installGranted by remember { mutableStateOf(false) }
     LaunchedEffect(step) {
-        if (step == 2) {
+        if (step == 3) {
             installGranted = runCatching {
                 context.packageManager.canRequestPackageInstalls()
             }.getOrDefault(false)
         }
     }
 
-    // 步 3：可选权限
+    // 步 4：可选权限
     var locationGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -99,7 +109,7 @@ fun OnboardingScreen(
     }
     var notificationsEnabled by remember { mutableStateOf(true) }
     LaunchedEffect(step) {
-        if (step == 3) {
+        if (step == 4) {
             locationGranted = ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.ACCESS_FINE_LOCATION,
@@ -141,7 +151,7 @@ fun OnboardingScreen(
             )
         }
 
-        // ── 步骤圆点（v0.7.6：当前步形变为药丸，宽窄过渡动画）──────
+        // ── 步骤圆点（当前步形变为药丸，宽窄过渡动画）──────────────
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(horizontal = 24.dp),
@@ -169,8 +179,8 @@ fun OnboardingScreen(
 
         Spacer(Modifier.size(12.dp))
 
-        // ── 步骤内容（v0.7.6：切换随步进方向滑动 —— 前进自右入，后退
-        //    自左入；系统移除动画时直切，见 rememberReducedMotion）────
+        // ── 步骤内容（切换随步进方向滑动 —— 前进自右入，后退自左入；
+        //    系统移除动画时直切，见 rememberReducedMotion）──────────
         val reducedMotion = rememberReducedMotion()
         AnimatedContent(
             targetState = step,
@@ -202,53 +212,59 @@ fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 when (currentStep) {
-                0 -> WelcomeStep(disclaimerAccepted) { disclaimerAccepted = it }
+                    0 -> WelcomeStep(disclaimerAccepted) { disclaimerAccepted = it }
 
-                1 -> ShizukuStep(
-                    shizukuStatus = shizukuStatus,
-                    onRequestPermission = onRequestShizukuPermission,
-                    onOpenShizuku = onOpenShizukuApp,
-                )
+                    1 -> ShizukuExplainerStep(shizukuStatus = shizukuStatus)
 
-                2 -> InstallPermStep(
-                    granted = installGranted,
-                    onOpenSettings = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(
-                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                    Uri.parse("package:${context.packageName}"),
+                    2 -> ShizukuSetupStep(
+                        shizukuStatus = shizukuStatus,
+                        onRequestPermission = onRequestShizukuPermission,
+                        onOpenShizuku = onOpenShizukuApp,
+                    )
+
+                    3 -> InstallPermStep(
+                        granted = installGranted,
+                        onOpenSettings = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                        Uri.parse("package:${context.packageName}"),
+                                    ),
+                                )
+                            }
+                        },
+                        onRefresh = {
+                            installGranted = runCatching {
+                                context.packageManager.canRequestPackageInstalls()
+                            }.getOrDefault(false)
+                        },
+                    )
+
+                    4 -> OptionalPermStep(
+                        locationGranted = locationGranted,
+                        onRequestLocation = {
+                            locationLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION,
                                 ),
                             )
-                        }
-                    },
-                    onRefresh = {
-                        installGranted = runCatching {
-                            context.packageManager.canRequestPackageInstalls()
-                        }.getOrDefault(false)
-                    },
-                )
+                        },
+                        notificationsEnabled = notificationsEnabled,
+                        onOpenNotificationSettings = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                                )
+                            }
+                        },
+                    )
 
-                3 -> OptionalPermStep(
-                    locationGranted = locationGranted,
-                    onRequestLocation = {
-                        locationLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION,
-                            ),
-                        )
-                    },
-                    notificationsEnabled = notificationsEnabled,
-                    onOpenNotificationSettings = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                            )
-                        }
-                    },
-                )
+                    5 -> FeatureTourStep()
+
+                    6 -> ReadyStep(shizukuStatus = shizukuStatus)
                 }
             }
         }
@@ -276,10 +292,14 @@ fun OnboardingScreen(
     }
 }
 
-// ── 步骤 0：欢迎 + 免责声明 ─────────────────────────────────────────────
+// ── 步 0：欢迎 + 免责声明 ───────────────────────────────────────────────
 
 @Composable
 private fun WelcomeStep(disclaimerAccepted: Boolean, onDisclaimerChange: (Boolean) -> Unit) {
+    Text(
+        text = "🕳",
+        style = MaterialTheme.typography.displayMedium,
+    )
     Text(
         text = "欢迎来到深渊工具",
         style = MaterialTheme.typography.headlineMedium,
@@ -293,9 +313,10 @@ private fun WelcomeStep(disclaimerAccepted: Boolean, onDisclaimerChange: (Boolea
     PermissionCard(
         title = "你将获得",
         rows = listOf(
-            "🔋" to "伪装四件套：机型 / 电量 / 信号 / 定位（Shizuku 免 Root 实时生效）",
-            "🧩" to "七大重型插件：终端 / Python / 沙箱双开 / 应用构建器…按需安装",
-            "🩹" to "补丁热更新：主壳与插件全走增量补丁通道",
+            "🕳" to "大内置化：二十余项系统级工具全部主壳内置 —— 应用管理 / 终端 / 脚本 / 沙箱 / 备份 / 系统控制…",
+            "🛡" to "免 Root 提权：全部系统级能力经 Shizuku 兼容通道执行（无需解锁 Bootloader）",
+            "🧩" to "引擎级插件：应用构建器 / 病毒拦截 / 虚拟机 —— 按需安装，独立更新",
+            "🩹" to "补丁热更新：主壳与插件全走增量补丁通道，小版本免重装",
         ),
     )
     PermissionCard(
@@ -315,34 +336,100 @@ private fun WelcomeStep(disclaimerAccepted: Boolean, onDisclaimerChange: (Boolea
     }
 }
 
-// ── 步骤 1：Shizuku ────────────────────────────────────────────────────
+// ── 步 1：认识 Shizuku ─────────────────────────────────────────────────
 
 @Composable
-private fun ShizukuStep(
-    shizukuStatus: ShizukuStatus,
-    onRequestPermission: () -> Unit,
-    onOpenShizuku: () -> Unit,
-) {
-    val running = shizukuStatus as? ShizukuStatus.Running
+private fun ShizukuExplainerStep(shizukuStatus: ShizukuStatus) {
+    val context = LocalContext.current
+    val installedVariants = remember(shizukuStatus) { ShizukuVariants.installed(context) }
+
     Text(
-        text = "第一步 · Shizuku 授权",
+        text = "认识 Shizuku",
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )
     Text(
-        text = "Shizuku 是全部系统级功能的钥匙：伪装四件套、应用管理、插件底座都以" +
-            "adb shell 上下文执行 —— 免 Root 的前提就是它。",
+        text = "Shizuku 是一个免 Root 提权框架：在设备上以 adb shell（uid 2000）权限" +
+            "运行一个小型服务端，普通应用（比如深渊工具）经它执行系统级操作 —— " +
+            "伪装机型 / 冻结应用 / 改系统设置都不需要解锁 Bootloader。",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    PermissionCard(
+        title = "深渊工具拿它做什么",
+        rows = listOf(
+            "伪装四件套" to "机型 / 电量 / 信号 / 定位的实时伪装指令",
+            "系统控制中心" to "深色 / 亮度 / DPI / 分辨率 / 授权总管",
+            "应用管理器" to "冻结 / 隐藏 / 强停 / 提取 APK",
+            "终端与脚本" to "真实 adb shell 上下文的命令执行",
+        ),
+    )
+    PermissionCard(
+        title = "兼容实现（装其一即可）",
+        rows = ShizukuVariant.entries.map { variant ->
+            variant.displayName to variant.detail
+        },
+        tone = ChipTone.INFO,
+    )
+    if (installedVariants.isNotEmpty()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "本机已装：",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            installedVariants.forEach { variant ->
+                StatusChip(text = "${variant.displayName} ✓", tone = ChipTone.OK)
+            }
+        }
+    }
+    Text(
+        text = "Sui 为 Root 集成形态（Magisk 模块），深渊工具会在启动时自动接线，无需手动打开；" +
+            "其余实现装好后在下一步启动并授权。",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+// ── 步 2：启动并授权 Shizuku ───────────────────────────────────────────
+
+@Composable
+private fun ShizukuSetupStep(
+    shizukuStatus: ShizukuStatus,
+    onRequestPermission: () -> Unit,
+    onOpenShizuku: () -> Unit,
+) {
+    val context = LocalContext.current
+    val running = shizukuStatus as? ShizukuStatus.Running
+    val installedVariants = remember(shizukuStatus) { ShizukuVariants.installed(context) }
+
+    Text(
+        text = "启动并授权 Shizuku",
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+    )
+    Text(
+        text = "Shizuku 是全部系统级功能的钥匙。先把它的服务端跑起来，再给深渊工具授权 —— " +
+            "授权一次，之后一直有效。",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     PermissionCard(
         title = "当前状态",
         rows = listOf(
-            "运行状态" to if (running != null) "运行中（v${running.version ?: "?"}）" else "未运行",
+            "服务端" to if (running != null) "运行中（v${running.version ?: "?"}）" else "未运行",
             "授权状态" to when {
                 running?.authorized == true -> "已授权 ✅"
                 running != null -> "未授权 —— 点下方立即授权"
-                else -> "等待 Shizuku 启动"
+                else -> "等待服务端启动"
+            },
+            "已装变体" to if (installedVariants.isEmpty()) {
+                "未检测到（可点按钮去下载页）"
+            } else {
+                installedVariants.joinToString(" / ") { it.displayName }
             },
         ),
         tone = when {
@@ -353,19 +440,35 @@ private fun ShizukuStep(
     )
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         if (running == null) {
-            Button(onClick = onOpenShizuku) { Text("打开 / 安装 Shizuku") }
+            Button(onClick = onOpenShizuku) {
+                Text(
+                    if (installedVariants.isEmpty()) "获取 Shizuku（下载页）"
+                    else "打开 ${installedVariants.first().displayName}",
+                )
+            }
         } else if (!running.authorized) {
             Button(onClick = onRequestPermission) { Text("立即授权") }
         }
     }
+    PermissionCard(
+        title = "无线调试激活教程（Android 11+，推荐）",
+        rows = listOf(
+            "①" to "系统设置 → 关于手机 → 连点「版本号」7 次开启开发者选项",
+            "②" to "开发者选项 → 无线调试 → 「使用配对码配对设备」完成配对",
+            "③" to "回到 Shizuku → 配对 → 通过无线调试启动（无需电脑）",
+            "④" to "启动后回到本页 → 点「立即授权」允许深渊工具",
+        ),
+        tone = ChipTone.INFO,
+    )
     Text(
-        text = "还没准备好？可以先跳过 —— 用到系统级功能时会再次引导。",
+        text = "有电脑？USB 连接后 Shizuku 内可一键「通过连接电脑启动」；Root 用户直接在 Shizuku 内" +
+            "「通过 Root 启动」。还没准备好也可以先跳过 —— 用到系统级功能时会再次引导。",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
-// ── 步骤 2：安装未知应用 ───────────────────────────────────────────────
+// ── 步 3：安装未知应用 ─────────────────────────────────────────────────
 
 @Composable
 private fun InstallPermStep(
@@ -374,7 +477,7 @@ private fun InstallPermStep(
     onRefresh: () -> Unit,
 ) {
     Text(
-        text = "第二步 · 允许安装未知应用",
+        text = "允许安装未知应用",
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )
@@ -399,7 +502,7 @@ private fun InstallPermStep(
     }
 }
 
-// ── 步骤 3：可选权限 ──────────────────────────────────────────────────
+// ── 步 4：可选权限 ─────────────────────────────────────────────────────
 
 @Composable
 private fun OptionalPermStep(
@@ -409,7 +512,7 @@ private fun OptionalPermStep(
     onOpenNotificationSettings: () -> Unit,
 ) {
     Text(
-        text = "第三步 · 可选权限（按需）",
+        text = "可选权限（按需）",
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )
@@ -438,11 +541,83 @@ private fun OptionalPermStep(
     if (!notificationsEnabled) {
         OutlinedButton(onClick = onOpenNotificationSettings) { Text("前往通知设置") }
     }
+}
+
+// ── 步 5：功能导览 ─────────────────────────────────────────────────────
+
+@Composable
+private fun FeatureTourStep() {
     Text(
-        text = "准备就绪 —— 深渊工具主界面见。",
+        text = "功能导览",
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+    )
+    Text(
+        text = "主界面分三个 tab：仪表盘看状态、功能页进全部工具、设置管更新与权限。" +
+            "功能页里你能找到这些分类 ——",
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    PermissionCard(
+        title = "功能分类一览（${ToolCatalog.tools.size} 项工具 · ${ToolCatalog.categories.size} 个分类）",
+        rows = ToolCatalog.categories
+            .filter { it != ToolCategory.PLUGINS }
+            .map { category ->
+                category.title to "${category.description}（${ToolCatalog.toolsOf(category).size} 项）"
+            },
+    )
+    PermissionCard(
+        title = "插件（排在功能页第一位）",
+        rows = listOf(
+            "插件中心" to "应用构建器 / 病毒拦截 / 虚拟机 —— 三个引擎级大插件按需安装",
+        ),
+        tone = ChipTone.INFO,
+    )
+    Text(
+        text = "小技巧：在 设置 → 权限与新手引导 里可随时重跑本引导。",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+// ── 步 6：一切就绪 ─────────────────────────────────────────────────────
+
+@Composable
+private fun ReadyStep(shizukuStatus: ShizukuStatus) {
+    val running = shizukuStatus as? ShizukuStatus.Running
+    Text(
+        text = "🌌",
+        style = MaterialTheme.typography.displayMedium,
+    )
+    Text(
+        text = "一切就绪",
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+    )
+    Text(
+        text = "深渊工具主界面见 —— 仪表盘会实时显示 Shizuku 通道与插件状态。",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    PermissionCard(
+        title = "状态回顾",
+        rows = listOf(
+            "免责声明" to "已同意 ✓",
+            "Shizuku 通道" to when {
+                running?.authorized == true -> "已就绪 ✅（全部系统级功能可用）"
+                running != null -> "运行中但未授权 —— 需要时在功能页内一键授权"
+                else -> "暂未启动 —— 用到时各功能页会再次引导"
+            },
+        ),
+        tone = if (running?.authorized == true) ChipTone.OK else ChipTone.NEUTRAL,
+    )
+    PermissionCard(
+        title = "上手贴士",
+        rows = listOf(
+            "补丁更新" to "设置 → 检查更新：主壳与插件走增量补丁，小版本免重装",
+            "新手引导" to "设置 → 权限与新手引导 → 重新运行（本引导随时可重看）",
+            "安全模式" to "若遇渲染闪退会自动降级玻璃效果，设置 → 诊断可查看现场",
+        ),
     )
 }
 

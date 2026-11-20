@@ -3,21 +3,46 @@ package com.abyss.tools.feature.shizukukit
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.designsystem.component.SectionHeader
 
 /**
- * Dumpsys 面板：白名单只读诊断命令卡片列表 → 点击执行 → 输出卡
- * （等宽字体 / 可滚动 max-h 320dp / 复制按钮；大输出截断到 64KB）。
+ * Dumpsys 面板（v0.8.5 易用性重做）：
+ *  - 搜索框实时过滤白名单（标题 / 命令 / 说明三维匹配）；
+ *  - 白名单只读诊断命令卡片列表 → 点击执行 → 输出卡
+ *    （等宽字体 / 可滚动 max-h 320dp / 复制按钮；大输出截断到 64KB）；
+ *  - 说明卡改可收起。
  */
 @Composable
 internal fun DumpsysPanel(
     runner: KitRunner,
     record: ExecRecord?,
 ) {
+    var search by remember { mutableStateOf("") }
+
+    val keyword = search.trim().lowercase()
+    val filtered = remember(keyword) {
+        if (keyword.isEmpty()) {
+            DumpsysCommands.whitelist
+        } else {
+            DumpsysCommands.whitelist.filter {
+                it.title.lowercase().contains(keyword) ||
+                    it.args.lowercase().contains(keyword) ||
+                    it.detail.lowercase().contains(keyword)
+            }
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
@@ -30,21 +55,38 @@ internal fun DumpsysPanel(
             )
         }
 
-        DumpsysCommands.whitelist.forEach { preset ->
+        // 搜索过滤（v0.8.5）：9+ 条命令按标题 / 命令 / 说明三维匹配
+        item {
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                label = { Text("搜索命令（如 电池 / battery / 内存）") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        if (filtered.isEmpty()) {
             item {
-                KitCommandCard(
-                    title = preset.title,
-                    subtitle = "dumpsys ${preset.args}",
-                    detail = preset.detail,
-                    enabled = !runner.busy,
-                    onClick = {
-                        runner.execute(
-                            CommandType.DUMPSYS,
-                            "Dumpsys · ${preset.title}",
-                            DumpsysCommands.dumpsys(preset.args),
-                        )
-                    },
-                )
+                KitErrorLine("无匹配命令：换个关键词试试（只放行白名单内的只读诊断）")
+            }
+        } else {
+            filtered.forEach { preset ->
+                item {
+                    KitCommandCard(
+                        title = preset.title,
+                        subtitle = "dumpsys ${preset.args}",
+                        detail = preset.detail,
+                        enabled = !runner.busy,
+                        onClick = {
+                            runner.execute(
+                                CommandType.DUMPSYS,
+                                "Dumpsys · ${preset.title}",
+                                DumpsysCommands.dumpsys(preset.args),
+                            )
+                        },
+                    )
+                }
             }
         }
 
@@ -52,7 +94,7 @@ internal fun DumpsysPanel(
         item { ExecResultCard(record) }
 
         item {
-            KitInfoCard(
+            KitExpanderCard(
                 title = "为什么是白名单",
                 body = "dumpsys 面板只放行只读诊断命令：写操作（如 battery set）在伪装四件套有" +
                     "专用页，自由拼接输入一律拒绝 —— fail-closed，防误伤系统服务。" +

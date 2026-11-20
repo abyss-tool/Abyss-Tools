@@ -3,6 +3,8 @@ package com.abyss.tools.feature.shizukukit
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -32,10 +35,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +51,8 @@ import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShellResult
 import com.abyss.tools.core.shell.ShizukuStatus
+import com.abyss.tools.core.shell.ShizukuVariant
+import com.abyss.tools.core.shell.ShizukuVariants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -85,10 +92,13 @@ internal fun KitHeader(onBack: () -> Unit) {
 }
 
 /**
- * Shizuku 门禁卡（三态常驻）：
- *  - 未运行 → 「启动 Shizuku」（跳 Shizuku App）；
- *  - 未授权 → 「去授权」（拉起授权弹窗）；
- *  - 已授权 → 绿色徽章「adb shell 通道就绪」。
+ * Shizuku 门禁卡（v0.8.5 重做：可收起 + 变体感知）：
+ *  - 未运行 → 「启动 Shizuku / 获取变体」展开引导；
+ *  - 未授权 → 「去授权」展开引导；
+ *  - 已授权 → **默认收起**成一行绿徽章（点可展开详情）—— 用户反馈
+ *    「常驻大卡占屏幕」，就绪后不再吃头部空间；
+ *  - 展开态列出 Shizuku / Shevery / Shizuku+ / Sui 四变体的安装情况，
+ *    「启动」按钮自动打开已装变体（全没装则去下载页）。
  */
 @Composable
 internal fun ShizukuGateCard(
@@ -96,54 +106,70 @@ internal fun ShizukuGateCard(
     onRequestPermission: () -> Unit,
     onOpenShizuku: () -> Unit,
 ) {
+    val context = LocalContext.current
     val running = shizukuStatus as? ShizukuStatus.Running
-    when {
-        running == null -> KitInfoCard(
-            title = "Shizuku 未运行",
-            body = "工具箱的命令经 Shizuku 以 adb shell（uid 2000）上下文执行 —— 免 Root。" +
-                "请先启动 Shizuku（推荐「无线调试」激活），再回来继续。",
-            tone = ChipTone.WARN,
-        ) {
-            OutlinedButton(onClick = onOpenShizuku) { Text("启动 Shizuku") }
-        }
+    val ready = running?.authorized == true
 
-        !running.authorized -> KitInfoCard(
-            title = "Shizuku 未授权",
-            body = "Shizuku 已在运行，但深渊工具还没有获得授权 —— 授权一次，工具箱全功能开放。",
-            tone = ChipTone.WARN,
-        ) {
-            Button(onClick = onRequestPermission) { Text("去授权") }
-        }
+    // 折叠语义：默认「就绪收起 / 未就绪展开」，用户点箭头翻转后覆盖；
+    // 状态翻转（授权成功 / 掉线）时输入键变化 → 回到新状态的默认档。
+    var userCollapsed by rememberSaveable(shizukuStatus) { mutableStateOf<Boolean?>(null) }
+    val collapsed = userCollapsed ?: ready
 
-        else -> KitInfoCard(
-            title = "Shizuku 已就绪",
-            body = "appops / settings / dumpsys 均为系统官方通道，指令即时生效。",
-            tone = ChipTone.OK,
-            badge = "adb shell 通道就绪",
-        )
+    // 变体安装快照：随状态变化重算（从 Shizuku 回来授权时刷新）。
+    val installedVariants = remember(shizukuStatus) {
+        ShizukuVariants.installed(context)
     }
-}
 
-/**
- * 信息卡（说明 / 门禁引导）：tone 提供容器色，badge 为可选尾随徽章
- * （与 tone 同色系）。
- */
-@Composable
-internal fun KitInfoCard(
-    title: String,
-    body: String,
-    tone: ChipTone = ChipTone.NEUTRAL,
-    badge: String? = null,
-    actions: (@Composable () -> Unit)? = null,
-) {
+    val title: String
+    val body: String
+    val tone: ChipTone
+    val badge: String?
+    when {
+        running == null -> {
+            title = "Shizuku 未运行"
+            body = "命令经 Shizuku 兼容服务以 adb shell（uid 2000）上下文执行 —— 免 Root。" +
+                "请先启动 Shizuku（推荐「无线调试」激活），再回来继续。"
+            tone = ChipTone.WARN
+            badge = null
+        }
+
+        !running.authorized -> {
+            title = "Shizuku 未授权"
+            body = "Shizuku 兼容服务已在运行，但深渊工具还没有获得授权 —— 授权一次，" +
+                "工具箱全功能开放。"
+            tone = ChipTone.WARN
+            badge = null
+        }
+
+        else -> {
+            title = "Shizuku 已就绪"
+            body = "appops / settings / dumpsys 均为系统官方通道，指令即时生效。"
+            tone = ChipTone.OK
+            badge = "adb shell 通道就绪"
+        }
+    }
+
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (collapsed) 0f else 180f,
+        animationSpec = tween(220),
+        label = "gate-chevron",
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
             .background(tone.container.copy(alpha = 0.45f))
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // 折叠态主体：状态行 + 展开箭头（整行可点）
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { userCollapsed = !collapsed },
+        ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
@@ -154,16 +180,110 @@ internal fun KitInfoCard(
             if (badge != null) {
                 StatusChip(text = badge, tone = tone)
             }
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = if (collapsed) "展开详情" else "收起",
+                modifier = Modifier.rotate(chevronRotation),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (actions != null) {
+
+        if (!collapsed) {
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // 变体安装情况（一行小徽章；Sui 无常规入口只提示接线状态）
+            Spacer(Modifier.size(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = "兼容变体：",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ShizukuVariant.entries.forEach { variant ->
+                    val installed = variant in installedVariants
+                    StatusChip(
+                        text = if (installed) "${variant.displayName} ✓" else variant.displayName,
+                        tone = if (installed) ChipTone.OK else ChipTone.NEUTRAL,
+                    )
+                }
+            }
+
             Spacer(Modifier.size(10.dp))
-            actions()
+            when {
+                running == null -> {
+                    OutlinedButton(onClick = onOpenShizuku) {
+                        Text(
+                            if (installedVariants.isEmpty()) "获取 Shizuku（下载页）"
+                            else "启动 ${installedVariants.first().displayName}",
+                        )
+                    }
+                }
+
+                !running.authorized -> {
+                    Button(onClick = onRequestPermission) { Text("去授权") }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 可收起的说明卡（面板尾部的「什么是 appops」类长文案）：默认收起，
+ * 点标题展开 —— 面板主体（输入 / 按钮）不再被大段说明文挤到屏幕外。
+ */
+@Composable
+internal fun KitExpanderCard(
+    title: String,
+    body: String,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(220),
+        label = "expander-chevron",
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = if (expanded) "收起说明" else "展开说明",
+                modifier = Modifier.rotate(chevronRotation),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (expanded) {
+            Spacer(Modifier.size(6.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

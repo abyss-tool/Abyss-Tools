@@ -113,6 +113,13 @@ internal fun AppOpsPanel(
                     value = pkg,
                     onValueChange = onPkgChange,
                     label = { Text("包名（如 com.abyss.tools）") },
+                    supportingText = {
+                        // 已装应用匹配时直接给应用名，不用用户猜包名
+                        val matched = appEntries
+                            ?.firstOrNull { it.packageName == pkg.trim() }
+                            ?.label
+                        if (matched != null) Text("已匹配：$matched")
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -229,8 +236,8 @@ internal fun AppOpsPanel(
 
         // ── 说明卡 ──────────────────────────────────────────────────────
         item {
-            KitInfoCard(
-                title = "appops 是什么",
+            KitExpanderCard(
+                title = "appops 是什么？",
                 body = "App Operations 是 Android 的免 Root 权限精细管控通道：比运行时权限更细粒度" +
                     "（后台运行 / 悬浮窗 / 模拟位置 / 安装包 / 闲置回收……）。allow = 显式放行，" +
                     "deny = 显式拒绝（比撤销权限更狠），default = 归还系统默认策略。" +

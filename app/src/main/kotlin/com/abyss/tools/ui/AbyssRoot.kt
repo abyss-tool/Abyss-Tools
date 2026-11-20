@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,6 +95,21 @@ sealed interface Screen {
 
     /** 应用管理器 → 应用详情（v0.4：冻结 / 强停 / 提取等真实动作）。 */
     data class AppManagerDetail(val app: AbyssAppInfo) : Screen
+}
+
+/**
+ * 屏幕的 SaveableStateProvider 键（v0.8.5 滚动位置保持）：与序列化 token
+ * 同源 —— 每个屏幕实例一个稳定键，推入详情页再返回时列表滚动位置 /
+ * 入场动画已播标记等 rememberSaveable 状态全部原位恢复（不再跳回顶部）。
+ */
+private fun Screen.stateKey(): String = when (this) {
+    Screen.Dashboard -> "dashboard"
+    Screen.NavHub -> "navhub"
+    Screen.Settings -> "settings"
+    Screen.PluginHub -> "pluginhub"
+    is Screen.PluginDetail -> "plugin:$pluginId"
+    is Screen.Tool -> "tool:$toolId"
+    is Screen.AppManagerDetail -> "appmgr:${app.packageName}"
 }
 
 /**
@@ -214,7 +230,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
 
 private val bottomItems = listOf(
     AbyssNavItem(AbyssIcons.icon("dashboard"), "仪表盘"),
-    AbyssNavItem(AbyssIcons.icon("explore"), "导航"),
+    AbyssNavItem(AbyssIcons.icon("explore"), "功能"),
     AbyssNavItem(AbyssIcons.icon("settings"), "设置"),
 )
 
@@ -261,6 +277,12 @@ fun AbyssRoot(
     }
 
     BackHandler(enabled = backStack.canPop) { backStack.pop() }
+
+    // 屏幕级状态保持（v0.8.5）：每个屏幕在 SaveableStateHolder 下组合 ——
+    // push 详情页时旧屏的 rememberSaveable（列表滚动位置 / 入场已播标记）
+    // 自动存入 holder；pop 回来时原位恢复。此前 AnimatedContent 直接换
+    // 内容会销毁旧屏，返回后列表一律跳回顶部（用户明确反馈的痛点）。
+    val stateHolder = rememberSaveableStateHolder()
 
     val bottomClearance = AbyssBottomBarHeight + 24.dp
 
@@ -309,222 +331,239 @@ fun AbyssRoot(
                     },
                     label = "abyss-screen",
                 ) { screen ->
-                    when (screen) {
-                        Screen.Dashboard -> DashboardScreen(
-                            // 玻璃采样收敛（v0.8.0）：真实液态玻璃仅底栏一处 ——
-                            // 页内玻璃卡全 Frosted（GPU 驱动崩溃排查中，页内玻璃
-                            // 后续再设计；恢复 = 本参数传回 backdrop 即可）
-                            backdrop = null,
-                            pluginRepository = registry.pluginRepository,
-                            updateManager = registry.updateManager,
-                            onOpenTool = { backStack.push(Screen.Tool(it)) },
-                            onOpenPlugins = { backStack.push(Screen.PluginHub) },
-                            bottomClearance = bottomClearance,
-                            installedPluginCount = installedPluginCount,
-                            autoCheckUpdates = settings.checkOnLaunch,
-                            shizukuUi = shizukuStatus.toShizukuUi(),
-                            installPermGranted = registry.installPermGranted(),
-                        )
-
-                        Screen.NavHub -> NavHubScreen(
-                            bottomClearance = bottomClearance,
-                            onOpenTool = { backStack.push(Screen.Tool(it)) },
-                            onOpenPluginHub = { backStack.push(Screen.PluginHub) },
-                        )
-
-                        Screen.Settings -> SettingsScreen(
-                            settings = registry.settings,
-                            updateManager = registry.updateManager,
-                            versionName = AppInfo.VERSION_NAME,
-                            onClearPluginCache = { registry.pluginInstaller.clearCache() },
-                            bottomClearance = bottomClearance,
-                            onRestartOnboarding = onReopenOnboarding,
-                        )
-
-                        Screen.PluginHub -> PluginHubScreen(
-                            repository = registry.pluginRepository,
-                            channelClient = registry.channelClient,
-                            installer = registry.pluginInstaller,
-                            onBack = { backStack.pop() },
-                            onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
-                            stateVersion = pluginStateVersion,
-                            onPluginsChanged = bumpPluginState,
-                            mirrorRouter = registry.mirrorRouter,
-                            mirrorPreference = settings.downloadMirror,
-                            onMirrorPreference = { settings.downloadMirror = it },
-                        )
-
-                        is Screen.PluginDetail -> PluginDetailScreen(
-                            pluginId = screen.pluginId,
-                            repository = registry.pluginRepository,
-                            channelClient = registry.channelClient,
-                            installer = registry.pluginInstaller,
-                            // 玻璃采样收敛（v0.8.0）：同 Dashboard —— 页内玻璃全 Frosted
-                            backdrop = null,
-                            onBack = { backStack.pop() },
-                            onPluginsChanged = bumpPluginState,
-                        )
-
-                        is Screen.AppManagerDetail -> AppDetailScreen(
-                            app = screen.app,
-                            provider = registry.appInfoProvider,
-                            gateway = registry.shellGateway,
-                            shizukuStatus = shizukuStatus,
-                            onRequestShizukuPermission = onRequestShizukuPermission,
-                            onOpenShizuku = onOpenShizuku,
-                            onBack = { backStack.pop() },
-                        )
-
-                        is Screen.Tool -> when (screen.toolId) {
-                            // ── 伪装四件套（v0.3 内置化：真实功能页）──────────
-                            ToolCatalog.ID_BATTERY_DISGUISE -> BatterySpoofScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                settings = registry.disguiseSettings,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
+                    stateHolder.SaveableStateProvider(key = screen.stateKey()) {
+                        when (screen) {
+                            Screen.Dashboard -> DashboardScreen(
+                                // 玻璃采样收敛（v0.8.0）：真实液态玻璃仅底栏一处 ——
+                                // 页内玻璃卡全 Frosted（GPU 驱动崩溃排查中，页内玻璃
+                                // 后续再设计；恢复 = 本参数传回 backdrop 即可）
+                                backdrop = null,
+                                pluginRepository = registry.pluginRepository,
+                                updateManager = registry.updateManager,
+                                onOpenTool = { backStack.push(Screen.Tool(it)) },
+                                onOpenPlugins = { backStack.push(Screen.PluginHub) },
+                                bottomClearance = bottomClearance,
+                                installedPluginCount = installedPluginCount,
+                                autoCheckUpdates = settings.checkOnLaunch,
+                                shizukuUi = shizukuStatus.toShizukuUi(),
+                                installPermGranted = registry.installPermGranted(),
                             )
 
-                            ToolCatalog.ID_MODEL_DISGUISE -> ModelSpoofScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                settings = registry.disguiseSettings,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
+                            Screen.NavHub -> NavHubScreen(
+                                bottomClearance = bottomClearance,
+                                onOpenTool = { backStack.push(Screen.Tool(it)) },
+                                onOpenPluginHub = { backStack.push(Screen.PluginHub) },
                             )
 
-                            ToolCatalog.ID_SIGNAL_DISGUISE -> SignalSpoofScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                settings = registry.disguiseSettings,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
+                            Screen.Settings -> SettingsScreen(
+                                settings = registry.settings,
+                                updateManager = registry.updateManager,
+                                versionName = AppInfo.VERSION_NAME,
+                                onClearPluginCache = { registry.pluginInstaller.clearCache() },
+                                bottomClearance = bottomClearance,
+                                onRestartOnboarding = onReopenOnboarding,
                             )
 
-                            ToolCatalog.ID_LOCATION_DISGUISE -> LocationSpoofScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                settings = registry.disguiseSettings,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
+                            Screen.PluginHub -> PluginHubScreen(
+                                repository = registry.pluginRepository,
+                                channelClient = registry.channelClient,
+                                installer = registry.pluginInstaller,
                                 onBack = { backStack.pop() },
+                                onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
+                                stateVersion = pluginStateVersion,
+                                onPluginsChanged = bumpPluginState,
+                                mirrorRouter = registry.mirrorRouter,
+                                mirrorPreference = settings.downloadMirror,
+                                onMirrorPreference = { settings.downloadMirror = it },
                             )
 
-                            // ── v0.4：七个内置工具落地真实功能页 ──────────────────
-                            ToolCatalog.ID_APP_MANAGER -> AppManagerScreen(
+                            is Screen.PluginDetail -> PluginDetailScreen(
+                                pluginId = screen.pluginId,
+                                repository = registry.pluginRepository,
+                                channelClient = registry.channelClient,
+                                installer = registry.pluginInstaller,
+                                // 玻璃采样收敛（v0.8.0）：同 Dashboard —— 页内玻璃全 Frosted
+                                backdrop = null,
+                                onBack = { backStack.pop() },
+                                onPluginsChanged = bumpPluginState,
+                            )
+
+                            is Screen.AppManagerDetail -> AppDetailScreen(
+                                app = screen.app,
                                 provider = registry.appInfoProvider,
                                 gateway = registry.shellGateway,
                                 shizukuStatus = shizukuStatus,
                                 onRequestShizukuPermission = onRequestShizukuPermission,
                                 onOpenShizuku = onOpenShizuku,
                                 onBack = { backStack.pop() },
-                                onOpenApp = { backStack.push(Screen.AppManagerDetail(it)) },
                             )
 
-                            ToolCatalog.ID_SHIZUKU_KIT -> ShizukuKitScreen(
-                                gateway = registry.shellGateway,
-                                shizukuStatus = shizukuStatus,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                            )
+                            is Screen.Tool -> when (screen.toolId) {
+                                // ── 插件中心行项（v0.8.5）：目录里遗留的「插件中心」
+                                //    行项此前落到通用占位页，改接线真实插件中心。 ──
+                                ToolCatalog.ID_PLUGIN_HUB -> PluginHubScreen(
+                                    repository = registry.pluginRepository,
+                                    channelClient = registry.channelClient,
+                                    installer = registry.pluginInstaller,
+                                    onBack = { backStack.pop() },
+                                    onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
+                                    stateVersion = pluginStateVersion,
+                                    onPluginsChanged = bumpPluginState,
+                                    mirrorRouter = registry.mirrorRouter,
+                                    mirrorPreference = settings.downloadMirror,
+                                    onMirrorPreference = { settings.downloadMirror = it },
+                                )
 
-                            ToolCatalog.ID_QR_CRAFT -> QrCraftScreen(
-                                onBack = { backStack.pop() },
-                            )
+                                // ── 伪装四件套（v0.3 内置化：真实功能页）──────────
+                                ToolCatalog.ID_BATTERY_DISGUISE -> BatterySpoofScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    settings = registry.disguiseSettings,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_TASK_BLUEPRINT -> BlueprintScreen(
-                                gateway = registry.shellGateway,
-                                shizukuStatus = shizukuStatus,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_MODEL_DISGUISE -> ModelSpoofScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    settings = registry.disguiseSettings,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_AUTOMATION -> BlueprintScreen(
-                                gateway = registry.shellGateway,
-                                shizukuStatus = shizukuStatus,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                                initialTab = BlueprintTab.AUTOMATION,
-                            )
+                                ToolCatalog.ID_SIGNAL_DISGUISE -> SignalSpoofScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    settings = registry.disguiseSettings,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_DYNAMIC_ISLAND -> IslandScreen(
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_LOCATION_DISGUISE -> LocationSpoofScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    settings = registry.disguiseSettings,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_LIVE_WALLPAPER -> WallpaperScreen(
-                                onBack = { backStack.pop() },
-                            )
+                                // ── v0.4：七个内置工具落地真实功能页 ──────────────────
+                                ToolCatalog.ID_APP_MANAGER -> AppManagerScreen(
+                                    provider = registry.appInfoProvider,
+                                    gateway = registry.shellGateway,
+                                    shizukuStatus = shizukuStatus,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                    onOpenApp = { backStack.push(Screen.AppManagerDetail(it)) },
+                                )
 
-                            // ── v0.8.0：六插件内置化 + 新能力落地真实功能页 ──────
-                            ToolCatalog.ID_TERMINAL -> TerminalScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_SHIZUKU_KIT -> ShizukuKitScreen(
+                                    gateway = registry.shellGateway,
+                                    shizukuStatus = shizukuStatus,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_SCRIPT_LAB -> ScriptLabScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_QR_CRAFT -> QrCraftScreen(
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_SANDBOX_SPACE, ToolCatalog.ID_DUAL_OPEN -> SandboxScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_TASK_BLUEPRINT -> BlueprintScreen(
+                                    gateway = registry.shellGateway,
+                                    shizukuStatus = shizukuStatus,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_MEDIA_LAB -> MediaLabScreen(
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_AUTOMATION -> BlueprintScreen(
+                                    gateway = registry.shellGateway,
+                                    shizukuStatus = shizukuStatus,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                    initialTab = BlueprintTab.AUTOMATION,
+                                )
 
-                            ToolCatalog.ID_NET_AUDIT -> NetAuditScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_DYNAMIC_ISLAND -> IslandScreen(
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_BACKUP -> BackupScreen(
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_LIVE_WALLPAPER -> WallpaperScreen(
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_SYS_CONTROL -> SysControlScreen(
-                                shizukuStatus = shizukuStatus,
-                                gateway = registry.shellGateway,
-                                onRequestShizukuPermission = onRequestShizukuPermission,
-                                onOpenShizuku = onOpenShizuku,
-                                onBack = { backStack.pop() },
-                            )
+                                // ── v0.8.0：六插件内置化 + 新能力落地真实功能页 ──────
+                                ToolCatalog.ID_TERMINAL -> TerminalScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            ToolCatalog.ID_WIDGET_STUDIO -> WidgetStudioScreen(
-                                onOpenTool = { backStack.push(Screen.Tool(it)) },
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_SCRIPT_LAB -> ScriptLabScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
 
-                            // ── 其余工具：通用占位页（内置卡 / 插件卡 / 路线图卡）──
-                            else -> ToolScreen(
-                                toolId = screen.toolId,
-                                onOpenPlugin = { pluginId ->
-                                    if (pluginId.isBlank()) {
-                                        backStack.push(Screen.PluginHub)
-                                    } else {
-                                        backStack.push(Screen.PluginDetail(pluginId))
-                                    }
-                                },
-                                onBack = { backStack.pop() },
-                            )
+                                ToolCatalog.ID_SANDBOX_SPACE, ToolCatalog.ID_DUAL_OPEN -> SandboxScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
+
+                                ToolCatalog.ID_MEDIA_LAB -> MediaLabScreen(
+                                    onBack = { backStack.pop() },
+                                )
+
+                                ToolCatalog.ID_NET_AUDIT -> NetAuditScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    onBack = { backStack.pop() },
+                                )
+
+                                ToolCatalog.ID_BACKUP -> BackupScreen(
+                                    onBack = { backStack.pop() },
+                                )
+
+                                ToolCatalog.ID_SYS_CONTROL -> SysControlScreen(
+                                    shizukuStatus = shizukuStatus,
+                                    gateway = registry.shellGateway,
+                                    onRequestShizukuPermission = onRequestShizukuPermission,
+                                    onOpenShizuku = onOpenShizuku,
+                                    onBack = { backStack.pop() },
+                                )
+
+                                ToolCatalog.ID_WIDGET_STUDIO -> WidgetStudioScreen(
+                                    onOpenTool = { backStack.push(Screen.Tool(it)) },
+                                    onBack = { backStack.pop() },
+                                )
+
+                                // ── 其余工具：通用占位页（内置卡 / 插件卡 / 路线图卡）──
+                                else -> ToolScreen(
+                                    toolId = screen.toolId,
+                                    onOpenPlugin = { pluginId ->
+                                        if (pluginId.isBlank()) {
+                                            backStack.push(Screen.PluginHub)
+                                        } else {
+                                            backStack.push(Screen.PluginDetail(pluginId))
+                                        }
+                                    },
+                                    onBack = { backStack.pop() },
+                                )
+                            }
                         }
                     }
                 }

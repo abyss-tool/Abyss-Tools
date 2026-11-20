@@ -44,10 +44,13 @@ import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
 import com.kyant.backdrop.Backdrop
 
 /**
- * 导航页 —— 全部工具的分类目录（主界面的第二 tab）。
+ * 功能页 —— 全部工具的分类目录（主界面的第二 tab）。
  *
  * 结构铁律：**插件永远排第一分类** —— 深渊工具「主壳轻、能力重」的
  * 产品表达：点击插件分类进入插件中心。
+ *
+ * v0.8.5：页头与底栏文案从「导航」改为「功能」（用户反馈：这页就是
+ * 功能目录，不是导航目录）。
  */
 @Composable
 fun NavHubScreen(
@@ -64,7 +67,7 @@ fun NavHubScreen(
         Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp)) {
             Spacer(Modifier.size(8.dp))
             Text(
-                text = "导航",
+                text = "功能",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
@@ -360,7 +363,8 @@ private fun BuiltInFeatureCard(tool: ToolDef) {
         Spacer(Modifier.size(4.dp))
         Text(
             text = "自 v0.2 起本工具由独立插件仓并入主壳，随深渊工具版本更新直接获得，" +
-                "不再占用插件中心位次（v0.3 起：伪装四件套同款内置路线，功能页真实可用）。",
+                "不再占用插件中心位次。当前安装版本尚未接线「${tool.title}」的功能页 ——" +
+                "请前往 设置 → 检查更新，升级到最新版后从 功能 页重新进入。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

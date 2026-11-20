@@ -30,9 +30,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Shizuku 可见性（targetSdk 28 暂不受限，预留给未来升 target） -->
+    <!-- Shizuku 兼容变体可见性（targetSdk 28 暂不受限，预留给未来升 target）：
+         官方包名同时也是 Shevery / Shizuku-Next 等 fork 服务端 stub 的共用
+         包名（替换安装关系）；Shevery / Shizuku+ 另有独立管理器 App。 -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="com.hamondev.shevery" />
+        <package android:name="af.shizuku.plus.api" />
+        <package android:name="rikka.sui" />
     </queries>
 
     <!-- allowBackup=false：伪装配置 / 指令历史 / 蓝图脚本不进云备份域
