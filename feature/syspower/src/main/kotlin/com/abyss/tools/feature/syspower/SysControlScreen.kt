@@ -581,7 +581,7 @@ private fun DisplayDangerCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f))
             .padding(16.dp),
     ) {

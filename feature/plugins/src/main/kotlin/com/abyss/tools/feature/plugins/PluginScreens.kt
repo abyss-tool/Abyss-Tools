@@ -372,7 +372,7 @@ private fun InstalledPluginRow(
         modifier = Modifier
             .fillMaxWidth()
             .pressScale(interaction)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
             .clickable(
                 interactionSource = interaction,
@@ -410,7 +410,7 @@ private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
         color = if (selected) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(
                 if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surfaceVariant
@@ -429,7 +429,7 @@ private fun PluginCard(entry: PluginIndexEntry, installed: Boolean, onClick: () 
         modifier = Modifier
             .fillMaxWidth()
             .pressScale(interaction)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .clickable(
                 interactionSource = interaction,
@@ -731,7 +731,7 @@ private fun PluginDetailContent(
             item {
                 AbyssGlassSurface(
                     backdrop = backdrop,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(Modifier.padding(20.dp)) {
@@ -1310,7 +1310,7 @@ private fun InfoCard(title: String, content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(16.dp),
     ) {

@@ -139,7 +139,7 @@ internal fun KitInfoCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(tone.container.copy(alpha = 0.45f))
             .padding(16.dp),
     ) {
@@ -174,7 +174,7 @@ internal fun KitCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
         content = content,
@@ -201,7 +201,7 @@ internal fun KitErrorLine(message: String?) {
         color = ChipTone.WARN.content,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(ChipTone.WARN.container.copy(alpha = 0.45f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
     )
@@ -240,7 +240,7 @@ internal fun TerminalBlock(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(tone.container)
             .heightIn(max = 320.dp)
             .verticalScroll(rememberScrollState())
@@ -290,7 +290,7 @@ internal fun KitCommandCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -367,7 +367,7 @@ internal fun ExecResultCard(record: ExecRecord?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {

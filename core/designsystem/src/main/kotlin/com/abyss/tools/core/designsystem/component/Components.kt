@@ -79,7 +79,7 @@ fun StatusChip(text: String, tone: ChipTone = ChipTone.NEUTRAL, modifier: Modifi
     Surface(
         color = tone.container,
         contentColor = tone.content,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
         modifier = modifier,
     ) {
         Text(
@@ -198,7 +198,7 @@ fun ListRowCard(
         modifier = modifier
             .fillMaxWidth()
             .pressScale(interaction)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .then(
                 if (onClick != null) {
@@ -216,7 +216,7 @@ fun ListRowCard(
     ) {
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
         ) {
             Icon(
                 imageVector = icon,

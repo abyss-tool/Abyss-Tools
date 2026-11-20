@@ -457,7 +457,7 @@ private fun PermissionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(tone.container.copy(alpha = 0.35f))
             .padding(16.dp),
     ) {

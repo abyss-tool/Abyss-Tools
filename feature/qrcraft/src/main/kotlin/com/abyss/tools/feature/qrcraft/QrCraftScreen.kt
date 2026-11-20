@@ -537,7 +537,7 @@ private fun PreviewCard(matrix: Result<BitMatrix>?, preset: QrColorPreset) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -558,7 +558,7 @@ private fun PreviewCard(matrix: Result<BitMatrix>?, preset: QrColorPreset) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(MaterialTheme.shapes.medium),
                 ) {
                     drawRect(color = preset.background)
                     // 整数模块尺寸 + 居中：模块间零缝隙，放大后边缘不发糊
@@ -596,7 +596,7 @@ private fun ColorSwatch(preset: QrColorPreset, selected: Boolean, onClick: () ->
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(preset.background)
             .border(
                 width = if (selected) 2.dp else 1.dp,
@@ -605,7 +605,7 @@ private fun ColorSwatch(preset: QrColorPreset, selected: Boolean, onClick: () ->
                 } else {
                     MaterialTheme.colorScheme.outlineVariant
                 },
-                shape = RoundedCornerShape(10.dp),
+                shape = MaterialTheme.shapes.medium,
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -614,7 +614,7 @@ private fun ColorSwatch(preset: QrColorPreset, selected: Boolean, onClick: () ->
         Box(
             modifier = Modifier
                 .size(14.dp)
-                .clip(RoundedCornerShape(3.dp))
+                .clip(MaterialTheme.shapes.extraSmall)
                 .background(preset.foreground),
         )
     }
@@ -679,7 +679,7 @@ private fun DecodedCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -756,7 +756,7 @@ private fun HistoryRow(item: QrHistoryItem, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -825,7 +825,7 @@ private fun FeedbackBar(message: String?, isError: Boolean, detail: String? = nu
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(tone.container.copy(alpha = 0.45f))
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {

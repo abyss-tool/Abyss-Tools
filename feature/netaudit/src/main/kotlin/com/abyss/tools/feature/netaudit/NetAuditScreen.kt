@@ -390,7 +390,7 @@ private fun NetAuditIntroCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -422,7 +422,7 @@ private fun ShizukuInlineWarn(shizukuStatus: ShizukuStatus) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(ChipTone.WARN.container.copy(alpha = 0.45f))
             .padding(16.dp),
     ) {
@@ -504,7 +504,7 @@ private fun TrafficStatCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
@@ -529,7 +529,7 @@ private fun TruncatedBanner() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(ChipTone.WARN.container.copy(alpha = 0.45f))
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
@@ -637,7 +637,7 @@ private fun UidLeadingVisual(info: UidAppInfo, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
             modifier = modifier
                 .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             Text(
@@ -667,7 +667,7 @@ private fun TrafficBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(4.dp)
-            .clip(RoundedCornerShape(2.dp)),
+            .clip(MaterialTheme.shapes.extraSmall),
     ) {
         if (rxFraction > 0f) {
             Box(

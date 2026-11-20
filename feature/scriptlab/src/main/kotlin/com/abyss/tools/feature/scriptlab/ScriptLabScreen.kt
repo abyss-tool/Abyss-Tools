@@ -533,7 +533,7 @@ private fun LabCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -581,7 +581,7 @@ private fun ShizukuGateCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f))
             .padding(16.dp),
     ) {
@@ -680,7 +680,7 @@ private fun WarnLine(text: String) {
         color = ChipTone.WARN.content,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(ChipTone.WARN.container.copy(alpha = 0.45f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
     )
@@ -771,7 +771,7 @@ private fun SaveFeedbackLine(message: String, failed: Boolean) {
         color = if (failed) ChipTone.ERROR.content else ChipTone.OK.content,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(
                 (if (failed) ChipTone.ERROR.container else ChipTone.OK.container).copy(alpha = 0.45f),
             )
@@ -856,7 +856,7 @@ private fun OutputLines(report: RunReport) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 360.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -917,7 +917,7 @@ private fun ScriptRow(
     var menuExpanded by remember { mutableStateOf(false) }
     ListItem(
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
         headlineContent = {
             Text(

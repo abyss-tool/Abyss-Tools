@@ -314,7 +314,7 @@ private fun AppPickerSheet(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(MaterialTheme.shapes.medium)
                                     .clickable { onSelect(entry.packageName) }
                                     .padding(horizontal = 4.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,

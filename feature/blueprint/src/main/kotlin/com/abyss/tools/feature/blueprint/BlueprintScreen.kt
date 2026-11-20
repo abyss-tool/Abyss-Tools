@@ -407,7 +407,7 @@ private fun BlueprintLibraryRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                 .clickable(onClick = onToggleExpand)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -630,7 +630,7 @@ private fun AutomationTab(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp))
+                                .clip(MaterialTheme.shapes.large)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -725,7 +725,7 @@ private fun RunRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .clickable { expanded = !expanded }
             .padding(horizontal = 14.dp, vertical = 12.dp),

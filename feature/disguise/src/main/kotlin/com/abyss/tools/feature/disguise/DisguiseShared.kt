@@ -112,7 +112,7 @@ internal fun InfoCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(tone.container.copy(alpha = 0.45f))
             .padding(16.dp),
     ) {
@@ -146,7 +146,7 @@ internal fun ExecFeedback(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(
                 if (isError) {
                     ChipTone.ERROR.container.copy(alpha = 0.45f)
@@ -196,10 +196,10 @@ internal fun SelectableChip(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = modifier
             .pressScale(interaction)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -220,7 +220,7 @@ internal fun KeyValueCard(title: String, rows: List<Pair<String, String>>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {

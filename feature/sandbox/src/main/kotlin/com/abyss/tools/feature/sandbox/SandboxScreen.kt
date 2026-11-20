@@ -680,7 +680,7 @@ private fun SandboxCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(containerColor)
             .padding(16.dp),
         content = content,
@@ -1165,7 +1165,7 @@ private fun AppLeadingVisual(app: SandboxApp, modifier: Modifier = Modifier) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = modifier
-                .clip(RoundedCornerShape(10.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             Text(
@@ -1184,7 +1184,7 @@ private fun FeedbackContent(feedback: ActionFeedback, successNote: String? = nul
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(tone.container.copy(alpha = 0.45f))
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {

@@ -155,7 +155,7 @@ fun WidgetStudioScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(if (previewWide) 2.2f else 1f)
-                        .clip(RoundedCornerShape(28.dp))
+                        .clip(MaterialTheme.shapes.extraLarge)
                         .background(MaterialTheme.colorScheme.surface),
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -336,7 +336,7 @@ private fun GravityFamilyCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -366,7 +366,7 @@ private fun FamilyPreview(onDraw: DrawScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surface),
     ) {
         Canvas(modifier = Modifier.fillMaxSize(), onDraw = onDraw)

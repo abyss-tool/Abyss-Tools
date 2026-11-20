@@ -288,7 +288,7 @@ private fun StatCard(value: Int, label: String, modifier: Modifier = Modifier) {
     }
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(vertical = 14.dp, horizontal = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -316,7 +316,7 @@ private fun UpdateCard(
 ) {
     AbyssGlassSurface(
         backdrop = backdrop,
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -385,7 +385,7 @@ private fun PluginEntryCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -424,7 +424,7 @@ private fun RoadmapCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

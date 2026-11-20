@@ -125,7 +125,7 @@ private fun HistoryRow(item: CommandHistoryItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),

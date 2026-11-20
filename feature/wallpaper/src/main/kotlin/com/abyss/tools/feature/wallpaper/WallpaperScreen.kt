@@ -162,7 +162,7 @@ fun WallpaperScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = RoundedCornerShape(18.dp),
+                shape = MaterialTheme.shapes.large,
             ) {
                 Text(text = "设为动态壁纸", style = MaterialTheme.typography.titleMedium)
             }
@@ -262,7 +262,7 @@ private fun WallpaperPreviewCard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f)
-            .clip(RoundedCornerShape(28.dp)),
+            .clip(MaterialTheme.shapes.extraLarge),
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width.toInt()
@@ -283,7 +283,7 @@ private fun WallpaperPreviewCard(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 16.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(Color.Black.copy(alpha = 0.35f))
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -300,7 +300,7 @@ private fun WallpaperPreviewCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.78f),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(7.dp))
+                    .clip(MaterialTheme.shapes.extraSmall)
                     .background(Color.White.copy(alpha = 0.16f))
                     .padding(horizontal = 8.dp, vertical = 3.dp),
             )
@@ -365,9 +365,9 @@ private fun WallpaperThemeChip(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
     ) {
         Row(
@@ -408,7 +408,7 @@ private fun SpeedCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -464,7 +464,7 @@ private fun FeedbackBar(message: String?, isError: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(tone.container.copy(alpha = 0.45f))
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
@@ -483,7 +483,7 @@ private fun HowItWorksCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),

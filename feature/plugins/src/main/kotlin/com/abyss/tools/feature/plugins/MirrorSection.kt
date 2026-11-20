@@ -170,10 +170,10 @@ private fun MirrorRow(
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
     ) {
         Row(

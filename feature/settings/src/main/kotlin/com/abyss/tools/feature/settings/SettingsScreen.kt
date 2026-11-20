@@ -433,7 +433,7 @@ fun SettingsScreen(
 private fun GlassIntensityCard(settings: SettingsRepository) {
     AbyssGlassSurface(
         backdrop = null,
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -501,7 +501,7 @@ private fun UpdateSectionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(16.dp),
     ) {
@@ -762,7 +762,7 @@ private fun OnboardingSectionCard(onRestart: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(16.dp),
     ) {
@@ -789,7 +789,7 @@ private fun PluginSectionCard(onClearPluginCache: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(16.dp),
     ) {
@@ -816,7 +816,7 @@ private fun AboutCard(versionName: String, onShowLicense: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .padding(16.dp),
     ) {

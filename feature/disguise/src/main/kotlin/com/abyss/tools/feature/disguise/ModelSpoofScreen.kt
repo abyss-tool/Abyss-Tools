@@ -243,7 +243,7 @@ fun ModelSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -312,7 +312,7 @@ fun ModelSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {

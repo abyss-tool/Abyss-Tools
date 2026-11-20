@@ -205,7 +205,7 @@ fun SignalSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -280,7 +280,7 @@ fun SignalSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -482,7 +482,7 @@ fun SignalSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -551,7 +551,7 @@ fun SignalSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -630,7 +630,7 @@ private fun PreviewStrip(spec: SignalSpoofSpec, dark: Boolean, paint: NativePain
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(bg),
     ) {
         // 左侧时钟示意（原生 Paint 与图标同一套绘制逻辑）

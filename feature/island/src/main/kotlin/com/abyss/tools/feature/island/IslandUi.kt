@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.dp
 // 局部视觉令牌（衬底 / 描边这类「效果色」，主题色一律由 AbyssTheme 派生）
 private val BallEdgeLight = Color.White.copy(alpha = 0.35f)
 private val BallContentScrim = Color.Black.copy(alpha = 0.16f)
-private const val PANEL_CORNER_DP = 24
 private const val PANEL_SURFACE_ALPHA = 0.97f
 
 /**
@@ -152,12 +151,12 @@ internal fun IslandPanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(PANEL_CORNER_DP.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = PANEL_SURFACE_ALPHA))
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(PANEL_CORNER_DP.dp),
+                shape = MaterialTheme.shapes.large,
             )
             .padding(16.dp),
     ) {

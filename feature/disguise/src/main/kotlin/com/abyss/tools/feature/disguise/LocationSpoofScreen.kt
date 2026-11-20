@@ -248,7 +248,7 @@ fun LocationSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -369,7 +369,7 @@ fun LocationSpoofScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
+                            .clip(MaterialTheme.shapes.large)
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -389,7 +389,7 @@ fun LocationSpoofScreen(
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .clip(MaterialTheme.shapes.medium)
                                         .padding(vertical = 2.dp),
                                 ) {
                                     Text(
@@ -450,7 +450,7 @@ fun LocationSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {
@@ -520,7 +520,7 @@ fun LocationSpoofScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                         .padding(16.dp),
                 ) {

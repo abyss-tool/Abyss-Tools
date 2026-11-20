@@ -133,12 +133,12 @@ private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     AbyssGlassSurface(
         backdrop = null, // NavHub 内无采样源 → Frosted 档（霜面 + 边缘光）
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .pressScale(interaction)
-            .clip(RoundedCornerShape(24.dp)),
+            .clip(MaterialTheme.shapes.large),
     ) {
         Row(
             modifier = Modifier
@@ -154,7 +154,7 @@ private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
@@ -178,7 +178,7 @@ private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
@@ -236,7 +236,7 @@ fun ToolScreen(
                     Box(
                         modifier = Modifier
                             .size(64.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(MaterialTheme.shapes.large)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -316,7 +316,7 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -348,7 +348,7 @@ private fun BuiltInFeatureCard(tool: ToolDef) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -378,7 +378,7 @@ private fun FrameworkPlaceholderCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {
@@ -402,7 +402,7 @@ private fun ReadyPlaceholderCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(16.dp),
     ) {

@@ -136,7 +136,7 @@ internal fun BlueprintCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(containerColor)
             .padding(16.dp),
     ) {
@@ -154,7 +154,7 @@ internal fun BlueprintWarnLine(message: String?) {
         color = ChipTone.WARN.content,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(ChipTone.WARN.container.copy(alpha = 0.45f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
     )
@@ -169,7 +169,7 @@ internal fun TerminalBlock(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(tone.container)
             .heightIn(max = 320.dp)
             .verticalScroll(rememberScrollState())
@@ -295,7 +295,7 @@ internal fun StepResultRow(result: StepResult) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             .clickable { expanded = !expanded }
             .padding(horizontal = 12.dp, vertical = 10.dp),

@@ -335,7 +335,7 @@ private fun NavGlyph(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onError,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(MaterialTheme.colorScheme.error)
                             .padding(horizontal = 4.dp),
                     )

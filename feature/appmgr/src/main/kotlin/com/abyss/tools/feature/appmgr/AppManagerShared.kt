@@ -152,7 +152,7 @@ internal fun AppCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(containerColor)
             .padding(16.dp),
     ) {
@@ -178,9 +178,9 @@ internal fun AppFilterChip(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
     ) {
         Text(
@@ -219,7 +219,7 @@ internal fun AppIcon(icon: Drawable?, modifier: Modifier = Modifier) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = modifier
-                .clip(RoundedCornerShape(12.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             Icon(

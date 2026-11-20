@@ -263,7 +263,7 @@ fun IslandScreen(onBack: () -> Unit) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .clickable {
                                     updatePrefs { it.copy(ballColor = preset) }
                                 }
@@ -416,7 +416,7 @@ private fun IslandCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(containerColor)
             .padding(16.dp),
     ) {
