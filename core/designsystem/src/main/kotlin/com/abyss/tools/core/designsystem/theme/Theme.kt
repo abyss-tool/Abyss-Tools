@@ -202,15 +202,18 @@ private val AbyssTypography = Typography(
 
 /**
  * M3 形状阶梯 —— extraSmall(4) 输入内件 / small(8) 芯片 / medium(12)
- * 小卡 / large(16) 卡片 / extraLarge(28) 弹层与 Hero。业务侧形状从此
- * 引用 MaterialTheme.shapes.*，跨模块圆角语言一致（v0.8.0 起组件库
- * 与各 feature 逐步迁移）。
+ * 小卡 / large(20) 卡片 / extraLarge(28) 弹层与 Hero。业务侧形状从此
+ * 引用 MaterialTheme.shapes.*，跨模块圆角语言一致。
+ *
+ * large 取 20 而非 M3 默认 16（v0.9.2 阶梯收敛）：全仓 52 处 20dp 卡片
+ * 是既成事实语言 —— 阶梯迁就事实而非倒过来（16/18/24 全并入 large），
+ * 一次迁移后业务侧零裸 RoundedCornerShape，动态形状改版只动本文件。
  */
 private val AbyssShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
     medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
     extraLarge = RoundedCornerShape(28.dp),
 )
 
