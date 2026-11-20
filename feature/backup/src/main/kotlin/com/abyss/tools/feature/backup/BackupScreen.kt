@@ -41,7 +41,6 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -543,7 +542,7 @@ private fun BackupCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(containerColor)
             .padding(16.dp),
     ) {
@@ -607,7 +606,7 @@ private fun StatCardsRow(
 private fun StatCard(value: Int?, label: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -790,14 +789,14 @@ private fun AppAvatar(entry: ApkEntry) {
             contentDescription = null,
             modifier = Modifier
                 .size(36.dp)
-                .clip(RoundedCornerShape(10.dp)),
+                .clip(MaterialTheme.shapes.medium),
         )
     } else {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             Text(
@@ -1000,7 +999,9 @@ private fun RestorePreviewCard(
             modifier = Modifier.padding(vertical = 6.dp),
         ) {
             preview.roots.forEach { root ->
-                AssistChip(onClick = {}, label = { Text(root) })
+                // 信息性标签,不可交互 —— AssistChip 空 onClick 是本仓
+                // 「收了回调却不接线」bug 族的变体(点击无任何反馈)
+                StatusChip(root, ChipTone.NEUTRAL)
             }
         }
         Spacer(Modifier.size(6.dp))
