@@ -311,74 +311,88 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 // ── 外观：液态玻璃强度（实时生效）─────────────────────
-                // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
+                // 错峰入场（v0.7.6）：错峰 Box 只包卡片。标题必须在 Box 外 ——
+                // Box 子项默认 TopStart 堆叠，标题与卡片同框会与半透明卡面
+                // 内容重叠（v0.9.x 全仓「文字重叠」病灶，本文件五区同修）。
                 item {
-                    Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                    Column {
                         SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
-                        GlassIntensityCard(settings)
+                        Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                            GlassIntensityCard(settings)
+                        }
                     }
                 }
 
                 // ── 补丁更新 ─────────────────────────────────────────────
                 item {
-                    Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                    Column {
                         SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
-                        UpdateSectionCard(
-                            checkUi = checkUi,
-                            settings = settings,
-                            selfPhase = selfPhase,
-                            selfProgress = selfProgress,
-                            selfFailure = selfFailure,
-                            onCheck = checkUpdate,
-                            onDownloadAndInstall = downloadAndInstall,
-                            onOpenChangelog = openChangelog,
-                        )
+                        Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                            UpdateSectionCard(
+                                checkUi = checkUi,
+                                settings = settings,
+                                selfPhase = selfPhase,
+                                selfProgress = selfProgress,
+                                selfFailure = selfFailure,
+                                onCheck = checkUpdate,
+                                onDownloadAndInstall = downloadAndInstall,
+                                onOpenChangelog = openChangelog,
+                            )
+                        }
                     }
                 }
 
                 // ── 插件 ─────────────────────────────────────────────────
                 item {
-                    Box(Modifier.fillMaxWidth().entranceStagger(2)) {
+                    Column {
                         SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
-                        PluginSectionCard(
-                            onClearPluginCache = {
-                                onClearPluginCache()
-                                // 清的是磁盘目录，界面上零可见变化 —— 不补
-                                // 一句确认，用户无法判断动作是否生效。
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("插件缓存已清除")
-                                }
-                            },
-                        )
+                        Box(Modifier.fillMaxWidth().entranceStagger(2)) {
+                            PluginSectionCard(
+                                onClearPluginCache = {
+                                    onClearPluginCache()
+                                    // 清的是磁盘目录，界面上零可见变化 —— 不补
+                                    // 一句确认，用户无法判断动作是否生效。
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("插件缓存已清除")
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
 
                 // ── 诊断（v0.7.0：崩溃防护网本地取证）────────────────────
                 item {
-                    Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                    Column {
                         SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
-                        DiagnosticsCard()
+                        Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+                            DiagnosticsCard()
+                        }
                     }
                 }
 
                 // ── 权限与新手引导 ──────────────────────────────────────
                 if (onRestartOnboarding != null) {
                     item {
-                        Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+                        Column {
                             SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
-                            OnboardingSectionCard(onRestart = onRestartOnboarding)
+                            Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+                                OnboardingSectionCard(onRestart = onRestartOnboarding)
+                            }
                         }
                     }
                 }
 
                 // ── 关于 ─────────────────────────────────────────────────
                 item {
-                    Box(Modifier.fillMaxWidth().entranceStagger(5)) {
+                    Column {
                         SectionHeader(title = "关于")
-                        AboutCard(
-                            versionName = versionName,
-                            onShowLicense = { showLicense = true },
-                        )
+                        Box(Modifier.fillMaxWidth().entranceStagger(5)) {
+                            AboutCard(
+                                versionName = versionName,
+                                onShowLicense = { showLicense = true },
+                            )
+                        }
                     }
                 }
             }

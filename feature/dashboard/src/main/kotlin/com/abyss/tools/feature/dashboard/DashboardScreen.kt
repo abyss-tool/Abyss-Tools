@@ -223,22 +223,27 @@ fun DashboardScreen(
 
             // ── 插件生态入口 ──────────────────────────────────────────
             item {
-                Box(Modifier.fillMaxWidth().entranceStagger(8)) {
+                // 标题在错峰 Box 外（Box 子项堆叠会让标题与半透明卡面重叠）
+                Column {
                     SectionHeader(title = "插件生态")
-                    Box(Modifier.size(6.dp))
-                    PluginEntryCard(
-                        indexState = indexState,
-                        installedPluginCount = installedPluginCount,
-                        onOpen = onOpenPlugins,
-                    )
+                    Spacer(Modifier.size(6.dp))
+                    Box(Modifier.fillMaxWidth().entranceStagger(8)) {
+                        PluginEntryCard(
+                            indexState = indexState,
+                            installedPluginCount = installedPluginCount,
+                            onOpen = onOpenPlugins,
+                        )
+                    }
                 }
             }
 
             // ── 路线图 ────────────────────────────────────────────────
             item {
-                Box(Modifier.fillMaxWidth().entranceStagger(9)) {
+                Column {
                     SectionHeader(title = "框架路线图", subtitle = "SRS §6 开发里程碑（对齐总体蓝图）")
-                    RoadmapCard()
+                    Box(Modifier.fillMaxWidth().entranceStagger(9)) {
+                        RoadmapCard()
+                    }
                 }
             }
         }
