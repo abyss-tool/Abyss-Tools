@@ -40,7 +40,6 @@ class PluginRepository(
             val raw = if (signedTransport != null) {
                 signedTransport.getSigned(indexUrl)
             } else {
-                FetchHostPolicy.check(indexUrl)
                 transport.get(indexUrl)
             }
             val parsed = PluginParsers.parseIndex(raw)
