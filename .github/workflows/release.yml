@@ -153,6 +153,27 @@ jobs:
           ls -la "$APK"
           sha256sum "$APK"
 
+      # ── N-SEC-001 清单签名材料准备（fail-closed：缺 secret 拒绝发布）──
+      # 公钥唯一事实源 = ChannelSignatureVerifier.kt TRUSTED_KEYS，
+      # 由 tools/publisher_pubkey.py 提取（禁止 workflow 手工复制防漂移）。
+      - name: Prepare manifest signing keys (N-SEC-001)
+        if: steps.version.outputs.skip != 'true'
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          pip install --quiet pynacl
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            echo "::error::缺少 RELEASE_SIGNING_KEY secret（raw Ed25519 seed base64 单行）—— N-SEC-001 起清单签名强制，拒绝发布"
+            exit 1
+          fi
+          SIGNING_DIR="$RUNNER_TEMP/abyss-manifest-signing"
+          mkdir -p "$SIGNING_DIR"
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$SIGNING_DIR/seed.txt"
+          python3 tools/publisher_pubkey.py > "$SIGNING_DIR/pubkey.txt"
+          echo "SEED_FILE=$SIGNING_DIR/seed.txt" >> "$GITHUB_ENV"
+          echo "PUBKEY_FILE=$SIGNING_DIR/pubkey.txt" >> "$GITHUB_ENV"
+          echo "清单签名材料就绪（seed 不回显，公钥来自 Kotlin 源提取）"
+
       - name: Publish to Abyss-Tools-Release
         if: steps.version.outputs.skip != 'true'
         env:
@@ -166,6 +187,8 @@ jobs:
             --apk "${{ steps.apk.outputs.path }}"
             --channel "${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }}"
             --commit-sha "${{ github.sha }}"
+            --seed-file "$SEED_FILE"
+            --pubkey-file "$PUBKEY_FILE"
           )
           NOTES_INPUT="${{ github.event_name == 'workflow_dispatch' && inputs.notes || '' }}"
           if [ -n "$NOTES_INPUT" ]; then
