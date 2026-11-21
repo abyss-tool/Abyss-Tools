@@ -22,7 +22,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import com.abyss.tools.core.common.GlassProbe
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.BackdropEffectScope
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -77,8 +76,9 @@ val LocalGlassNestingDepth = compositionLocalOf { 0 }
 const val MAX_GLASS_NESTING_DEPTH = 2
 
 /**
- * lens（AGSL RuntimeShader 折射/色散）是否可用（v0.7.8 分级降级）：
- * RenderSafeMode.GlassMode.NO_LENS 档由 MainActivity 置 false。
+ * lens（AGSL RuntimeShader 折射/色散）是否可用：由调用方注入；
+ * 单项能力降级使用 runCatching 守卫，v0.9.6 移除跨会话断路器后
+ * 默认 true，失败即跳过该项效果不影响进程存活。
  */
 val LocalGlassLensEnabled = compositionLocalOf { true }
 
@@ -152,21 +152,17 @@ fun AbyssGlassSurface(
 
     val effectsBlock: BackdropEffectScope.() -> Unit = remember(style, intensity, lensEnabled) {
         {
+            // OEM RenderEffect/AGSL 差异防御：单项失败降级为无该效果，
+            // 组合树与进程存活优先（runCatching 单项守卫）。
             runCatching { vibrancy() }
-                .onSuccess { GlassProbe.mark(GlassProbe.STAGE_VIBRANCY) }
             runCatching { blur((style.blurRadius * intensity).toPx()) }
-                .onSuccess { GlassProbe.mark(GlassProbe.STAGE_BLUR) }
-            if (style.lensHeight > 0.dp) {
-                if (!lensEnabled) {
-                    GlassProbe.mark(GlassProbe.STAGE_LENS_SKIPPED)
-                } else {
-                    runCatching {
-                        lens(
-                            refractionHeight = (style.lensHeight * intensity).toPx(),
-                            refractionAmount = (style.lensAmount * intensity).toPx(),
-                            chromaticAberration = style.chromaticAberration,
-                        )
-                    }.onSuccess { GlassProbe.mark(GlassProbe.STAGE_LENS) }
+            if (style.lensHeight > 0.dp && lensEnabled) {
+                runCatching {
+                    lens(
+                        refractionHeight = (style.lensHeight * intensity).toPx(),
+                        refractionAmount = (style.lensAmount * intensity).toPx(),
+                        chromaticAberration = style.chromaticAberration,
+                    )
                 }
             }
         }
@@ -199,7 +195,6 @@ fun AbyssGlassSurface(
 
     val surfaceBlock: DrawScope.() -> Unit = remember(style, palette) {
         {
-            GlassProbe.mark(GlassProbe.STAGE_FIRST_FRAME)
             val tint = style.solidTint
             if (tint != null) {
                 // 液滴等小胶囊：单色填充
