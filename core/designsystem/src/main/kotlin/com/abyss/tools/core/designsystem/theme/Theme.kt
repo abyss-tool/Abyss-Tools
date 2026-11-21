@@ -11,29 +11,24 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.abyss.tools.core.designsystem.glass.AbyssGlassPalette
+import com.abyss.tools.core.designsystem.glass.LocalAbyssGlassPalette
+import com.abyss.tools.core.designsystem.glass.derivedGlassPalette
 
 /**
  * 深渊色板 —— 近黑蓝底 + 冷冽青蓝主色（「深渊之光」隐喻）。
  *
- * 全部界面（M3 组件 / 液态玻璃霜面）从该色板派生；玻璃组件的霜面色
- * 同样锚定 background/surface，保证玻璃降级档（Frosted）与 M3 实色
- * 容器在同一色彩语言里。
- *
- * v0.8.0 起对齐 Google Material 3 完整规范：
- *  - [AbyssTypography]：十五级字阶（display/ headline/ title/ body/ label）
- *    全量显式声明 —— Google Apps 的信息层级感来自字重与行高节奏，
- *    而非字号堆砌；
- *  - [AbyssShapes]：M3 形状阶梯（4/8/12/16/28）进主题 —— 芯片 / 卡片 /
- *    弹层的圆角从此全局一致，业务页不再手写 RoundedCornerShape 漂移；
- *  - 动态取色（Material You）：Android 12+ 用户可开关「跟随壁纸取色」，
- *    开启时经 dynamicColorScheme 从壁纸种子色派生整套色板 —— 学习
- *    Google 的个性化色彩语言，同时保留深渊默认色板作为关闭档。
+ * v0.9.6：
+ *  - 新增 `darkTheme: Boolean?` 参数（null = 跟随系统），支持外观三态；
+ *  - 注入 [LocalAbyssGlassPalette]：浅色传 Light 白色液态玻璃色板、
+ *    深色传 Dark 深渊色板，修 v0.9.5 白天模式底栏硬编码近黑 Bug。
  */
 
 private val AbyssDarkColors = darkColorScheme(
@@ -57,10 +52,6 @@ private val AbyssDarkColors = darkColorScheme(
     onBackground = Color(0xFFDCE3EA),
     surface = Color(0xFF0F141B),
     onSurface = Color(0xFFDCE3EA),
-    // surfaceContainer 五级色阶（v0.8.2）：M3 卡片层级语言 —— Google Apps
-    // 的容器/卡片/ElevatedCard 全靠它表达海拔,必须显式钉进深渊色系,
-    // 否则 M3 默认的紫灰色阶会渗进来与深渊蓝黑打架（动态取色时由系统
-    // 色板接管,无碍）。
     surfaceContainerLowest = Color(0xFF090D12),
     surfaceContainerLow = Color(0xFF12171E),
     surfaceContainer = Color(0xFF161C24),
@@ -107,12 +98,6 @@ private val AbyssLightColors = lightColorScheme(
     outlineVariant = Color(0xFFC1C7CF),
 )
 
-/**
- * M3 字阶（对齐 Material 3 spec 的 15 级）—— 为什么显式全量声明：
- * 默认 Typography() 的行高 / 字距在中文长文案下密度失控（中文无升
- * 降部，行高节奏比拉丁字型更依赖显式值）。此处逐级钉死，全局信息
- * 层级（display 张力 / label 语义）从此单一事实源。
- */
 private val AbyssTypography = Typography(
     displayLarge = TextStyle(
         fontWeight = FontWeight.Normal,
@@ -200,15 +185,6 @@ private val AbyssTypography = Typography(
     ),
 )
 
-/**
- * M3 形状阶梯 —— extraSmall(4) 输入内件 / small(8) 芯片 / medium(12)
- * 小卡 / large(20) 卡片 / extraLarge(28) 弹层与 Hero。业务侧形状从此
- * 引用 MaterialTheme.shapes.*，跨模块圆角语言一致。
- *
- * large 取 20 而非 M3 默认 16（v0.9.2 阶梯收敛）：全仓 52 处 20dp 卡片
- * 是既成事实语言 —— 阶梯迁就事实而非倒过来（16/18/24 全并入 large），
- * 一次迁移后业务侧零裸 RoundedCornerShape，动态形状改版只动本文件。
- */
 private val AbyssShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
@@ -218,30 +194,37 @@ private val AbyssShapes = Shapes(
 )
 
 /**
- * 深渊主题（v0.8.0：Material 3 完整规范 + 动态取色档）。
+ * 深渊主题（v0.9.6：注入玻璃色板 + 支持外观三态）。
  *
- * @param darkTheme 深浅色（默认跟随系统）
- * @param dynamicColor Android 12+ 且用户开启「跟随壁纸取色」时，整套
- *   色板从壁纸种子色派生（Material You）；老系统或关闭时静默回落深渊
- *   色板 —— 学习 Google 的个性化，但永不因能力缺失而闪退（fail-open
- *   只作用于装饰层）。
+ * @param darkTheme 深浅色：`true`=深色、`false`=浅色、`null`=跟随系统。
+ * @param dynamicColor Android 12+ 且用户开启「跟随壁纸取色」时启用 Material You；
+ *   玻璃色板同时按动态色派生，保持玻璃质感不丢失主题主色。
  */
 @Composable
 fun AbyssTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean? = null,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val isDark = darkTheme ?: isSystemInDarkTheme()
     val colorScheme = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
-        if (darkTheme) AbyssDarkColors else AbyssLightColors
+        if (isDark) AbyssDarkColors else AbyssLightColors
     }
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = AbyssTypography,
-        shapes = AbyssShapes,
-        content = content,
-    )
+    // 玻璃色板：固定明暗档色板；动态取色档用派生色板
+    val glassPalette = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        derivedGlassPalette(isDark)
+    } else {
+        if (isDark) AbyssGlassPalette.Dark else AbyssGlassPalette.Light
+    }
+    CompositionLocalProvider(LocalAbyssGlassPalette provides glassPalette) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = AbyssTypography,
+            shapes = AbyssShapes,
+            content = content,
+        )
+    }
 }

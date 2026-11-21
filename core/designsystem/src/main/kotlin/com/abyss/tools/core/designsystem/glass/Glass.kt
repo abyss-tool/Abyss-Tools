@@ -12,10 +12,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -45,38 +48,20 @@ import com.kyant.backdrop.shadow.InnerShadow
  * 真实能力分层（诚实声明，禁止冒充）：
  *  - Backdrop 档（backdrop != null 且 API 31+）：真实采样源内容 →
  *    GPU RenderEffect blur →（API 33+）AGSL lens 折射/色散 → 霜面
- *    tint → 边缘受光 Highlight → InnerShadow 厚度定界。
+ *    135°对角渐变 tint（浅色白膜/深色黑膜）→ 三段式边缘 rim →
+ *    InnerShadow 厚度定界 + 冷灰外投影。
  *  - M3 卡面档（无源 或 API < 31）：标准 Material 3 卡面
- *    （surfaceContainerHigh 色阶 + 形状阶梯 + 标准阴影），零 GPU 管线 ——
- *    v0.8.2 采样收敛后页内玻璃全部走此档（Google Apps 卡片语言）。
+ *    （surfaceContainerHigh 色阶 + 形状阶梯 + 标准阴影），零 GPU 管线。
  *
- * 采样源由页面提供：`val backdrop = rememberAbyssBackdrop()` 挂在内容
- * 根上（Modifier.abyssBackdropSource(backdrop)），玻璃件悬浮其上 ——
- * 内容从玻璃件下方滚过时即产生真实的液态折射。
+ * 明暗双档（v0.9.6）：色板由 Theme 注入 [LocalAbyssGlassPalette]，不再
+ * 文件级常量硬编码深色值，修 v0.9.5 白天模式底部导航栏近黑 Bug。
  *
- * 采样收敛（v0.8.0，驱动崩溃排查中）：真实液态玻璃当前**仅底栏一处**
- * （闸门在 AbyssRoot —— 页面拿到 backdrop 传 null），页内玻璃件一律
- * M3 卡面档；页内玻璃后续再设计时把 backdrop 传回即可恢复。
+ * 采样收敛（v0.8.0）：真实液态玻璃当前仅底栏一处（闸门在 AbyssRoot），
+ * 页内玻璃件一律 M3 卡面档。
  *
- * 自嵌套防线（v0.7.2）：玻璃件位于自身采样源内部（如仪表盘更新卡 /
- * 插件详情 Hero）是合法布局 —— vendored 库已内建 isRecordingSelf 重入
- * 守卫，源录制期间同一 backdrop 的采样绘制被跳过，显示列表深度恒定
- * 有界（修复 v0.7.1 及之前启动秒闪退：RenderThread prepareTree 栈溢出）。
- * 业务层无需为"玻璃件在源内"做任何特殊处理。
- *
- * 成环断路器（v0.7.4，vendored 库补丁 v3）：跨 backdrop 链式成环
- * （玻璃采样导出源、导出源又回灌采样源 —— A→B→C→A）导致显示列表
- * 深度每帧无界增长，RenderThread prepareTree 数分钟后原生栈溢出
- * （bugreport PLE110 2026-11-15，存活 472s）。守卫在采样咽喉统一
- * 判环（帧内录制栈 + 每源可传递采样源集合），成环采样就地拒绝。
- *
- * 嵌套深度预算（v0.7.4）：玻璃件套玻璃件，每层消耗 2~3 个
- * GraphicsLayer 渲染节点 —— 深度超过 [MAX_GLASS_NESTING_DEPTH] 的
- * 内层自动降级 Frosted，渲染树深度上限为常数、与业务布局无关。
- *
- * 所有 drawBackdrop 的 lambda 一律记忆化（ModifierNodeElement 对 lambda
- * 按身份比较，重组期新建 lambda 会引发 draw 失效风暴 —— 参考仓
- * diag-20261011 教训）。
+ * 自嵌套防线（v0.7.2）：vendored 库内建 isRecordingSelf 重入守卫。
+ * 成环断路器（v0.7.4）：GlassRecordingGuard 判环拒绝跨源循环。
+ * 嵌套深度预算（v0.7.4）：超 MAX_GLASS_NESTING_DEPTH 内层自动降级。
  */
 
 /** 玻璃强度（0.4f 弱 ~ 1.6f 强）：设置页滑杆实时驱动 blur/lens 参数。 */
@@ -93,9 +78,7 @@ const val MAX_GLASS_NESTING_DEPTH = 2
 
 /**
  * lens（AGSL RuntimeShader 折射/色散）是否可用（v0.7.8 分级降级）：
- * RenderSafeMode.GlassMode.NO_LENS 档由 MainActivity 置 false —— 全部
- * 玻璃件跳过 lens，保留 vibrancy + blur。AGSL 是各 OEM GPU 驱动最脆弱
- * 的一环，断路器第一次异常终止即停它止血（详见 RenderSafeMode 文档）。
+ * RenderSafeMode.GlassMode.NO_LENS 档由 MainActivity 置 false。
  */
 val LocalGlassLensEnabled = compositionLocalOf { true }
 
@@ -105,17 +88,19 @@ fun rememberAbyssBackdrop(): LayerBackdrop = rememberLayerBackdrop()
 fun Modifier.abyssBackdropSource(backdrop: LayerBackdrop): Modifier =
     layerBackdrop(backdrop)
 
-/** 玻璃样式参数集（真实采样档的单一调节面 —— 模糊 / 折射 / 受光）。 */
+/**
+ * 玻璃样式参数集（真实采样档的单一调节面 —— 模糊 / 折射 / 受光）。
+ * v0.9.6：移除硬编码 `tint`/`edgeColor`/`innerShadowColor`/`elevation`
+ * 默认值，改为从 [AbyssGlassPalette] 读；留 blur/lens 等强度参数。
+ */
 data class AbyssGlassStyle(
-    val blurRadius: Dp = 22.dp,
+    val blurRadius: Dp = 14.dp,
     val lensHeight: Dp = 2.dp,
     val lensAmount: Dp = 10.dp,
     val chromaticAberration: Boolean = true,
-    val tint: Color = Color(0xD90A0E13),
-    val edgeColor: Color = Color.White.copy(alpha = 0.42f),
     val edgeAlpha: Float = 0.9f,
-    val innerShadowColor: Color = Color.Black.copy(alpha = 0.35f),
-    val elevation: Dp = 10.dp,
+    /** 覆写 tint（null 则用 palette 默认渐变；液滴等小胶囊传单色） */
+    val solidTint: Color? = null,
 )
 
 /**
@@ -123,12 +108,10 @@ data class AbyssGlassStyle(
  * ```
  * val backdrop = rememberAbyssBackdrop()
  * Box(Modifier.fillMaxSize()) {
- *     Content(Modifier.abyssBackdropSource(backdrop))   // 采样源
- *     AbyssGlassSurface(backdrop = backdrop, modifier = Modifier.align(Alignment.BottomCenter)) { ... }
+ *     Content(Modifier.abyssBackdropSource(backdrop))
+ *     AbyssGlassSurface(backdrop, Modifier.align(Alignment.BottomCenter)) { ... }
  * }
  * ```
- * `backdrop == null` 时自动落 M3 卡面档（标准 Material 3 卡面 —— 静态页 /
- * 低端机 / 采样收敛）。
  */
 @Composable
 fun AbyssGlassSurface(
@@ -136,24 +119,19 @@ fun AbyssGlassSurface(
     backdrop: Backdrop? = null,
     shape: Shape = MaterialTheme.shapes.extraLarge,
     style: AbyssGlassStyle = AbyssGlassStyle(),
-    /** M3 卡面档容器色覆写（缺省 surfaceContainerHigh）—— 同屏多档时让
-     *  降级件仍可分辨（如安全模式下液滴相对整栏抬一级 Highest）。 */
+    /** M3 卡面档容器色覆写（缺省 surfaceContainerHigh） */
     m3Container: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val intensity = LocalGlassIntensity.current
     val nestingDepth = LocalGlassNestingDepth.current
     val lensEnabled = LocalGlassLensEnabled.current
+    val palette = LocalAbyssGlassPalette.current
     val canRender = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    // 深度预算（v0.7.4）：玻璃套玻璃超限的内层降级 M3 卡面档 ——
-    // 渲染树深度恒定有界，不受业务嵌套布局影响。
     val canSampleLive = canRender && nestingDepth < MAX_GLASS_NESTING_DEPTH
     val hasLiveSource = backdrop != null && canSampleLive
 
-    // ── M3 卡面档（v0.8.2）：无真实采样源的玻璃件 = 标准 Material 3 卡面
-    // （Google 现成语义：surfaceContainerHigh 色阶 + 形状阶梯 + 标准阴影）
-    // —— 页内「玻璃卡」从此就是普通 M3 卡，零自定义视觉、零 GPU 管线；
-    // 底栏（唯一传真实 backdrop 的消费方）走下方液态玻璃管线。
+    // ── M3 卡面档
     if (!hasLiveSource) {
         Surface(
             modifier = modifier,
@@ -161,7 +139,6 @@ fun AbyssGlassSurface(
             color = m3Container ?: MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 1.dp,
         ) {
-            // 子树嵌套深度语义不变：M3 卡内的玻璃件按预算判定
             CompositionLocalProvider(LocalGlassNestingDepth provides nestingDepth + 1) {
                 content()
             }
@@ -171,23 +148,16 @@ fun AbyssGlassSurface(
 
     val effectiveBackdrop: Backdrop = backdrop ?: emptyBackdrop()
 
-    // ── lambda 记忆化（键 = 捕获的全部值）────────────────────────────
     val shapeBlock = remember(shape) { { shape } }
 
     val effectsBlock: BackdropEffectScope.() -> Unit = remember(style, intensity, lensEnabled) {
         {
-            // OEM RenderEffect/AGSL 差异防御：单项失败降级为无该效果，
-            // 组合树与进程存活优先（参考仓 v1.4.9 同款纪律）。
-            // 管线探针（v0.7.8）：每个效果挂载成功即落里程碑 ——
-            // RenderThread 原生崩溃拿不到 Java 堆栈，探针尾部 =
-            // 死亡时管线推进到哪一步（见 GlassProbe 文档）。
             runCatching { vibrancy() }
                 .onSuccess { GlassProbe.mark(GlassProbe.STAGE_VIBRANCY) }
             runCatching { blur((style.blurRadius * intensity).toPx()) }
                 .onSuccess { GlassProbe.mark(GlassProbe.STAGE_BLUR) }
             if (style.lensHeight > 0.dp) {
                 if (!lensEnabled) {
-                    // 分级降级档（NO_LENS）：AGSL 全跳，仅落探针
                     GlassProbe.mark(GlassProbe.STAGE_LENS_SKIPPED)
                 } else {
                     runCatching {
@@ -202,52 +172,77 @@ fun AbyssGlassSurface(
         }
     }
 
-    val highlightBlock = remember(style) {
+    val highlightBlock = remember(style, palette) {
         {
             Highlight(
                 width = 0.8.dp,
                 blurRadius = 1.2.dp,
                 alpha = style.edgeAlpha,
                 style = HighlightStyle.Plain(
-                    color = style.edgeColor,
-                    blendMode = BlendMode.Plus,
+                    color = palette.rimColor,
+                    blendMode = palette.highlightBlendMode,
                 ),
             )
         }
     }
 
-    val innerShadowBlock = remember(style) {
+    val innerShadowBlock = remember(palette) {
         {
             InnerShadow(
                 radius = 6.dp,
                 offset = DpOffset(0.dp, 3.dp),
-                color = style.innerShadowColor,
-                alpha = 0.6f,
+                color = palette.innerShadowColor,
+                alpha = 1f,
             )
         }
     }
 
-    val surfaceBlock: DrawScope.() -> Unit = remember(style) {
+    val surfaceBlock: DrawScope.() -> Unit = remember(style, palette) {
         {
-            // 管线探针：首个真实采样帧绘制完成（同阶段连续去重，
-            // 逐帧不刷屏）—— 探针尾部若停在 lens-applied 与此之间，
-            // 即 GPU 首帧执行期死亡（驱动嫌疑，见 GlassProbe 文档）
             GlassProbe.mark(GlassProbe.STAGE_FIRST_FRAME)
-            drawRect(style.tint)
+            val tint = style.solidTint
+            if (tint != null) {
+                // 液滴等小胶囊：单色填充
+                drawRect(tint)
+            } else {
+                // 整栏：135°对角渐变填充（iOS 26 液态玻璃白膜/黑膜）
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(palette.barTintStart, palette.barTintEnd),
+                        start = Offset.Zero,
+                        end = Offset(size.width, size.height),
+                    ),
+                )
+                // 顶部 1px 三段式 rim：左暗-中亮-右暗（模拟顶部受光）
+                val rimHeightPx = 1.dp.toPx()
+                val rimWidth = size.width
+                if (rimWidth > 0f) {
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                palette.rimColor.copy(alpha = 0f),
+                                palette.rimColor,
+                                palette.rimColor.copy(alpha = 0f),
+                            ),
+                            startX = rimWidth * 0.1f,
+                            endX = rimWidth * 0.9f,
+                        ),
+                        size = Size(rimWidth, rimHeightPx),
+                    )
+                }
+            }
         }
     }
 
     Box(
         modifier = modifier
-            // 深度：外阴影在最外层，不被裁剪
             .shadow(
-                elevation = style.elevation,
+                elevation = 12.dp,
                 shape = shape,
                 clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.5f),
-                spotColor = Color.Black.copy(alpha = 0.5f),
+                ambientColor = palette.ambientShadowColor,
+                spotColor = palette.spotShadowColor,
             )
-            // RenderNode 级圆角裁剪：杜绝 blur 角部外溢
             .graphicsLayer {
                 this.shape = shape
                 this.clip = true
@@ -263,7 +258,6 @@ fun AbyssGlassSurface(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        // 子树嵌套深度 +1：玻璃件内的玻璃件按预算判定是否继续真实采样
         CompositionLocalProvider(LocalGlassNestingDepth provides nestingDepth + 1) {
             content()
         }

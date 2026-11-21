@@ -48,28 +48,10 @@ import kotlin.math.roundToInt
 /**
  * 主界面底部导航 —— 悬浮椭圆胶囊玻璃栏 + 会滑动的液滴小椭圆选中指示器。
  *
- * ┌─ 四层结构（三层采样 + 可见层，对齐 iOS 26 / PrismalAGSL 复刻）──────┐
- * │ ① 整栏玻璃：消费主 backdrop（整页内容）→ blur + lens + 色散          │
- * │ ② 图标副本源：layerBackdrop(iconsBackdrop)，源内【无任何玻璃消费方】  │
- * │ ③ 可见 Base 层：点击在这里，液滴盖住的 tab 用 draw 阶段 alpha 隐藏    │
- * │ ④ 液滴透镜：消费 iconsBackdrop，折射/放大其下方图标 + 边缘渐变流光   │
- * └────────────────────────────────────────────────────────────────┘
- *
- * 与宿主装配（AbyssRoot.kt:239-431）的对应关系：内容层 Box 是主 backdrop
- * 采样源，底栏 Box 是它的**兄弟节点**（不在源内）→ 整栏玻璃能真实折射，
- * 且液滴采样 iconsBackdrop 时不会落进主 backdrop 的录制栈，不触发
- * GlassRecordingGuard 的跨源成环拒绝。
- *
- * 为什么液滴不塞进 ① 的 content{}：vendored 库 DrawBackdropModifier.kt:332
- * 的 isRecordingSelf 分支会把「位于自身采样源内的玻璃件」整体跳过绘制，
- * 液滴会只剩 tint、拿不到折射。四层必须是兄弟节点。
- *
- * 「滑动时边缘渐变光」= 液滴位移跟随连续 visualIndex，边缘 AGSL 光带中心
- * 由速度/拉伸反向偏移（abyssLiquidRim），静止时冻结、零 invalidate。
- *
- * 几何：本文件自行 fillMaxWidth（宿主 AbyssRoot.kt:427 的调用点没有写
- * fillMaxWidth，旧实现靠 content Row 的 fillMaxWidth 撑宽；本实现各层用
- * matchParentSize，必须由本文件自己撑宽，否则父 Box 宽度不确定）。
+ * v0.9.6：移除 BarTint/BarStyle/DropletStyle 文件级硬编码常量，改为
+ * 在 Composable 体内从 [LocalAbyssGlassPalette] 读取当前明暗档色板 ——
+ * 修 v0.9.5 白天模式硬编码近黑 0xD90A0E13 的 Bug。整栏 blur 从 26dp 收敛
+ * 到 14dp，浅色模式白膜已足够塑形，过度模糊会让底色透不出来发灰。
  */
 data class AbyssNavItem(
     val icon: ImageVector,
@@ -77,34 +59,38 @@ data class AbyssNavItem(
     val badge: String? = null,
 )
 
-/** 玻璃底栏基准高度（页面 bottomClearance 的基准）。栏体 72dp + 宿主
- *  纵向 padding 20dp ≈ 92dp,76dp+24dp clearance 覆盖有余,保持不动。 */
+/** 玻璃底栏基准高度。 */
 val AbyssBottomBarHeight = 76.dp
 
 private val BarBodyHeight = 72.dp
 private val DropletHeight = 56.dp
 private val BarHorizontalPadding = 12.dp
 private val SlotSpacing = 4.dp
-private val BarTint = Color(0xD90A0E13)
 
-private val BarStyle = AbyssGlassStyle(
-    blurRadius = 26.dp,
-    lensHeight = 2.5.dp,
-    lensAmount = 12.dp,
-    chromaticAberration = true,   // 色散挂整栏：宽矮长直边能铺成连续彩虹带
-    tint = BarTint,
-    elevation = 12.dp,
-)
+@Composable
+private fun rememberBarStyle(): AbyssGlassStyle {
+    // 整栏玻璃：blur 14dp（v0.9.6 从26dp收敛，浅色白膜不需要重模糊）
+    return AbyssGlassStyle(
+        blurRadius = 14.dp,
+        lensHeight = 2.5.dp,
+        lensAmount = 12.dp,
+        chromaticAberration = true,
+        // solidTint = null → 走 palette 默认 135° 对角渐变
+    )
+}
 
-private val DropletStyle = AbyssGlassStyle(
-    blurRadius = 4.dp,            // 低模糊保住图标高频对比
-    lensHeight = 1.5.dp,
-    lensAmount = 7.dp,
-    chromaticAberration = false,  // 小胶囊上强色散会出现「异常彩虹纹」
-    tint = Color(0x260A0E13),
-    edgeAlpha = 1f,
-    elevation = 0.dp,
-)
+@Composable
+private fun rememberDropletStyle(): AbyssGlassStyle {
+    val palette = LocalAbyssGlassPalette.current
+    return AbyssGlassStyle(
+        blurRadius = 4.dp,
+        lensHeight = 1.5.dp,
+        lensAmount = 7.dp,
+        chromaticAberration = false,
+        solidTint = palette.dropletTint,
+        edgeAlpha = 1f,
+    )
+}
 
 @Composable
 fun AbyssGlassBottomBar(
@@ -115,18 +101,18 @@ fun AbyssGlassBottomBar(
     modifier: Modifier = Modifier,
 ) {
     val motion = rememberAbyssLiquidMotion(selectedIndex, items.size)
-    // 第二采样源：只录图标，供液滴透镜消费
     val iconsBackdrop = rememberLayerBackdrop()
     val lensBackdrop: Backdrop? = if (backdrop != null) iconsBackdrop else null
     val currentOnSelect by rememberUpdatedState(onSelect)
     val density = LocalDensity.current
+    val palette = LocalAbyssGlassPalette.current
+    val barStyle = rememberBarStyle()
+    val dropletStyle = rememberDropletStyle()
 
     var barWidthPx by remember { mutableIntStateOf(0) }
     val count = items.size.coerceAtLeast(1)
     val padPx = with(density) { BarHorizontalPadding.toPx() }
     val spacingPx = with(density) { SlotSpacing.toPx() }
-    // 精确的 slot 几何：与 ②③ 两层 Row 的 padding + spacedBy 逐像素对齐，
-    // 否则液滴会偏离图标中心（旧版用 barWidth/count 是错的）。
     val slotWidthPx = if (barWidthPx > 0) {
         ((barWidthPx - 2f * padPx - spacingPx * (count - 1)) / count).coerceAtLeast(1f)
     } else {
@@ -135,7 +121,6 @@ fun AbyssGlassBottomBar(
     val stridePx = slotWidthPx + spacingPx
     val slotWidthDp = with(density) { slotWidthPx.toDp() }
     val barWidthDp = with(density) { barWidthPx.toDp() }
-    // 液滴窗口左边缘（相对底栏左边缘）
     val dropletX: () -> Float = { padPx + motion.visualIndex.value * stridePx }
 
     Box(
@@ -143,7 +128,6 @@ fun AbyssGlassBottomBar(
             .fillMaxWidth()
             .height(BarBodyHeight)
             .onGloballyPositioned { barWidthPx = it.size.width }
-            // 只认横向拖动：纵向手势留给子 clickable / 页面滚动，避免吞掉点击
             .pointerInput(items.size, motion, stridePx) {
                 var lastUptime = 0L
                 detectHorizontalDragGestures(
@@ -162,20 +146,15 @@ fun AbyssGlassBottomBar(
                 }
             },
     ) {
-        // ① 整栏玻璃（兄弟节点，不与液滴构成自嵌套）
+        // ① 整栏玻璃
         AbyssGlassSurface(
             backdrop = backdrop,
             shape = CircleShape,
-            style = BarStyle,
+            style = barStyle,
             modifier = Modifier.matchParentSize(),
         ) {}
 
-        // ② HiddenSampling 图标副本源（PrismalAGSL 三层结构）：只向液滴
-        // 透镜供样、屏上不可见 —— alpha=0 必须挂在 layerBackdrop **外层**
-        // （先 alpha 后挂源）：录制进 iconsBackdrop 的内容保持全 alpha，
-        // 屏上合成不可见。若反序，录进 backdrop 的也是空层。本层不隐藏的
-        // 后果：无标签版与 ③ 带标签版图标垂直中心差 ~9px，全栏图标重影。
-        // 安全模式下不挂采样修饰符（零 backdrop 录制）。
+        // ② 图标副本源（供液滴透镜采样）
         Row(
             modifier = Modifier
                 .matchParentSize()
@@ -199,7 +178,7 @@ fun AbyssGlassBottomBar(
             }
         }
 
-        // ③ 可见 Base 层：点击在这里；液滴盖住的 tab 用 draw 阶段 alpha 隐藏，零重组
+        // ③ 可见 Base 层
         Row(
             modifier = Modifier
                 .matchParentSize()
@@ -221,10 +200,6 @@ fun AbyssGlassBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .graphicsLayer {
-                            // 液滴邻近即隐藏本槽图标、滑出渐显 —— 旧版按 round()
-                            // 中点翻转，拖尾阶段起始 tab 图标提前重现、与运动中
-                            // 的液滴短暂重影。d<0.5 全隐（液滴正覆盖），>0.75
-                            // 全显；读 State 在 draw 阶段，零重组。
                             val d = abs(motion.visualIndex.value - index)
                             alpha = ((d - 0.5f) / 0.25f).coerceIn(0f, 1f)
                         }
@@ -237,13 +212,12 @@ fun AbyssGlassBottomBar(
             }
         }
 
-        // ④ 液滴小椭圆：位移 / 拉伸 / 流光全部由 motion 在 layout/draw 阶段驱动
+        // ④ 液滴小椭圆
         if (barWidthPx > 0) {
             Box(Modifier.matchParentSize()) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        // offset{} lambda 版：layout 阶段读状态，不触发重组
                         .offset { IntOffset(dropletX().roundToInt(), 0) }
                         .width(slotWidthDp)
                         .height(DropletHeight)
@@ -255,30 +229,26 @@ fun AbyssGlassBottomBar(
                         }
                         .clip(CircleShape),
                 ) {
-                    // 4a 玻璃透镜：折射放大其下方图标（消费 ② 的独立采样源）；
-                    // M3 档（安全模式/API<31）抬一级 Highest —— 与整栏 High
-                    // 同色会淹没液滴
+                    // 4a 玻璃透镜
                     AbyssGlassSurface(
                         backdrop = lensBackdrop,
                         shape = CircleShape,
-                        style = DropletStyle,
+                        style = dropletStyle,
                         m3Container = MaterialTheme.colorScheme.surfaceContainerHighest,
                         modifier = Modifier.matchParentSize(),
                     ) {}
 
-                    // 4b 选中色薄膜（弱，保证浅色背景下可读；alpha 在 draw 阶段读）
+                    // 4b 选中色薄膜（alpha 按明暗档分：浅色 0.20 / 深色 0.14）
                     Box(
                         Modifier
                             .matchParentSize()
                             .graphicsLayer {
-                                alpha = 0.14f + motion.press.value * 0.08f
+                                alpha = palette.dropletIndicatorAlpha + motion.press.value * 0.08f
                             }
                             .background(MaterialTheme.colorScheme.primary, CircleShape),
                     )
 
-                    // 4c 放大的图标副本：整栏图标对齐到当前 slot，纯 draw 阶段无重组。
-                    // 第 i 个 slot 在窗口坐标系的 x = (i - visualIndex) * stride，
-                    // i = round(visualIndex) 时恰好落在 [0, slotWidth] 内。
+                    // 4c 放大的图标副本
                     Row(
                         modifier = Modifier
                             .width(barWidthDp)
@@ -291,8 +261,6 @@ fun AbyssGlassBottomBar(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         items.forEach { item ->
-                            // 只有当前 slot 的图标会落进液滴窗口，颜色恒为选中色；
-                            // 绝不在这里读 visualIndex（组合阶段读 = 每帧重组）。
                             NavGlyph(
                                 item = item,
                                 tint = MaterialTheme.colorScheme.primary,
@@ -303,7 +271,7 @@ fun AbyssGlassBottomBar(
                         }
                     }
 
-                    // 4d 边缘渐变光（滑动时流动、速度越快甩得越远）
+                    // 4d 边缘渐变光
                     Box(
                         Modifier
                             .matchParentSize()
