@@ -261,13 +261,16 @@ class ShizukuShellGateway(
             result = if (pfd == null) {
                 CappedText("", false)
             } else {
-                runCatching {
-                    FileInputStream(pfd.fileDescriptor).use { input ->
-                        StreamGuards.readTextCapped(input, maxStreamBytes)
-                    }
-                }.getOrDefault(CappedText("", false))
+                // ParcelFileDescriptor 实现了 Closeable，用 use 确保确定性关闭
+                // 原实现只在 runCatching 里 close，异常路径可能泄漏文件描述符
+                pfd.use {
+                    runCatching {
+                        FileInputStream(it.fileDescriptor).use { input ->
+                            StreamGuards.readTextCapped(input, maxStreamBytes)
+                        }
+                    }.getOrDefault(CappedText("", false))
+                }
             }
-            runCatching { pfd?.close() }
             latch.countDown()
         }
 

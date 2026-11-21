@@ -1,5 +1,6 @@
 package com.abyss.tools.core.plugin
 
+import com.abyss.tools.core.update.FetchHostPolicy
 import com.abyss.tools.core.update.HttpTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,6 +44,8 @@ class PluginChannelClient(private val transport: HttpTransport) {
     suspend fun fetchPatchChannel(url: String): Result<PluginPatchChannel> =
         withContext(Dispatchers.IO) {
             runCatching {
+                // fail-closed：补丁通道 URL 必须先过白名单校验，防被导去恶意域
+                FetchHostPolicy.check(url)
                 val parsed = PluginParsers.parsePatchChannel(transport.get(url))
                 val valid = parsed.patches.filter { patch ->
                     ChannelPolicy.validatePatch(patch) == null
