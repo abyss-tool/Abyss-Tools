@@ -1,5 +1,13 @@
 package com.abyss.tools.feature.plugins
 
+/**
+ * N-EXP-006：安装前权限审阅的目标形态（数据层/APK层）。
+ *
+ * 放在文件顶层而非 Composable 内部，因为 Kotlin 不允许在局部作用域
+ * 内声明 enum class（"Modifier 'enum' is not applicable to 'local class'"）。
+ */
+private enum class ReviewTarget { DATA, APK }
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -683,7 +691,6 @@ private fun PluginDetailContent(
 
     // ── 安装前权限审阅（N-EXP-006 FR-004：未审阅不允许一键安装）───────
     // null = 对话框关闭；DATA/APK = 针对数据层/APK层安装进行审阅。
-    enum class ReviewTarget { DATA, APK }
     var reviewFor by remember { mutableStateOf<ReviewTarget?>(null) }
     val onReviewConfirm: () -> Unit = {
         when (reviewFor) {
