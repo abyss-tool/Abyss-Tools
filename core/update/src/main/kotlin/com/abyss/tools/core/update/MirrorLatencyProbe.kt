@@ -78,6 +78,8 @@ class MirrorLatencyProbe(
                         .build()
                     client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) return@use null
+                        // 重定向落点复检：HEAD 请求同样可能被 302 导去恶意域，fail-closed
+                        FetchHostPolicy.check(response.request.url.toString())
                         (System.nanoTime() - started) / 1_000_000
                     }
                 }

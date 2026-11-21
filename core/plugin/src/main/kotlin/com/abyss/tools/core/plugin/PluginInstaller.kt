@@ -154,7 +154,7 @@ class PluginInstaller(
                 IllegalStateException("「${entry.name}」安装包尚未发布 —— 框架预览期插件仓库仅发布 manifest 与补丁通道。")
             )
         runCatching {
-            val dest = File(cacheDirFor(entry.id), apk.url.substringAfterLast('/'))
+            val dest = File(cacheDirFor(entry.id), safeFileNameOf(apk.url))
             transport.download(apk.url, dest, onProgress)
             dest
         }
@@ -166,8 +166,20 @@ class PluginInstaller(
     /** 阻塞调用（等待系统安装结果广播）—— 调用方负责切 IO 线程。 */
     fun installApk(file: File): Result<Unit> = apkGateway.install(file)
 
-    /** APK 一条龙安装的阶段回调（UI 进度反馈用）。 */
+    /**
+     * APK 一条龙安装的阶段回调（UI 进度反馈用）。
+     */
     enum class ApkPipelinePhase { DOWNLOADING, VERIFYING, INSTALLING, REGISTERING }
+
+    /**
+     * 从 URL 提取安全文件名：剥 query、过滤危险字符（路径分隔符等），空则时间戳兜底。
+     * 与 UpdateManager.fileNameOf 同构，防路径穿越写入任意位置。
+     */
+    private fun safeFileNameOf(url: String): String {
+        val raw = url.substringBefore('?').substringAfterLast('/')
+        val sanitized = raw.filter { it.isLetterOrDigit() || it == '.' || it == '-' || it == '_' }
+        return sanitized.ifBlank { "abyss-plugin-download-${System.currentTimeMillis()}" }
+    }
 
     /**
      * APK 插件一条龙安装（v0.3.0 收口）：
@@ -215,7 +227,7 @@ class PluginInstaller(
      */
     fun cachedApkFile(entry: PluginIndexEntry): File? {
         val apk = entry.apk ?: return null
-        val file = File(cacheDirFor(entry.id), apk.url.substringAfterLast('/'))
+        val file = File(cacheDirFor(entry.id), safeFileNameOf(apk.url))
         return file.takeIf { it.exists() && it.length() > 0L }
     }
 
@@ -227,7 +239,7 @@ class PluginInstaller(
         onProgress: (readBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            val dest = File(cacheDirFor(pluginId), patch.url.substringAfterLast('/'))
+            val dest = File(cacheDirFor(pluginId), safeFileNameOf(patch.url))
             transport.download(patch.url, dest, onProgress)
             dest
         }
@@ -250,7 +262,14 @@ class PluginInstaller(
         require(PluginContract.ID_PATTERN.matches(pluginId)) {
             "插件 id 非法（拒绝缓存目录操作）：$pluginId"
         }
-        return File(pluginsRoot, "cache/$pluginId").apply { mkdirs() }
+        val root = pluginsRoot.canonicalFile
+        val cacheRoot = File(pluginsRoot, "cache").canonicalFile
+        val dir = File(cacheRoot, pluginId).canonicalFile
+        check(dir.path.startsWith(cacheRoot.path + File.separator)) {
+            "缓存目录越界（疑似路径穿越）：$pluginId → ${dir.path}"
+        }
+        dir.mkdirs()
+        return dir
     }
 
     private fun PluginIndexEntry.toManifest(): PluginManifest = PluginManifest(

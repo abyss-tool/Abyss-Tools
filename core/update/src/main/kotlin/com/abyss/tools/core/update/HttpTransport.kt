@@ -141,6 +141,10 @@ class OkHttpTransport : HttpTransport {
             FetchHostPolicy.check(response.request.url.toString())
             val body = response.body ?: throw IOException("空响应体 <- $url")
             val plan = ResumePlanner.plan(existing, response.code)
+            // RESTART 模式（服务端回全量 / 无残留）：截断已有 part 文件，防旧数据污染新下载
+            if (plan.mode == ResumePlan.Mode.RESTART && part.exists()) {
+                part.writeBytes(ByteArray(0))
+            }
             val contentLength = body.contentLength()
             val total = if (contentLength >= 0) contentLength + plan.resumeFrom else -1L
             if (contentLength >= 0 && total > MAX_DOWNLOAD_BYTES) {

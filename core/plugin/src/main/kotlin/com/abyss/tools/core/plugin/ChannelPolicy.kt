@@ -53,7 +53,10 @@ object ChannelPolicy {
             if (!PATCH_CHANNEL_PATTERN.matches(channel)) {
                 return "补丁通道形态非法：$channel"
             }
-            if (!channel.contains("/$ORG/${entry.id}/")) {
+            // 补丁通道 URL 形态：https://raw.githubusercontent.com/abyss-tool/abyss-plugin-<id>/main/...
+            // repo 末段 = pluginId，因此必须包含 "/abyss-tool/<repo末段>/"
+            val pluginRepoSegment = entry.repo.substringAfterLast('/')
+            if (!channel.contains("/$ORG/$pluginRepoSegment/")) {
                 return "补丁通道不属于该插件仓库：$channel"
             }
         }
