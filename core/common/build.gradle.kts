@@ -12,5 +12,6 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.eddsa)
     testImplementation(libs.junit)
 }

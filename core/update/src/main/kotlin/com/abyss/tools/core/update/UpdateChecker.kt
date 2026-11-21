@@ -30,6 +30,9 @@ sealed interface UpdateCheckResult {
 /**
  * 更新检查器：读发布仓 version.json，与本地版本比对。
  *
+ * v0.10（N-SEC-001）：支持强制 detached 签名校验，传入 [signedTransport]
+ * 时走 `.minisig` 验签路径，fail-closed；否则保留旧行为（过渡期间兼容）。
+ *
  * 决策表：
  *  - latest <= current            → UpToDate
  *  - latest > current 且 patch 命中 → Available(增量)
@@ -39,14 +42,28 @@ sealed interface UpdateCheckResult {
 class UpdateChecker(
     private val transport: HttpTransport,
     private val versionJsonUrl: String,
+    private val patchesJsonUrl: String? = null,
+    private val signedTransport: SignedHttpTransport? = null,
 ) {
+
+    /** 便捷构造：验签模式（M1 默认），传输层通过 [SignedHttpTransport] 内部 delegate 复用。 */
+    constructor(
+        signed: SignedHttpTransport,
+        versionJsonUrl: String,
+        patchesJsonUrl: String? = null,
+    ) : this(
+        transport = signed.delegateTransport(),
+        versionJsonUrl = versionJsonUrl,
+        patchesJsonUrl = patchesJsonUrl,
+        signedTransport = signed,
+    )
 
     suspend fun check(
         current: SemVer,
         currentTag: String = current.toTag(),
     ): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
-            val raw = transport.get(versionJsonUrl)
+            val raw = fetchManifest(versionJsonUrl)
             val manifest = UpdateParsers.parseVersionManifest(raw)
             val latest = manifest.version
                 ?: return@withContext UpdateCheckResult.Failed(
@@ -66,6 +83,25 @@ class UpdateChecker(
             }
         } catch (t: Throwable) {
             UpdateCheckResult.Failed(t)
+        }
+    }
+
+    /** 拉取 patches.json（如有）并验签。 */
+    suspend fun fetchPatches(): PatchesManifest? = withContext(Dispatchers.IO) {
+        val url = patchesJsonUrl ?: return@withContext null
+        runCatching {
+            val raw = fetchManifest(url)
+            UpdateParsers.parsePatchesManifest(raw)
+        }.getOrNull()
+    }
+
+    private fun fetchManifest(url: String): String {
+        // 验签路径优先；未配置 signedTransport 则走旧路径（过渡兼容期，
+        // M1 发版后删除 fallback，强制验签）。
+        return if (signedTransport != null) {
+            signedTransport.getSigned(url)
+        } else {
+            transport.get(url)
         }
     }
 }
