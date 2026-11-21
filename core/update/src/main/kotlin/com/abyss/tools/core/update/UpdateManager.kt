@@ -23,8 +23,13 @@ class UpdateManager(
     private val cacheDir: File,
     private val changelogJsonUrl: String? = null,
     private val apkGateway: ApkInstallGateway? = null,
+    versionSigned: SignedHttpTransport? = null,
+    patchesSigned: SignedHttpTransport? = null,
+    changelogSigned: SignedHttpTransport? = null,
 ) {
-    private val checker = UpdateChecker(transport, versionJsonUrl)
+    private val checker = UpdateChecker(versionSigned ?: transport, versionJsonUrl)
+    private val patchesTransport: HttpTransport = patchesSigned ?: transport
+    private val changelogTransport: HttpTransport = changelogSigned ?: transport
     private val applier: PatchApplier = ZipPatchApplier()
 
     suspend fun checkForUpdate(
@@ -38,7 +43,7 @@ class UpdateManager(
             ?: return@withContext Result.failure(
                 IllegalStateException("changelog.json 通道地址未配置（ServiceRegistry 装配时注入 AbyssChannels.CHANGELOG_JSON）")
             )
-        runCatching { UpdateParsers.parseChangelogManifest(transport.get(url)) }
+        runCatching { UpdateParsers.parseChangelogManifest(changelogTransport.get(url)) }
     }
 
     suspend fun downloadPatch(

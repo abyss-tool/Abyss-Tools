@@ -123,3 +123,18 @@ jobs:
 
       - name: Validate update-channel & plugin fixtures & version sync
         run: python3 tools/validate_manifests.py
+
+      # ── N-ENG-008 Spec-Lint：规格登记完整性 + 头字段校验（M1 门禁） ──
+      - name: Spec-Lint (N-ENG-008)
+        run: python3 tools/spec_lint.py
+
+      # ── N-ENG-010 发布说明质量门禁（主仓不直接持有 version.json，但
+      # 若本仓带 release-notes/*.md 则一并校验；发布仓 CI 也跑同款脚本）
+      - name: Release-Notes Lint (N-ENG-010)
+        run: |
+          if [ -f docs/release-notes/latest.md ]; then
+            python3 tools/validate_release_notes.py \
+              <(python3 -c "import json,sys; print(json.dumps({'versionName':'0.0.0','notes':open('docs/release-notes/latest.md').read()}))")
+          else
+            echo "（主仓无 latest release notes 文件，跳过；发布仓 CI 将强制执行）"
+          fi

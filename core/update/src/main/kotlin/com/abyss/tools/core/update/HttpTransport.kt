@@ -21,6 +21,14 @@ interface HttpTransport {
     @Throws(IOException::class)
     fun get(url: String): String
 
+    /**
+     * 同步 GET 原始字节（N-SEC-001 签名校验使用，避免字符串往返带来的
+     * 换行/编码归一化）。默认实现走 [get] 再转 UTF-8 字节；生产实现
+     * [OkHttpTransport.getBytes] 直接返回网络字节流。
+     */
+    @Throws(IOException::class)
+    fun getBytes(url: String): ByteArray = get(url).toByteArray(Charsets.UTF_8)
+
     /** 流式下载到文件，onProgress(readBytes, totalBytes)（total 为 -1 时未知）。 */
     @Throws(IOException::class)
     fun download(
@@ -87,15 +95,18 @@ class OkHttpTransport : HttpTransport {
         .build()
 
     override fun get(url: String): String {
+        return getBytes(url).decodeToString()
+    }
+
+    /** 原始字节读取（供签名校验用，避免字符串往返导致换行/编码归一化）。 */
+    override fun getBytes(url: String): ByteArray {
         FetchHostPolicy.check(url)
         val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code} <- $url")
-            // 重定向落点复检（github.com 资产 302 → githubusercontent 域，合法；
-            // 被导去任意第三方域则在此拦截）
             FetchHostPolicy.check(response.request.url.toString())
             val body = response.body ?: throw IOException("空响应体 <- $url")
-            val bytes = ByteArrayOutputStream().use { buffer ->
+            return ByteArrayOutputStream().use { buffer ->
                 body.byteStream().use { input ->
                     val chunk = ByteArray(8 * 1024)
                     var read: Int
@@ -108,7 +119,6 @@ class OkHttpTransport : HttpTransport {
                 }
                 buffer.toByteArray()
             }
-            return bytes.decodeToString()
         }
     }
 

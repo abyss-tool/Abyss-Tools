@@ -4,15 +4,19 @@ import android.app.Application
 import android.content.Context
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.CrashGuard
+import com.abyss.tools.core.common.diagnostics.DiagnosticsLog
+import com.abyss.tools.core.common.diagnostics.DiagnosticExporter
 import com.abyss.tools.core.plugin.PluginChannelClient
 import com.abyss.tools.core.plugin.PluginInstaller
 import com.abyss.tools.core.plugin.PluginRepository
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuMonitor
 import com.abyss.tools.core.shell.ShizukuShellGateway
+import com.abyss.tools.core.update.HttpTransport
 import com.abyss.tools.core.update.MirrorRouter
 import com.abyss.tools.core.update.MirroredTransport
 import com.abyss.tools.core.update.OkHttpTransport
+import com.abyss.tools.core.update.SignedHttpTransport
 import com.abyss.tools.core.update.UpdateManager
 import com.abyss.tools.feature.appmgr.AppInfoProvider
 import com.abyss.tools.feature.appmgr.PackageManagerProvider
@@ -60,28 +64,44 @@ object ServiceRegistry {
         disguiseSettings = DisguiseSettings(appContext)
         appInfoProvider = PackageManagerProvider(appContext)
 
+        // ── N-EXP-003 诊断日志（M1）：本地沙箱环形缓冲 + 滚动文件，零外传 ──
+        DiagnosticsLog.attachLogDir(File(appContext.filesDir, "diag"))
+        DiagnosticExporter.bind(DiagnosticsLog)
+
         // 传输层（v0.7.0）：镜像感知装饰器包住 OkHttp —— 更新检查 / 插件
         // 索引 / APK 与补丁下载全链路按「用户偏好 / 延迟实测」择优镜像，
         // 单镜像失败自动回退下一镜像（国内网络下载可用性的一揽子修复）。
         mirrorRouter.preferenceProvider = { settings.downloadMirror }
-        val transport = MirroredTransport(OkHttpTransport(), mirrorRouter)
+        val baseTransport: HttpTransport = MirroredTransport(OkHttpTransport(), mirrorRouter)
+
+        // ── N-SEC-001 清单 detached 签名验签装饰器（M1 默认开启，fail-closed） ──
+        // 版本清单 / 插件索引 / 插件补丁通道 三份清单均走 .minisig 验签；
+        // APK 与补丁二进制不走 minisign（走 SHA-256 摘要 + Android 安装器签名校验）。
+        val versionSigned = baseTransport.signed("version.json")
+        val patchesSigned = baseTransport.signed("patches.json")
+        val changelogSigned = baseTransport.signed("changelog.json")
+        val pluginIndexSigned = baseTransport.signed("plugins.json")
+        val pluginPatchSigned = baseTransport.signed("patches/index.json")
 
         // APK 安装网关（真实实现）：宿主自更新与 APK 插件共用同一条
         // PackageInstaller 通道（同签名门禁 + 用户确认页转发 + 结果广播等待）。
         val apkGateway = PackageInstallerApkGateway(appContext)
 
         // 插件域：索引（插件中心仓）+ 补丁通道 + 安装器
-        pluginRepository = PluginRepository(transport, AbyssChannels.PLUGIN_INDEX_JSON)
-        channelClient = PluginChannelClient(transport)
+        pluginRepository = PluginRepository(pluginIndexSigned, AbyssChannels.PLUGIN_INDEX_JSON)
+        channelClient = PluginChannelClient(pluginPatchSigned)
         pluginInstaller = PluginInstaller(
             pluginsRoot = File(appContext.filesDir, PluginContract.PLUGINS_DIR),
-            transport = transport,
+            transport = baseTransport,
             apkGateway = apkGateway,
         )
 
         // App 自身更新域：发布仓 version.json / changelog.json 固定读取点
         updateManager = UpdateManager(
-            transport = transport,
+            transport = baseTransport,
+            versionSigned = versionSigned,
+            patchesSigned = patchesSigned,
+            changelogSigned = changelogSigned,
             versionJsonUrl = AbyssChannels.VERSION_JSON,
             cacheDir = File(appContext.filesDir, "updates"),
             changelogJsonUrl = AbyssChannels.CHANGELOG_JSON,

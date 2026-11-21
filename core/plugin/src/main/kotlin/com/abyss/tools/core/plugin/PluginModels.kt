@@ -31,6 +31,11 @@ data class PluginIndexEntry(
     val summary: String = "",
     val icon: String? = null,
     val permissions: List<String> = emptyList(),
+    /**
+     * N-EXP-006 结构化权限声明（v0.10 新增，可选；缺失时 UI 回退到
+     * permissions: List<String> 旧字段做简单展示）。
+     */
+    val declaredPermissions: List<PluginPermission> = emptyList(),
     /** Shizuku 独立授权声明（null = 不涉及；见 PluginShizukuDecl）。 */
     val shizuku: PluginShizukuDecl? = null,
     /** APK 下载资产（null = 尚未发布，框架预览期常态）。 */

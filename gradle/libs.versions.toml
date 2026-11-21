@@ -21,6 +21,9 @@ shizuku = "13.1.5"
 # material-icons 官方已停止演进（BOM 2026.02.00 仍映射 1.7.8），显式 pin 同值
 compose-material-icons = "1.7.8"
 junit = "4.13.2"
+# net.i2p.crypto:eddsa 0.3.0：纯 Java EdDSA (Ed25519) 实现，Android API 21+ 兼容，
+# 用于 N-SEC-001 通道清单 detached 签名验签（零原生依赖、长期稳定、minisign 可互验）。
+eddsa = "0.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -43,6 +46,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+eddsa = { group = "net.i2p.crypto.eddsa", name = "eddsa", version.ref = "eddsa" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
