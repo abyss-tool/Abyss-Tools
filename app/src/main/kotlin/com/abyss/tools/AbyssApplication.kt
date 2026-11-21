@@ -18,6 +18,7 @@ import com.abyss.tools.core.update.MirroredTransport
 import com.abyss.tools.core.update.OkHttpTransport
 import com.abyss.tools.core.update.SignedHttpTransport
 import com.abyss.tools.core.update.UpdateManager
+import com.abyss.tools.core.update.signed
 import com.abyss.tools.feature.appmgr.AppInfoProvider
 import com.abyss.tools.feature.appmgr.PackageManagerProvider
 import com.abyss.tools.feature.disguise.DisguiseSettings
