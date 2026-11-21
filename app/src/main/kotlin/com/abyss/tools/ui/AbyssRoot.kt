@@ -43,7 +43,6 @@ import com.abyss.tools.core.designsystem.glass.AbyssBottomBarHeight
 import com.abyss.tools.core.designsystem.glass.AbyssGlassBottomBar
 import com.abyss.tools.core.designsystem.glass.AbyssNavItem
 import com.abyss.tools.core.designsystem.glass.LocalGlassIntensity
-import com.abyss.tools.core.designsystem.glass.LocalGlassLensEnabled
 import com.abyss.tools.core.designsystem.glass.abyssBackdropSource
 import com.abyss.tools.core.designsystem.glass.rememberAbyssBackdrop
 import com.abyss.tools.core.shell.ShizukuStatus
@@ -240,13 +239,12 @@ fun AbyssRoot(
     onRequestShizukuPermission: () -> Unit,
     onOpenShizuku: () -> Unit,
     onReopenOnboarding: () -> Unit,
-    glassEnabled: Boolean = true,
-    lensEnabled: Boolean = true,
 ) {
     val registry = ServiceRegistry
-    // 渲染安全模式（v0.7.3）：glassEnabled=false → backdrop 为空 →
-    // 全部玻璃件落 Frosted 降级档（零 RenderEffect / 零 backdrop 采样）。
-    val backdrop: LayerBackdrop? = if (glassEnabled) rememberAbyssBackdrop() else null
+    // 采样源（v0.9.6 精简：移除跨会话渲染安全模式断路器，glassEnabled
+    // 永远为 true；底层已内建 runCatching 单项降级 + 重入守卫 + 深度预算
+    // + 成环断路器，足够兜底）。
+    val backdrop: LayerBackdrop? = rememberAbyssBackdrop()
     // 返回栈持久化（评审 #10）：旋转 / 进程重建后原位恢复；应用详情经
     // Provider 异步重挂（包名查不到则诚实留在列表页，绝不展示猜测数据）。
     val backStack = rememberSaveable(
@@ -292,8 +290,6 @@ fun AbyssRoot(
 
     CompositionLocalProvider(
         LocalGlassIntensity provides settings.glassIntensity,
-        // 分级降级（v0.7.8）：NO_LENS 档全玻璃件跳过 AGSL lens，其余效果保留
-        LocalGlassLensEnabled provides lensEnabled,
     ) {
         Box(
             modifier = Modifier
@@ -306,7 +302,7 @@ fun AbyssRoot(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (backdrop != null) Modifier.abyssBackdropSource(backdrop) else Modifier),
+                    .abyssBackdropSource(backdrop),
             ) {
                 // 屏幕转场（v0.7.6）：方向随返回栈语义 —— push 新页自右
                 // 滑入（旧页视差左移让位），pop 反向，tab 平级淡切；
@@ -569,19 +565,7 @@ fun AbyssRoot(
                 }
             }
 
-            // 降级横幅（顶部，告知降级原因与恢复路径）：全 Frosted 与
-            // NO_LENS 中间档互斥，同一位置二选一
-            if (!glassEnabled) {
-                RenderSafeModeBanner(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
-            } else if (!lensEnabled) {
-                LensDegradedBanner(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
-            }
-
-            // 液态玻璃 Dark 底栏（悬浮于内容之上，真实折射背后内容）
+            // 液态玻璃底栏（悬浮于内容之上，真实折射背后内容）
             if (backStack.showBottomBar) {
                 AbyssGlassBottomBar(
                     backdrop = backdrop,
@@ -595,52 +579,6 @@ fun AbyssRoot(
                 )
             }
         }
-    }
-}
-
-/**
- * 渲染安全模式横幅（v0.7.3）：断路器触发时告知用户降级原因、自动恢复
- * 条件与手动重置入口 —— 「莫名其妙变丑」必须给活人话解释。
- */
-@Composable
-private fun RenderSafeModeBanner(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.errorContainer,
-        tonalElevation = 6.dp,
-    ) {
-        Text(
-            text = "🛡 渲染安全模式：检测到连续闪退，玻璃效果已临时降级；" +
-                "稳定运行后自动恢复，也可在 设置 → 诊断 手动重置",
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-        )
-    }
-}
-
-/**
- * lens 降级横幅（v0.7.8 分级降级中间档）：上会话异常退出，本次只停
- * AGSL 折射效果 —— 比全 Frosted 轻，一次干净退出自愈。
- */
-@Composable
-private fun LensDegradedBanner(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        tonalElevation = 4.dp,
-    ) {
-        Text(
-            text = "🧪 检测到上次异常退出，本次已停用镜头折射效果（更稳）；" +
-                "正常退出一次即可恢复完整玻璃效果",
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
     }
 }
 

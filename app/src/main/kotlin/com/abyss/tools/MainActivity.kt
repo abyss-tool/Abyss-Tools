@@ -1,8 +1,6 @@
 package com.abyss.tools
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,49 +8,38 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.abyss.tools.core.common.GlassProbe
-import com.abyss.tools.core.common.RenderSafeMode
-import com.abyss.tools.core.shell.ShizukuMonitor
 import com.abyss.tools.core.designsystem.theme.AbyssTheme
+import com.abyss.tools.core.shell.ShizukuMonitor
 import com.abyss.tools.feature.onboarding.OnboardingScreen
 import com.abyss.tools.ui.AbyssRoot
 import com.abyss.tools.ui.rememberShizukuStatus
-import java.io.File
 
+/**
+ * 主 Activity（v0.9.6 精简）。
+ *
+ * v0.9.6 移除了跨会话渲染安全模式断路器（RenderSafeMode）与管线探针
+ * （GlassProbe）：
+ *  - API 31+ RenderEffect blur 是 Android 官方公开 API（S/12L 稳定），
+ *    AndroidLiquidGlass vendored 底座已内建 runCatching 单项效果降级
+ *    + 重入守卫 + 深度预算 + 成环断路器，足够兜底；
+ *  - 外断路器跨会话写文件计数闪退逻辑是 v0.7.x 早期 GPU 驱动兼容期
+ *    的临时防御，成熟后属于冗余；
+ *  - 原生崩溃（RenderThread SIGSEGV）Java 层拦不住，CrashGuard 落盘
+ *    已能提供诊断数据，探针 tail 标记诊断价值有限。
+ *
+ * 保留全部有效安全防线（详见 core/common 文档）：
+ *  - API 能力降级（SDK 守卫 + runCatching 单项降级）
+ *  - GlassRecordingGuard 判环（拒绝跨 backdrop 链式成环）
+ *  - isRecordingSelf 重入守卫 + MAX_GLASS_NESTING_DEPTH 深度预算
+ *  - InstallExpectation 反回滚 + PackageInstallerApkGateway 同签名门禁
+ *  - PublisherSignatures.PINNED_SHA256 发布者公钥指纹硬钉扎
+ *  - CrashGuard Java 层崩溃落盘
+ *  - targetSdk=28（SELinux W^X 红线，保终端/Python 引擎存活）
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        // ── 渲染安全模式断路器（v0.7.3 → v2，v0.7.4）──────────────────
-        // 原生崩溃（RenderThread SIGSEGV 类）Java 层拦不住 —— 从「进程死亡
-        // → 秒级重启」的外部特征识别闪退循环：连续快速冷启动 ≥ 3 次即令
-        // 本次会话 glassEnabled=false（全玻璃 Frosted 降级，零 RenderEffect
-        // / 零 backdrop 采样），保证主壳能打开、诊断可读。会话存活 45s
-        // 自动恢复（下次冷启动回到正常渲染档）。
-        // v2 起另认慢性循环：连续 3 次「异常终止」（崩溃 / 被杀，无干净
-        // 退出标记）同样触发、与间隔无关 —— 存活数分钟才崩的渲染栈慢性
-        // 增长类闪退（PLE110 2026-11-15：472s）不再漏网。
-        val safeModeFile = File(filesDir, RenderSafeMode.FILE_NAME)
-        val safeModeDecision = if (!processGateEntered) {
-            processGateEntered = true
-            RenderSafeMode.onColdStart(safeModeFile)
-        } else {
-            // 温重建（旋转 / 进程内重建）：不计入闪退循环
-            RenderSafeMode.currentDecision(safeModeFile)
-        }
-        stableExitHandler.removeCallbacksAndMessages(null)
-        stableExitHandler.postDelayed(
-            { RenderSafeMode.markStable(safeModeFile) },
-            RenderSafeMode.STABLE_AFTER_MS,
-        )
-
-        // ── 玻璃管线探针（v0.7.8）：RenderThread 原生崩溃拿不到 Java 堆栈，
-        // 诊断页靠探针尾部定位死亡时管线推进到哪一步（GlassProbe 文档）。
-        // 早于 setContent 挂载 —— 首帧玻璃组合前必须就位。
-        val glassMode = safeModeDecision.glassMode
-        GlassProbe.install(File(filesDir, GlassProbe.FILE_NAME))
-        GlassProbe.mark(GlassProbe.STAGE_SESSION_START)
 
         setContent {
             // v0.8.0：动态取色（Material You）—— 读取设置仓储的 Compose 状态，
@@ -72,9 +59,6 @@ class MainActivity : ComponentActivity() {
                             ShizukuMonitor.requestPermission()
                         },
                         onOpenShizukuApp = {
-                            // 统一入口（v0.8.5）：已装任一变体（Shizuku /
-                            // Shevery / Shizuku+）→ 打开它；一个都没装 →
-                            // 官方下载页兜底，按钮不再静默失灵。
                             runCatching {
                                 startActivity(ShizukuMonitor.shizukuEntryIntent(this))
                             }
@@ -96,31 +80,9 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onReopenOnboarding = { onboardingDone = false },
-                        glassEnabled = glassMode != RenderSafeMode.GlassMode.FROSTED,
-                        lensEnabled = glassMode == RenderSafeMode.GlassMode.FULL,
                     )
                 }
             }
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        // 干净退出标记（v2）：isFinishing 的销毁 = 用户主动离开（返回键 /
-        // finish()）。崩溃、系统杀死（LRU 回收、滑卡清理）走不到这里 ——
-        // 下次冷启动即按「上一会话异常终止」计连崩（慢性闪退循环防线，
-        // bugreport PLE110 2026-11-15：存活 472s 后崩，v1 快速窗口盖不住）。
-        if (isFinishing) {
-            RenderSafeMode.markCleanExit(File(filesDir, RenderSafeMode.FILE_NAME))
-        }
-    }
-
-    private companion object {
-        /** 进程门闩：区分冷启动（首次 onCreate）与温重建（旋转等）。 */
-        @Volatile
-        var processGateEntered = false
-
-        /** 存活计时（进程死亡即失效 —— 正是所需语义：早死不清零）。 */
-        private val stableExitHandler = Handler(Looper.getMainLooper())
     }
 }
