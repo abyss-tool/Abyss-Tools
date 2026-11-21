@@ -33,10 +33,10 @@ object MinisignVerifier {
     private const val SIG_LEN = 64
     private const val SIG_BLOB_LEN = MAGIC_LEN + KEYNUM_LEN + SIG_LEN // 74
     private const val KEY_BLOB_LEN = MAGIC_LEN + KEYNUM_LEN + PUBKEY_LEN // 42
-    private val MAGIC = byteArrayOf(0x45, 0x64) // "Ed"
-    private val MAGIC_SECRET = byteArrayOf(0x45, 0x64.toByte()) // 同
-    private const val OLD_SIGALG = byteArrayOf(0x45, 0x64, 0x53, 0x65) // EdSe
-    private const val NEW_SIGALG = byteArrayOf(0x45, 0x64, 0x02.toByte(), 0x00) // Ed2+padding
+    // minisign 签名 blob 前 2 字节 magic："Ed"（0x45 0x64）表示对消息原文的
+    // Ed25519 签名（另一路 "ED" 表示对 BLAKE2b-512 摘要的预哈希签名 —— 本客户端
+    // 发布通道统一用原文签名，不涉及预哈希分支）。
+    private val MAGIC = byteArrayOf(0x45, 0x64)
 
     data class MinisignPublicKey(
         val keyId: ByteArray,

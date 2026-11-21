@@ -1,11 +1,10 @@
 package com.abyss.tools.core.common.crypto
 
 import net.i2p.crypto.eddsa.EdDSAEngine
-import net.i2p.crypto.eddsa.EdDSANamedCurveTable
+import net.i2p.crypto.eddsa.EdDSAPublicKey
 import net.i2p.crypto.eddsa.spec.EdDSANamedCurveSpec
+import net.i2p.crypto.eddsa.spec.EdDSANamedCurveTable
 import net.i2p.crypto.eddsa.spec.EdDSAPublicKeySpec
-import java.security.KeyFactory
-import java.security.Signature
 import java.util.Base64
 
 /**
@@ -36,13 +35,15 @@ object Ed25519Verifier {
         if (publicKeyBytes.size != 32) return false
         if (signatureBytes.size != 64) return false
         return runCatching {
-            val keyFactory = KeyFactory.getInstance("EdDSA", "EdDSA")
-            val pubSpec = EdDSAPublicKeySpec(publicKeyBytes, ED25519_SPEC)
-            val pubKey = keyFactory.generatePublic(pubSpec)
-            val sig: Signature = EdDSAEngine()
-            sig.initVerify(pubKey)
-            sig.update(message)
-            sig.verify(signatureBytes)
+            // 直接用 eddsa 库的公钥对象构造，避免依赖 JCA Provider 注册：
+            // net.i2p.crypto.eddsa 的 KeyFactory 只有在 Security.addProvider(
+            // EdDSASecurityProvider()) 之后才可按 "EdDSA" 名称查得，客户端一旦
+            // 漏注册就会静默失败（验签恒 false → fail-closed 拒收全部清单）。
+            val pubKey = EdDSAPublicKey(EdDSAPublicKeySpec(publicKeyBytes, ED25519_SPEC))
+            val engine = EdDSAEngine()
+            engine.initVerify(pubKey)
+            engine.update(message)
+            engine.verify(signatureBytes)
         }.getOrDefault(false)
     }
 

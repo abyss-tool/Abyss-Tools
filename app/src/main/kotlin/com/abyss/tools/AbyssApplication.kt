@@ -78,7 +78,6 @@ object ServiceRegistry {
         // 版本清单 / 插件索引 / 插件补丁通道 三份清单均走 .minisig 验签；
         // APK 与补丁二进制不走 minisign（走 SHA-256 摘要 + Android 安装器签名校验）。
         val versionSigned = baseTransport.signed("version.json")
-        val patchesSigned = baseTransport.signed("patches.json")
         val changelogSigned = baseTransport.signed("changelog.json")
         val pluginIndexSigned = baseTransport.signed("plugins.json")
         val pluginPatchSigned = baseTransport.signed("patches/index.json")
@@ -100,7 +99,6 @@ object ServiceRegistry {
         updateManager = UpdateManager(
             transport = baseTransport,
             versionSigned = versionSigned,
-            patchesSigned = patchesSigned,
             changelogSigned = changelogSigned,
             versionJsonUrl = AbyssChannels.VERSION_JSON,
             cacheDir = File(appContext.filesDir, "updates"),
