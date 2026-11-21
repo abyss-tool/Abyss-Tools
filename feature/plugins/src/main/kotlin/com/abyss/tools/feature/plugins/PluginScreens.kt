@@ -1,13 +1,5 @@
 package com.abyss.tools.feature.plugins
 
-/**
- * N-EXP-006：安装前权限审阅的目标形态（数据层/APK层）。
- *
- * 放在文件顶层而非 Composable 内部，因为 Kotlin 不允许在局部作用域
- * 内声明 enum class（"Modifier 'enum' is not applicable to 'local class'"）。
- */
-private enum class ReviewTarget { DATA, APK }
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -91,6 +83,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/**
+ * N-EXP-006：安装前权限审阅的目标形态（数据层/APK层）。
+ *
+ * 放在文件顶层而非 Composable 内部，因为 Kotlin 不允许在局部作用域
+ * 内声明 enum class（"Modifier 'enum' is not applicable to 'local class'"）。
+ */
+private enum class ReviewTarget { DATA, APK }
 
 /**
  * 插件中心 —— 插件索引（Abyss-Plugins / plugins.json）的浏览页。
