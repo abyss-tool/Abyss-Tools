@@ -10,15 +10,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -27,8 +31,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,12 +65,15 @@ import com.abyss.tools.core.designsystem.component.LoadingState
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
+import com.abyss.tools.core.plugin.PermissionAudit
+import com.abyss.tools.core.plugin.PermissionGroup
 import com.abyss.tools.core.plugin.PluginChannelClient
 import com.abyss.tools.core.plugin.PluginIndex
 import com.abyss.tools.core.plugin.PluginIndexEntry
 import com.abyss.tools.core.plugin.PluginInstaller
 import com.abyss.tools.core.plugin.PluginPatch
 import com.abyss.tools.core.plugin.PluginPatchChannel
+import com.abyss.tools.core.plugin.PluginPermission
 import com.abyss.tools.core.plugin.PluginRepository
 import com.abyss.tools.core.update.MirrorRouter
 import com.abyss.tools.core.update.PatchReport
@@ -75,6 +83,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/**
+ * N-EXP-006：安装前权限审阅的目标形态（数据层/APK层）。
+ *
+ * 放在文件顶层而非 Composable 内部，因为 Kotlin 不允许在局部作用域
+ * 内声明 enum class（"Modifier 'enum' is not applicable to 'local class'"）。
+ */
+private enum class ReviewTarget { DATA, APK }
 
 /**
  * 插件中心 —— 插件索引（Abyss-Plugins / plugins.json）的浏览页。
@@ -673,6 +689,19 @@ private fun PluginDetailContent(
     var patchFailure by remember { mutableStateOf<String?>(null) }
     var patchReport by remember { mutableStateOf<PatchReport?>(null) }
 
+    // ── 安装前权限审阅（N-EXP-006 FR-004：未审阅不允许一键安装）───────
+    // null = 对话框关闭；DATA/APK = 针对数据层/APK层安装进行审阅。
+    var reviewFor by remember { mutableStateOf<ReviewTarget?>(null) }
+    val onReviewConfirm: () -> Unit = {
+        when (reviewFor) {
+            ReviewTarget.DATA -> startDataInstall()
+            ReviewTarget.APK -> startInstall()
+            null -> Unit
+        }
+        reviewFor = null
+    }
+    val requestReview: (ReviewTarget) -> Unit = { target -> reviewFor = target }
+
     val applyPatch: (PluginPatch) -> Unit = { patch ->
         if (patchPhase != PatchPhase.DOWNLOADING && patchPhase != PatchPhase.VERIFYING &&
             patchPhase != PatchPhase.APPLYING
@@ -792,11 +821,14 @@ private fun PluginDetailContent(
                 InfoCard(title = "安装插件（AP）") {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         // 数据层安装（真实可用：manifest 原子落盘 + 版本账本）
+                        // N-EXP-006 FR-004：未审阅不允许一键静默安装，点击按钮
+                        // 先走权限审阅对话框，用户勾选确认后才真正启动安装管线。
                         DataInstallUi(
                             phase = dataPhase,
                             failure = dataFailure,
                             installed = localManifest != null,
-                            onInstall = startDataInstall,
+                            onInstall = { requestReview(ReviewTarget.DATA) },
+                            onRetry = startDataInstall,
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         // APK 层安装（资产发布后全链路生效）
@@ -805,7 +837,8 @@ private fun PluginDetailContent(
                             progress = progress,
                             failure = failure,
                             apkPublished = entry.apk != null,
-                            onInstall = startInstall,
+                            onInstall = { requestReview(ReviewTarget.APK) },
+                            onRetry = startInstall,
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         InfoRow(label = "仓库", value = entry.repo)
@@ -892,31 +925,15 @@ private fun PluginDetailContent(
             }
 
             // ── 权限 ─────────────────────────────────────────────────
+            // N-EXP-006：结构化权限透明化卡（分组展示 + 外传标注 +
+            // 审阅并安装入口）。已装插件不显示安装入口，仅展示权限明细。
             item {
-                InfoCard(title = "权限需求") {
-                    if (entry.permissions.isEmpty()) {
-                        Text(
-                            "无静态权限（运行时按需申请）",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            entry.permissions.take(3).forEach { StatusChip(it, ChipTone.NEUTRAL) }
-                        }
-                        if (entry.permissions.size > 3) {
-                            Spacer(Modifier.size(6.dp))
-                            Text(
-                                "…等 ${entry.permissions.size} 项（安装时逐项确认）",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
+                PermissionAuditCard(
+                    entry = entry,
+                    onReviewForInstall = if (localManifest == null) { {
+                        reviewFor = ReviewTarget.DATA
+                    } } else null,
+                )
             }
 
             // ── Shizuku 独立授权（独立 APK 插件的 per-app 授权声明）────
@@ -1018,6 +1035,17 @@ private fun PluginDetailContent(
             },
         )
     }
+
+    // ── 安装前权限审阅对话框（N-EXP-006 FR-004）────────────────────
+    // 点击「审阅并安装」/「安装插件（数据框架）」/「安装插件（APK）」时打开；
+    // 用户必须勾选「我已逐条阅读并接受」复选框，「确认安装」按钮才会启用。
+    if (reviewFor != null) {
+        PermissionReviewDialog(
+            entry = entry,
+            onDismiss = { reviewFor = null },
+            onConfirm = onReviewConfirm,
+        )
+    }
 }
 
 @Composable
@@ -1026,6 +1054,7 @@ private fun DataInstallUi(
     failure: String?,
     installed: Boolean,
     onInstall: () -> Unit,
+    onRetry: () -> Unit = onInstall,
 ) {
     Column {
         Text(
@@ -1071,7 +1100,7 @@ private fun DataInstallUi(
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(Modifier.size(8.dp))
-                Button(onClick = onInstall) { Text("重试") }
+                Button(onClick = onRetry) { Text("重试") }
             }
         }
     }
@@ -1238,6 +1267,7 @@ private fun InstallFlowUi(
     failure: String?,
     apkPublished: Boolean,
     onInstall: () -> Unit,
+    onRetry: () -> Unit = onInstall,
 ) {
     Column {
         when (phase) {
@@ -1299,7 +1329,7 @@ private fun InstallFlowUi(
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(Modifier.size(8.dp))
-                Button(onClick = onInstall, enabled = apkPublished) { Text("重试安装") }
+                Button(onClick = onRetry, enabled = apkPublished) { Text("重试安装") }
             }
         }
     }
@@ -1336,4 +1366,451 @@ internal fun categoryLabel(id: String): String = when (id) {
     "data" -> "数据"
     "tools" -> "工具"
     else -> id
+}
+
+// ─── N-EXP-006 插件权限透明化面板（M1）────────────────────────────
+//
+// 设计原则（严格对齐 N-EXP-006 FR-001~FR-004）：
+//  FR-001 权限条目由常量映射为人话说明，禁止直接展示原始权限字符串。
+//  FR-002 独立 Shizuku 授权与宿主授权分别标注，展示 reason 全文。
+//  FR-003 涉及网络外传（VirusTotal / 镜像下载 / Web 控制台）的条目
+//         单独分组并标注默认状态。
+//  FR-004 安装确认页需用户显式确认权限清单，不允许一键静默同意。
+
+/**
+ * 把 plugin.json 中 permissions: List<String>（旧字段）的原始
+ * 权限 ID 映射为人话 PluginPermission，作为 declaredPermissions
+ * 缺失时的兜底展示。插件仓逐步迁移到结构化 declaredPermissions
+ * 后此映射仅起历史兼容作用。
+ */
+private fun legacyPermissionFromId(rawId: String): PluginPermission {
+    val (id, label, risk, group, transmits, dataCategory, thirdParty, desc) = when (rawId) {
+        "android.permission.INTERNET" -> PermissionRow(
+            id = "internet",
+            label = "访问网络（本组织通道）",
+            risk = "低",
+            group = PermissionGroup.NETWORK_INTERNAL,
+            desc = "用于拉取插件更新、补丁通道与镜像清单，仅访问 abyss-tool 组织官方域名。",
+        )
+        "shizuku_shell", "shizuku" -> PermissionRow(
+            id = "shizuku_shell",
+            label = "执行 Shizuku Shell 命令",
+            risk = "高",
+            group = PermissionGroup.EXECUTION,
+            desc = "通过 Shizuku 以 adb/shell 身份执行系统级指令（如 pm/cmd/appops）。",
+        )
+        "root" -> PermissionRow(
+            id = "root",
+            label = "执行 Root Shell 命令",
+            risk = "高",
+            group = PermissionGroup.EXECUTION,
+            desc = "通过 su 以 root 身份执行系统级指令（最高权限）。",
+        )
+        "overlay", "android.permission.SYSTEM_ALERT_WINDOW" -> PermissionRow(
+            id = "overlay",
+            label = "显示悬浮窗",
+            risk = "中",
+            group = PermissionGroup.OVERLAY,
+            desc = "在其它应用之上显示浮动控件（如灵动岛悬浮球、快捷入口）。",
+        )
+        "install_listener" -> PermissionRow(
+            id = "install_listener",
+            label = "监听应用安装/卸载事件",
+            risk = "中",
+            group = PermissionGroup.APP_OBSERVE,
+            desc = "检测新安装/卸载的应用包名（用于病毒拦截插件的安装时扫描）。",
+        )
+        "package_query" -> PermissionRow(
+            id = "package_query",
+            label = "读取已装应用列表",
+            risk = "低",
+            group = PermissionGroup.APP_OBSERVE,
+            desc = "枚举本机已安装的应用（用于应用管理、备份识别等）。",
+        )
+        "storage", "android.permission.WRITE_EXTERNAL_STORAGE" -> PermissionRow(
+            id = "storage",
+            label = "读写存储",
+            risk = "中",
+            group = PermissionGroup.USER_DATA,
+            desc = "在插件私有目录与共享存储中读写文件（备份导出/媒体处理）。",
+        )
+        "cloud_hash_lookup" -> PermissionRow(
+            id = "cloud_hash_lookup",
+            label = "云查毒（文件哈希外传）",
+            risk = "高",
+            group = PermissionGroup.NETWORK_EXTERNAL,
+            transmits = true,
+            dataCategory = "文件 SHA-256 哈希",
+            thirdParty = "VirusTotal 公共 API",
+            desc = "将待判定文件的哈希值提交到 VirusTotal 查询命中结果；**不上传文件本体**，但哈希可被第三方关联到样本库。默认关闭。",
+        )
+        "external_api" -> PermissionRow(
+            id = "external_api",
+            label = "访问第三方 API",
+            risk = "中",
+            group = PermissionGroup.NETWORK_EXTERNAL,
+            transmits = true,
+            desc = "向宿主信任域外的第三方服务发起网络请求。",
+        )
+        "web_console" -> PermissionRow(
+            id = "web_console",
+            label = "Web 控制台（本地 HTTP 服务）",
+            risk = "中",
+            group = PermissionGroup.NETWORK_EXTERNAL,
+            desc = "在本机启动 HTTP 服务供浏览器访问；不对外监听，但局域网内其他设备可能访问。",
+        )
+        else -> PermissionRow(
+            id = rawId,
+            label = rawId.substringAfterLast('.'),
+            risk = "低",
+            group = PermissionGroup.OTHER,
+            desc = "插件声明的权限（未在本版本词典内）。",
+        )
+    }
+    return PluginPermission(
+        id = id,
+        required = false,
+        default = false,
+        label = label,
+        risk = risk,
+        dataTransmitted = transmits,
+        dataCategory = dataCategory,
+        thirdParty = thirdParty,
+        description = desc,
+    )
+}
+
+private data class PermissionRow(
+    val id: String,
+    val label: String,
+    val risk: String,
+    val group: PermissionGroup,
+    val transmits: Boolean = false,
+    val dataCategory: String? = null,
+    val thirdParty: String? = null,
+    val desc: String? = null,
+)
+
+/** 合并 declaredPermissions（新）与 permissions（旧）的最终展示列表。 */
+internal fun resolvePermissionsForDisplay(entry: PluginIndexEntry): List<PluginPermission> {
+    val declared = entry.declaredPermissions
+    if (declared.isNotEmpty()) return declared
+    return entry.permissions.map { legacyPermissionFromId(it) }
+}
+
+/** 分组名 → 人话标签。 */
+private fun PermissionGroup.displayName(): String = when (this) {
+    PermissionGroup.EXECUTION -> "执行权限（Shizuku / Root）"
+    PermissionGroup.NETWORK_INTERNAL -> "网络（本组织通道）"
+    PermissionGroup.NETWORK_EXTERNAL -> "网络外传（第三方服务）"
+    PermissionGroup.OVERLAY -> "界面覆盖（悬浮窗）"
+    PermissionGroup.APP_OBSERVE -> "观察其它应用"
+    PermissionGroup.USER_DATA -> "用户数据读写"
+    PermissionGroup.OTHER -> "其它"
+}
+
+private fun riskTone(risk: String): ChipTone = when (risk) {
+    "高" -> ChipTone.ERROR
+    "中" -> ChipTone.WARN
+    "低" -> ChipTone.INFO
+    else -> ChipTone.NEUTRAL
+}
+
+/**
+ * 插件详情页「权限需求」卡——按分组展示，外传项显式标注
+ * 「会上传数据」，Shizuku 独立授权 reason 全文展示。
+ */
+@Composable
+internal fun PermissionAuditCard(
+    entry: PluginIndexEntry,
+    onReviewForInstall: (() -> Unit)? = null,
+) {
+    val permissions = remember(entry.id) { resolvePermissionsForDisplay(entry) }
+    val audit = remember(permissions) { PermissionAudit.audit(entry.id, permissions) }
+    val grouped = remember(permissions) { permissions.groupBy { it.group } }
+
+    InfoCard(title = "权限需求") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // 顶部摘要：风险项数量 + 外传项数量
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatusChip("共 ${permissions.size} 项", ChipTone.INFO)
+                if (audit.riskyDefaultOn > 0) {
+                    StatusChip("${audit.riskyDefaultOn} 项默认开启且有风险", ChipTone.ERROR)
+                }
+                if (audit.externalTransmissions.isNotEmpty()) {
+                    StatusChip(
+                        "${audit.externalTransmissions.size} 项会向第三方传数据",
+                        ChipTone.WARN,
+                    )
+                }
+                if (permissions.isEmpty()) {
+                    StatusChip("无静态权限", ChipTone.OK)
+                }
+            }
+
+            if (permissions.isEmpty()) {
+                Text(
+                    text = "本插件未声明任何特殊权限，运行时仅使用插件沙箱内能力。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                // 按 FR-003：外传分组置顶展示，保证用户第一眼看到
+                val orderedGroups = grouped.keys.sortedBy {
+                    when (it) {
+                        PermissionGroup.NETWORK_EXTERNAL -> 0
+                        PermissionGroup.EXECUTION -> 1
+                        PermissionGroup.USER_DATA -> 2
+                        PermissionGroup.OVERLAY -> 3
+                        PermissionGroup.APP_OBSERVE -> 4
+                        PermissionGroup.NETWORK_INTERNAL -> 5
+                        PermissionGroup.OTHER -> 6
+                    }
+                }
+                orderedGroups.forEach { group ->
+                    PermissionGroupBlock(
+                        title = group.displayName(),
+                        permissions = grouped[group] ?: emptyList(),
+                        highlightTransmission = group == PermissionGroup.NETWORK_EXTERNAL,
+                    )
+                }
+            }
+
+            // 安装前审阅入口（FR-004：未审阅不允许安装）
+            if (onReviewForInstall != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "安装前请逐条审阅权限，确认后再安装。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Button(onClick = onReviewForInstall) { Text("审阅并安装") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionGroupBlock(
+    title: String,
+    permissions: List<PluginPermission>,
+    highlightTransmission: Boolean,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (highlightTransmission) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurface,
+        )
+        permissions.forEach { perm ->
+            PermissionItemRow(perm, highlightTransmission)
+        }
+    }
+}
+
+@Composable
+private fun PermissionItemRow(perm: PluginPermission, highlightTransmission: Boolean) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (highlightTransmission && perm.dataTransmitted)
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = perm.label,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            StatusChip("风险：${perm.risk}", riskTone(perm.risk))
+            if (perm.required) {
+                StatusChip("必需", ChipTone.WARN)
+            } else {
+                StatusChip(
+                    if (perm.default) "默认开启" else "默认关闭",
+                    if (perm.default) ChipTone.WARN else ChipTone.OK,
+                )
+            }
+        }
+        if (perm.dataTransmitted) {
+            Spacer(Modifier.size(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusChip("⚠ 会上传数据", ChipTone.ERROR)
+                perm.dataCategory?.let { StatusChip(it, ChipTone.NEUTRAL) }
+                perm.thirdParty?.let {
+                    StatusChip("接收方：$it", ChipTone.NEUTRAL)
+                }
+            }
+        }
+        perm.description?.let {
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * 安装前权限审阅确认对话框（FR-004）。
+ *
+ * - 展示所有权限条目（人话 + 风险标签 + 外传标注）；
+ * - 独立 Shizuku 授权与宿主授权分别标注 reason 全文；
+ * - 用户必须勾选「我已逐条阅读并接受上述权限」复选框，「确认安装」按钮
+ *   才会启用，杜绝一键静默同意。
+ */
+@Composable
+internal fun PermissionReviewDialog(
+    entry: PluginIndexEntry,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val permissions = remember(entry.id) { resolvePermissionsForDisplay(entry) }
+    val audit = remember(permissions) { PermissionAudit.audit(entry.id, permissions) }
+    var acknowledged by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("安装前审阅：${entry.name}") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = "请逐条审阅本插件申请的权限；勾选确认后才可安装。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (audit.externalTransmissions.isNotEmpty()) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
+                            .padding(10.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "⚠ 存在向第三方传数据的能力",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            audit.externalTransmissions.forEach { p ->
+                                Text(
+                                    text = "· ${p.label}${p.thirdParty?.let { " → $it" } ?: ""}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Shizuku 独立授权 reason 全文（FR-002）
+                entry.shizuku?.let { decl ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f))
+                            .padding(10.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = if (decl.ownAuth) "🔐 需要独立 Shizuku 授权"
+                                else "🔐 使用宿主 Shizuku 授权",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            if (decl.reason.isNotBlank()) {
+                                Text(
+                                    text = "用途：${decl.reason}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 可滚动的权限清单（对话框内 LazyColumn 不支持高度自适应，
+                // 用 Column + heightIn 约束最大高度后外层可滚动容器承载）
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                ) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(permissions) { perm ->
+                            PermissionItemRow(perm, highlightTransmission = perm.dataTransmitted)
+                        }
+                        if (permissions.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "本插件未声明任何特殊权限。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 显式确认复选框（FR-004：必须勾选才能继续）
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { acknowledged = !acknowledged },
+                        ),
+                ) {
+                    Checkbox(
+                        checked = acknowledged,
+                        onCheckedChange = { acknowledged = it },
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        text = "我已逐条阅读并接受上述权限与风险",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+                enabled = acknowledged,
+            ) { Text("确认安装") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }
