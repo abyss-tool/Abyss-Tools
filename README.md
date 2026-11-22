@@ -26,7 +26,7 @@
 - **M3 全面落地**：十五级字阶 + 形状阶梯 + 动态取色（Material You，Android 12+）+ SearchBar / TimePicker / PullToRefresh / InputChip / Tooltip / SegmentedButton / ModalBottomSheet / ListItem / Badge 组件体系真实应用；
 - **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/abyss-tool/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
 
-> 当前版本 **v0.9.0「引力场」**：**组件银河** —— 黑洞时钟之外新增三个 Canvas 绘制桌面组件（引力电池 / 星轨日历 / 深渊引力仪，同一深空引擎与整分闹钟链，组件工坊四卡片画廊）；**隐私与管控**（Shizuku 深挖：权限审计批量回收 / appops query-op 敏感操作记录 / Doze 白名单 / netpolicy 流量策略）；**任务蓝图每日定时**（M3 TimePicker + SchedulePlanner 纯排程数学）；**M3 组件补全**（SearchBar / PullToRefreshBox / InputChip / TooltipBox / SnackbarHost 真实落地）。
+> 当前版本 **v0.9.10 / versionCode 33**（`AppInfo.kt` 单一事实源）：v0.9.0「引力场」（组件银河 / 隐私与管控 / 每日定时调度 / M3 组件补全）→ v0.9.6 **规格说明书全集落库**（207 份规格入 `docs/abyss-specs/`）→ v0.9.7 白色液态玻璃导航栏 → v0.9.9 **N-SEC-001 客户端清单验签接线 + N-EXP-003 诊断日志 + 工程门禁**（spec-lint / 发布说明门禁入 CI）→ v0.9.10 **N-EXP-006 插件权限透明化面板**。M1（v0.10）进行中：通道清单 detached 签名闭环（发布侧）+ RELEASE_TOKEN 最小权限 + 三插件首个可用切片 —— 见 [SPEC-INDEX](docs/abyss-specs/SPEC-INDEX.md) 与 `docs/abyss-specs/深渊工具_整体增强方案.md`。
 
 ## 主界面框架
 

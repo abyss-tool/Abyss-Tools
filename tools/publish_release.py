@@ -31,6 +31,10 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import minisign_py  # noqa: E402  (N-SEC-001 清单签名)
 
 API = "https://api.github.com"
 RELEASE_REPO = os.environ.get("ABYSS_RELEASE_REPO", "abyss-tool/Abyss-Tools-Release")
@@ -212,12 +216,38 @@ def main() -> None:
         "同 tag 建 Release + 上传同资产；通道清单（version.json 等）仍只写发布仓，"
         "镜像仓不产生任何通道文件。",
     )
+    parser.add_argument(
+        "--seed-file", type=Path, default=None,
+        help="清单签名私钥（raw Ed25519 seed base64 单行；CI secret RELEASE_SIGNING_KEY 原文）。"
+        "N-SEC-001（M1 起）：缺省必填，缺失即拒绝发布（fail-closed）。",
+    )
+    parser.add_argument(
+        "--pubkey-file", type=Path, default=None,
+        help="清单签名公钥文本（与客户端 TRUSTED_KEYS 一致；由 tools/publisher_pubkey.py "
+        "从 Kotlin 源提取传入）。缺省必填，缺失即拒绝发布。",
+    )
     args = parser.parse_args()
 
     if not TOKEN:
         die("RELEASE_TOKEN 未设置（需要具有 repo 权限的 PAT）")
     if not os.path.isfile(args.apk):
         die(f"APK 不存在：{args.apk}")
+
+    # ── N-SEC-001（M1 起）：清单签名材料强制（fail-closed）──────────
+    # 私钥/公钥缺失即拒绝发布 —— 「无签名也放行」的兼容后门不存在。
+    if not args.seed_file or not args.pubkey_file:
+        die("缺少清单签名材料：--seed-file / --pubkey-file 必须由发布流水线提供"
+            "（RELEASE_SIGNING_KEY secret + tools/publisher_pubkey.py 提取的公钥）")
+    if not args.seed_file.is_file() or not args.pubkey_file.is_file():
+        die("清单签名材料文件不存在（seed / pubkey）")
+    try:
+        seed, keynum, _ = minisign_py.load_seed(
+            args.seed_file.read_text(encoding="utf-8"),
+            args.pubkey_file.read_text(encoding="utf-8"),
+        )
+    except minisign_py.MinisignError as e:
+        die(f"清单签名材料校验失败：{e}")
+    pub_text = args.pubkey_file.read_text(encoding="utf-8")
 
     version_name = args.tag.removeprefix("v").removeprefix("V")
     asset_name = args.asset_name or f"abyss-tools-{args.tag}.apk"
@@ -235,7 +265,7 @@ def main() -> None:
     try:
         apk_sha = sha256_of(args.apk)
         apk_size = os.path.getsize(args.apk)
-        _main_publish(args, version_name, asset_name, apk_sha, apk_size)
+        _main_publish(args, version_name, asset_name, apk_sha, apk_size, seed, keynum, pub_text)
     finally:
         try:
             os.unlink(snapshot_path)
@@ -243,7 +273,8 @@ def main() -> None:
             pass
 
 
-def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_size: int) -> None:
+def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_size: int,
+                  seed: bytes, keynum: bytes, pub_text: str) -> None:
     published_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -288,6 +319,22 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
     # ── 3. version.json（单调门禁已在上传前预检，此处只写）────────────
     import base64
 
+    def put_manifest_signed(path: str, text: str, sha: str | None, message: str) -> None:
+        """清单 + detached 签名相邻原子提交（N-SEC-001）。
+
+        签名对象 = 写入字节本身（text.encode('utf-8')，无归一化）——客户端
+        验签字节与远端字节恒一致；.minisig 紧随清单同 job 相邻提交。
+        """
+        sig = minisign_py.sign_message(
+            seed, keynum, text.encode("utf-8"),
+            "signature from abyss release key", path,
+        )
+        put_contents(TOKEN, path, text, sha, message)
+        put_contents(
+            TOKEN, f"{path}.minisig", sig, None,
+            f"chore(channel): {path}.minisig detached 签名（N-SEC-001）[skip ci]",
+        )
+
     version = {
         "schema": "abyss-version-v1",
         "versionName": version_name,
@@ -304,8 +351,8 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
         "patch": None,
         "commitSha": args.commit_sha,
     }
-    put_contents(
-        TOKEN, "version.json",
+    put_manifest_signed(
+        "version.json",
         json.dumps(version, ensure_ascii=False, indent=2) + "\n",
         cur.get("sha"),
         f"chore(channel): version.json → {args.tag}（发布流水线）[skip ci]",
@@ -320,8 +367,8 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
     patches["schema"] = "abyss-patches-v1"
     patches["generatedAt"] = published_at
     patches["latestTag"] = args.tag
-    put_contents(
-        TOKEN, "patches.json",
+    put_manifest_signed(
+        "patches.json",
         json.dumps(patches, ensure_ascii=False, indent=2) + "\n",
         cur_patches.get("sha"),
         f"chore(channel): patches.json latestTag → {args.tag} [skip ci]",
@@ -348,22 +395,34 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
         "releaseUrl": f"https://github.com/{RELEASE_REPO}/releases/tag/{args.tag}",
     }
     changelog["history"] = changelog.get("history", [])[:20]
-    put_contents(
-        TOKEN, "changelog.json",
+    put_manifest_signed(
+        "changelog.json",
         json.dumps(changelog, ensure_ascii=False, indent=2) + "\n",
         cur_log.get("sha"),
         f"chore(channel): changelog.json 置顶 {args.tag} [skip ci]",
     )
 
-    # ── 6. 写后自检（回读三份清单，防半写 / 错分支状态）────────────────
+    # ── 6. 写后自检（回读三份清单 + 签名，防半写 / 错分支状态）────────
     for path_ in ("version.json", "patches.json", "changelog.json"):
         back = get_contents(TOKEN, path_, not_found_ok=True)
         if not back.get("content"):
             die(f"写后自检失败：{path_} 回读为空")
         try:
-            data = json.loads(base64.b64decode(back["content"]).decode())
+            raw_bytes = base64.b64decode(back["content"])
+            data = json.loads(raw_bytes.decode())
         except Exception:
             die(f"写后自检失败：{path_} 回读内容无法解析")
+        # N-SEC-001：回读签名并对回读字节验签 —— 通道终态必须「清单 ↔ 签名」
+        # 逐字节配对（任何人手改清单而签名未同步，发布流水线当场拦截）。
+        sig_back = get_contents(TOKEN, f"{path_}.minisig", not_found_ok=True)
+        if not sig_back.get("content"):
+            die(f"写后自检失败：{path_}.minisig 回读为空")
+        try:
+            sig_text = base64.b64decode(sig_back["content"]).decode("utf-8")
+        except Exception:
+            die(f"写后自检失败：{path_}.minisig 回读内容无法解析")
+        if not minisign_py.verify(pub_text, sig_text, raw_bytes):
+            die(f"写后自检失败：{path_} 回读字节与 .minisig 验签不符 —— 拒绝发布")
         if path_ == "version.json":
             if data.get("tag") != args.tag or data.get("versionCode") != args.version_code:
                 die(f"写后自检失败：version.json 回读 tag/code 与本次发布不符（{data.get('tag')} / {data.get('versionCode')}）")

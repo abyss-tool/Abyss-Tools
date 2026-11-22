@@ -195,6 +195,27 @@ patch-manifest.json          # 必须在包根
 发布后 `Abyss-Plugins` 的 `sync-index.yml`（每日 12:00 UTC / 手动）自动把
 新版本汇入 `plugins.json`。
 
+## 清单 detached 签名（v0.10 起，N-SEC-001）
+
+所有通道清单（version.json / patches.json / changelog.json / plugins.json /
+各插件仓 patches/index.json）均附带 minisign 兼容 detached 签名（`.minisig`，
+Ed25519）。客户端拉取顺序 = **先拉清单字节 → 拉同名 `.minisig` →
+`ChannelSignatureVerifier` 验签 → 通过才解析 JSON**：
+
+- **验签对象是字节本身**：发布流水线对写入字节签名（无 JSON 归一化），
+  镜像/网络层的任何字节差异都会验签失败 —— fail-closed 拒绝并给人话提示
+  （缺签名提示「镜像可能尚未同步」，篡改提示「清单签名校验失败」）；
+- **无签名一律拒绝**：不存在「无签名也放行」的兼容后门；v0.9.9 起客户端
+  已强制验签，v0.9.8 及更早客户端不请求 `.minisig` 不受影响；
+- **公钥固化**：`ChannelSignatureVerifier.TRUSTED_KEYS` 为唯一事实源，
+  发布侧自验公钥由 `tools/publisher_pubkey.py` 从该 Kotlin 源提取 ——
+  禁止在 workflow / 脚本手工复制公钥；轮换走双公钥过渡（新增不替换）；
+- **签名产出**：发布流水线 `publish_release.py`（发布仓三件套）/
+  `sync_index.py`（插件中心）`publish_patch.py`（插件仓补丁通道）对
+  **构造后的最终字节**签名，清单与 `.minisig` 同 job 原子提交 + 回读自验；
+- **格式**：minisign 0.11 兼容（4 行文本，`minisign -V` 可独立复核），
+  实现唯一事实源 = 主仓 `tools/minisign_py.py`（各仓同构副本）。
+
 ## 校验门禁
 
 - 开发仓 CI：`tools/validate_manifests.py` 校验测试夹具（通道契约镜像）、
