@@ -35,7 +35,7 @@ enum class ToolCategory(
 ) {
     SYSTEM("system", "系统工具", "基于 Shizuku 的免 Root 系统管控：冻结 / 隐藏 / 提取 / 授权总管 / 系统控制"),
     TERMINAL("terminal", "终端与脚本", "内置 Shizuku Shell 终端与脚本实验室：编辑 → 执行 → 历史一站直达"),
-    DEV("dev", "开发与构建", "手机端 APK 构建：Alpine + PRoot 底座 + 三条构建路径（引擎级大插件承载）"),
+    DEV("dev", "开发与构建", "手机端 APK 构建：预检 + 三条构建路径；运行环境经宿主中介依赖 Linux 插件（引擎级大插件）"),
     SANDBOX("sandbox", "沙箱与多开", "多用户隔离空间：免 Root 双开 / 独立数据域；整机虚拟机属插件能力"),
     DISGUISE("disguise", "伪装与隐私", "伪装四件套（v0.3 内置）：机型 / 电量 / 信号 / 定位，Shizuku 免 Root 实时生效；隐私守卫路线图中"),
     MEDIA("media", "媒体工具", "MediaExtractor/MediaMuxer 级音视频处理：音频提取 / 去音轨 / 无重编码裁剪"),
@@ -99,12 +99,22 @@ object ToolCatalog {
         ToolDef(
             id = "app-builder",
             title = "应用构建器",
-            summary = "手机端 APK 构建器：Alpine + PRoot 底座，Anpyra / 内置工具链 / " +
-                "标准 Gradle 三路径自由选择，支持独立 Shizuku 授权（引擎级大插件）。",
+            summary = "手机端 APK 构建器：静态预检 + Anpyra / aapt2 固定壳 / 标准 Gradle " +
+                "三路径自由选择，运行环境经宿主中介依赖 Linux 插件提供（引擎级大插件，瘦客户端）。",
             category = ToolCategory.DEV,
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-app-builder",
             iconKey = "construction",
+        ),
+        ToolDef(
+            id = "linux-runtime",
+            title = "Linux 运行环境",
+            summary = "自包含 Linux 运行环境：PRoot 用户态 + QEMU 完整系统双执行域，" +
+                "统一会话与 Shizuku 单次授权，向生态提供 linux-runtime-v1 能力（引擎级大插件）。",
+            category = ToolCategory.DEV,
+            status = ToolStatus.PLUGIN,
+            pluginId = "abyss-plugin-linux",
+            iconKey = "terminal",
         ),
 
         // ── 系统工具 ───────────────────────────────────────────────────
@@ -207,16 +217,10 @@ object ToolCatalog {
             status = ToolStatus.BUILT_IN,
             iconKey = "copy",
         ),
-        ToolDef(
-            id = "virtual-machine",
-            title = "虚拟机",
-            summary = "QEMU 级完整虚拟机：ARM/x86 系统镜像运行（Alpine / Windows / DOS），" +
-                "VNC 显示，引擎级能力由大插件承载。",
-            category = ToolCategory.SANDBOX,
-            status = ToolStatus.PLUGIN,
-            pluginId = "abyss-plugin-virtual-machine",
-            iconKey = "dns",
-        ),
+        // ── 虚拟机（已收编 · HUB-014 归档纪律）────────────────────────
+        // ADR-100 D-4：abyss-plugin-virtual-machine 归档，QEMU 整机能力由
+        // Linux 插件的 QEMU_VM 执行域承接（见 DEV 分类的「Linux 运行环境」）。
+        // 归档能力不得复活为插件（SRS-004 FR-005）—— 此条目仅作历史索引。
 
         // ── 伪装与隐私（v0.3：四件套内置，Shizuku 免 Root）────────────
         ToolDef(

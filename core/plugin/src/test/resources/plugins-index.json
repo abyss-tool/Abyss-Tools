@@ -1,34 +1,41 @@
 {
   "schema": "abyss-plugin-index-v1",
-  "generatedAt": "2026-11-15T00:00:00Z",
-  "hubVersion": "0.3.0",
+  "generatedAt": "2026-11-22T00:00:00Z",
+  "hubVersion": "0.4.0",
   "plugins": [
     {
       "id": "abyss-plugin-app-builder",
       "name": "应用构建器",
       "repo": "abyss-tool/abyss-plugin-app-builder",
       "category": "dev",
-      "version": "0.1.0",
-      "minApp": "0.2.0",
-      "summary": "手机端 APK 构建器：Alpine + PRoot 底座 + 三条构建路径（Anpyra / 内置工具链 / 标准 Gradle），用户自由选择构建方式，支持独立 Shizuku 授权。",
+      "version": "0.2.0",
+      "minHost": 2,
+      "minApp": "0.10.0",
+      "summary": "手机端 APK 构建：静态预检 + Anpyra / aapt2 固定壳 / 标准 Gradle 三路径，依赖 Linux 插件提供的运行环境。",
       "icon": "🏗",
       "permissions": [
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",
-        "REQUEST_INSTALL_PACKAGES"
+        "REQUEST_INSTALL_PACKAGES",
+        "INTERNET"
       ],
-      "shizuku": {
-        "ownAuth": true,
-        "reason": "PRoot 底座经 Shizuku（ADB shell 上下文）启动以绕过厂商 ptrace 限制；本插件为独立 APK，需在 Shizuku 内单独授权。"
-      },
+      "depends": [
+        {
+          "pluginId": "abyss-plugin-linux",
+          "capability": "linux-runtime-v1",
+          "versionRange": ">=0.2.0 <1.0.0",
+          "optional": false,
+          "reason": "构建需要 Linux 运行环境（PRoot 用户态 / QEMU 完整系统），由 Linux 插件统一提供并持有 Shizuku 授权。"
+        }
+      ],
       "apk": null,
       "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-app-builder/main/patches/index.json",
       "roadmap": [
-        "v0.2 Alpine + PRoot 底座拉起与可用性探测",
-        "v0.3 路径一：Anpyra 纯 Python 构建",
-        "v0.4 路径二：aapt2 + 固定壳 DEX",
-        "v0.5 路径三：标准 Gradle（ARM64 工具链）",
-        "v0.6 三选一交互层与失败切换"
+        "v0.2 依赖握手与会话编排",
+        "v0.3 路径一：Anpyra 纯 Python 构建（轻量项目）",
+        "v0.4 路径二：内置工具链 aapt2 + 固定壳 DEX（资源 / HTML 打包）",
+        "v0.5 路径三：标准 Gradle 构建（ARM64 工具链 + 资源约束）",
+        "v0.6 三选一交互层：预检提示 / 推荐标记 / 失败切换"
       ]
     },
     {
@@ -38,7 +45,7 @@
       "category": "system",
       "version": "0.1.0",
       "minApp": "0.8.0",
-      "summary": "安装事件拦截 + 病毒特征引擎：ClamAV 级本地签名库 + VirusTotal 云查询 + 已装应用全盘扫描，支持独立 Shizuku 授权（安装监听）。",
+      "summary": "安装事件拦截 + 病毒特征引擎：ClamAV 级本地签名库 + VirusTotal 云查询 + 已装应用全盘扫描与处置面板，支持独立 Shizuku 授权（安装监听）。",
       "icon": "🦠",
       "permissions": [
         "INTERNET",
@@ -47,38 +54,85 @@
       ],
       "shizuku": {
         "ownAuth": true,
-        "reason": "安装事件拦截经 Shizuku（ADB shell 上下文）挂接 pm install-session 监听与静默卸载处置；本插件为独立 APK，需在 Shizuku 内单独授权。"
+        "reason": "安装事件拦截经 Shizuku（ADB shell 上下文）挂接 pm install-session 监听与静默卸载处置 —— 免 Shizuku 时降级为普通安装广播监听（仅提示，不能拦截）；本插件为独立 APK，按 Shizuku per-app 授权机制需单独授权一次。"
       },
       "apk": null,
       "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-virus-guard/main/patches/index.json",
       "roadmap": [
         "v0.2 拦截骨架：安装广播 + 会话监听 + 信任判定管线",
-        "v0.3 本地特征引擎：ClamAV 签名库移植与哈希黑名单",
+        "v0.3 本地特征引擎：ClamAV 签名库移植 + 哈希黑名单",
         "v0.4 VirusTotal 云查询（限额调度 + 结果缓存）",
-        "v0.5 全盘扫描与处置面板（隔离 / 卸载引导）"
+        "v0.5 全盘扫描与处置面板（隔离 / 卸载引导 / 白名单）"
       ]
     },
     {
-      "id": "abyss-plugin-virtual-machine",
-      "name": "虚拟机",
-      "repo": "abyss-tool/abyss-plugin-virtual-machine",
-      "category": "sandbox",
-      "version": "0.1.0",
-      "minApp": "0.8.0",
-      "summary": "QEMU 级完整虚拟机：ARM/x86 系统镜像运行（Alpine / Windows / DOS），VNC 显示与外部输入路由，引擎级大插件。",
-      "icon": "🖳",
+      "id": "abyss-plugin-linux",
+      "name": "Linux 运行环境",
+      "repo": "abyss-tool/abyss-plugin-linux",
+      "category": "tools",
+      "version": "0.2.0",
+      "minHost": 2,
+      "minApp": "0.10.0",
+      "summary": "自包含 Linux 运行环境：PRoot 用户态 + QEMU 完整系统双执行域，统一 RuntimeSession 会话与 Shizuku 统一授权，唯一向生态提供 linux-runtime-v1 能力。",
+      "icon": "🐧",
       "permissions": [
         "INTERNET",
         "FOREGROUND_SERVICE",
         "WAKE_LOCK"
       ],
+      "shizuku": {
+        "ownAuth": true,
+        "reason": "PRoot/QEMU 引擎经 Shizuku 的 ADB shell 上下文（uid 2000）拉起，绕过普通应用沙箱对 ptrace 与内存锁的限制；本插件为独立 APK，按 per-app 授权机制需单独授权一次，且是全生态唯一持有方。"
+      },
+      "provides": [
+        {
+          "capability": "linux-runtime-v1",
+          "since": "0.2.0",
+          "stable": true
+        }
+      ],
+      "capabilities": {
+        "linux-runtime-v1": {
+          "hostApi": 2,
+          "domains": [
+            {
+              "id": "PROOT_USERLAND",
+              "kernel": "shared-android",
+              "coldStartMs": 8000,
+              "features": ["EXEC", "PTY", "FILE_IO", "PKG_INSTALL"],
+              "assets": ["rootfs", "toolchain"]
+            },
+            {
+              "id": "QEMU_VM",
+              "kernel": "guest-linux",
+              "coldStartMs": 180000,
+              "features": ["EXEC", "PTY", "FILE_IO", "PKG_INSTALL", "VNC", "SNAPSHOT", "PORT_FORWARD"],
+              "assets": ["image"]
+            }
+          ],
+          "arch": ["arm64"],
+          "limits": {
+            "maxMemoryMb": 2048,
+            "maxExecTimeoutSec": 1800,
+            "maxOutputBytes": 1048576,
+            "maxConcurrentExec": 1,
+            "defaultQuotaGb": 8
+          },
+          "auth": {
+            "shizuku": "ownAuth",
+            "grantTtlSec": 300,
+            "mediator": "PluginBroker"
+          }
+        }
+      },
+      "assetChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-linux/main/assets/index.json",
       "apk": null,
-      "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-virtual-machine/main/patches/index.json",
+      "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-linux/main/patches/index.json",
       "roadmap": [
-        "v0.2 QEMU 用户态引擎拉起（TCG，免 KVM）与镜像管理",
-        "v0.3 VNC 显示管线 + 输入路由（触屏 → PS/2 / USB Tablet）",
-        "v0.4 镜像市场：Alpine / Debian / DOS / Windows XP 模板",
-        "v0.5 快照 / 挂起恢复与性能档位"
+        "v0.2 PRoot 域：rootfs 资产通道 + 会话状态机 + 探测降级链",
+        "v0.3 跨插件能力绑定：SessionGrant + 受限 ILinuxSession 代理",
+        "v0.4 QEMU 域：TCG 引擎 + 镜像 + VNC 回环 + 快照",
+        "v0.5 资产差量：vcdiff 差量更新与配额 LRU 收口"
       ]
     }
   ]

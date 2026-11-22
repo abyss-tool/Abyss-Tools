@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC_DIR = ROOT / "docs" / "abyss-specs"
 INDEX = SPEC_DIR / "SPEC-INDEX.md"
 
-SPEC_ID_RE = re.compile(r"`((?:SRS|ARC|CORE|UPD|PLG|SHL|SDK|INS|FEAT|HUB|N-[A-Z]+|SEC|DC|QA|ADR)-\d{3})`")
+SPEC_ID_RE = re.compile(r"`((?:SRS|ARC|CORE|UPD|PLG|SHL|SDK|INS|FEAT|HUB|N-[A-Z]+|SEC|DC|QA|ADR|LIN|APP|ENG|PLAN)-\d{3})`")
 HEADER_FIELD_RE = re.compile(r"\|\s*(规格编号|状态|优先级|里程碑)\s*\|")
 
 

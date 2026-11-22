@@ -13,6 +13,9 @@
 | 组织与基线 | abyss-tool 组织 19 仓库克隆研究；v0.9.5 / versionCode 28 |
 | 标签 | QEMU · TCG |
 
+
+> **承接公告（ADR-100 D-4，2026-11-22）**：本规格已由 `11-Linux插件解耦/LIN-002`（QEMU_VM 完整系统执行域）承接 —— `abyss-plugin-virtual-machine` 归档，QEMU 引擎能力收编为 Linux 插件的 `QEMU_VM` 执行域。
+
 ## 1. 目标与范围
 
 QEMU 用户态仿真（TCG，免 KVM），经 Shizuku（uid 2000）拉起绕过 RLIMIT_MEMLOCK 与 oom_adj 限制。

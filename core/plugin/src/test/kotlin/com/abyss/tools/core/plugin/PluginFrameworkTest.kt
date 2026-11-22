@@ -21,14 +21,14 @@ class PluginFrameworkTest {
         javaClass.classLoader!!.getResourceAsStream(name)!!.readBytes().decodeToString()
 
     @Test
-    fun `解析 3 插件索引（v0_8_0 大内置化后只剩引擎级插件）`() {
+    fun `解析 3 插件索引（Linux 插件解耦后的三引擎位次）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
         assertEquals("abyss-plugin-index-v1", index.schema)
         assertEquals(3, index.plugins.size)
-        // v0.8.0 分界纪律：只保留「自带完整引擎」的插件（构建 / 病毒 / 虚拟机）
+        // 承载形态纪律：只保留「自带完整引擎」的插件（构建编排瘦客户端 / 病毒 / Linux 底座）
         assertTrue(index.plugins.any { it.id == "abyss-plugin-app-builder" })
         assertTrue(index.plugins.any { it.id == "abyss-plugin-virus-guard" && it.name == "病毒拦截" })
-        assertTrue(index.plugins.any { it.id == "abyss-plugin-virtual-machine" && it.name == "虚拟机" })
+        assertTrue(index.plugins.any { it.id == "abyss-plugin-linux" && it.name == "Linux 运行环境" })
         assertTrue(index.plugins.all { it.versionSemVer != null })
         assertTrue(index.plugins.all { it.repo.startsWith("abyss-tool/abyss-plugin-") })
         assertTrue(index.plugins.all { it.patchChannel != null })
@@ -36,31 +36,70 @@ class PluginFrameworkTest {
         assertTrue(index.plugins.all { it.repo.endsWith(it.id) })
         // id 唯一
         assertEquals(index.plugins.size, index.plugins.map { it.id }.toSet().size)
-        // v0.8.0 大内置化：原六重型插件仓已归档，不再占据插件中心位次
+        // v0.8.0 大内置化归档 + ADR-100 D-4 虚拟机收编：均不占据插件中心位次
         val retired = setOf(
             "abyss-plugin-qr-craft", "abyss-plugin-island", "abyss-plugin-wallpaper",
             "abyss-plugin-shizuku-kit", "abyss-plugin-app-manager", "abyss-plugin-automation",
             "abyss-plugin-disguise",
             "abyss-plugin-terminal", "abyss-plugin-python-lab", "abyss-plugin-sandbox",
             "abyss-plugin-media-lab", "abyss-plugin-network-guard", "abyss-plugin-backup",
+            "abyss-plugin-virtual-machine",
         )
         assertTrue(index.plugins.none { it.id in retired })
     }
 
     @Test
-    fun `解析应用构建器的独立 Shizuku 授权声明`() {
+    fun `解析 v2 能力声明（provides·depends·capabilities·assetChannel）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
+        val linux = index.plugins.first { it.id == "abyss-plugin-linux" }
+        // provides：引擎级插件声明唯一能力
+        assertEquals(1, linux.provides.size)
+        assertEquals("linux-runtime-v1", linux.provides.single().capability)
+        assertEquals("0.2.0", linux.provides.single().since)
+        assertTrue(linux.provides.single().stable)
+        assertTrue(linux.providesLinuxRuntime)
+        // capabilities：能力描述透传（JsonObject，语义由 :runtime-api 契约定义）
+        val desc = linux.capabilities!!
+            .getValue("linux-runtime-v1") as kotlinx.serialization.json.JsonObject
+        assertEquals(2, (desc["domains"] as? kotlinx.serialization.json.JsonArray)?.size)
+        assertEquals(300, ((desc["auth"] as? kotlinx.serialization.json.JsonObject)?.get("grantTtlSec") as? kotlinx.serialization.json.JsonPrimitive)?.content?.toInt())
+        assertEquals(2, linux.minHost)
+        assertTrue(linux.requiresHostApi2)
+        // assetChannel：abyss-asset-v1 大资产通道
+        assertEquals(
+            "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-linux/main/assets/index.json",
+            linux.assetChannel,
+        )
+
+        // depends：瘦客户端依赖声明（应用构建器）
         val builder = index.plugins.first { it.id == "abyss-plugin-app-builder" }
-        assertEquals("dev", builder.category)
-        assertEquals("应用构建器", builder.name)
-        val decl = builder.shizuku
+        assertEquals(1, builder.depends.size)
+        val dep = builder.depends.single()
+        assertEquals("abyss-plugin-linux", dep.pluginId)
+        assertEquals("linux-runtime-v1", dep.capability)
+        assertEquals(">=0.2.0 <1.0.0", dep.versionRange)
+        assertTrue(!dep.optional)
+        assertTrue(dep.reason.contains("Linux 运行环境"))
+        assertEquals(2, builder.minHost)
+        assertTrue(builder.requiresHostApi2)
+        assertTrue(builder.dependsOnLinuxRuntime)
+        assertTrue(!builder.providesLinuxRuntime)
+    }
+
+    @Test
+    fun `解析 Linux 插件的唯一 Shizuku 授权声明（构建器已删除）`() {
+        val index = PluginParsers.parseIndex(resource("plugins-index.json"))
+        // Linux 插件：全生态唯一授权持有方（PRoot/QEMU 引擎需要 uid 2000）
+        val linux = index.plugins.first { it.id == "abyss-plugin-linux" }
+        val decl = linux.shizuku
         assertTrue(decl != null && decl.ownAuth)
         assertTrue(decl!!.reason.contains("Shizuku"))
         // 病毒拦截同样声明独立授权（安装事件拦截通道）
         val virus = index.plugins.first { it.id == "abyss-plugin-virus-guard" }
         assertTrue(virus.shizuku != null && virus.shizuku!!.ownAuth)
-        // 无声明插件解析为 null（字段缺省不炸）
-        assertTrue(index.plugins.first { it.id == "abyss-plugin-virtual-machine" }.shizuku == null)
+        // 瘦客户端不持有授权（APP-100 FR-001：底座与授权均已迁至 Linux 插件）
+        val builder = index.plugins.first { it.id == "abyss-plugin-app-builder" }
+        assertTrue(builder.shizuku == null)
     }
 
     @Test

@@ -276,7 +276,7 @@ class PluginInstaller(
         id = id,
         name = name,
         version = version,
-        minHost = PluginContract.HOST_API_VERSION,
+        minHost = minHost,
         minApp = minApp,
         category = category,
         summary = summary,
@@ -287,6 +287,12 @@ class PluginInstaller(
         repo = repo,
         patchChannel = patchChannel,
         roadmap = roadmap,
+        // ── hubVersion 0.4.0 增量透传（DC-100 §4）：本地 manifest 与索引
+        //    同构 —— 本地依赖账本（卸载级联提示）与能力发现消费这些字段。
+        provides = provides,
+        depends = depends,
+        capabilities = capabilities,
+        assetChannel = assetChannel,
     )
 }
 
