@@ -12,14 +12,16 @@ import java.io.IOException
  * 先拉 .minisig → 验签 → 返回原文；缺签名 / 签名错一律 fail-closed，
  * 且缺失场景给出「镜像可能尚未同步」人话提示。
  *
- * 签名向量 = TRUSTED_KEYS 首签钥对 "hello" 的固定 detached 签名（与
+ * 签名向量 = meng4117222 首签钥对 "hello" 的固定 detached 签名（与
  * ChannelSignatureVerifierTest 同源，离线生成）。
  */
 class SignedHttpTransportTest {
 
     private val helloSig = """
-        untrusted comment: signature from abyss dev key
-        RWSWn6+V/umBvFVYNDRKQ5H/btabzHuxtROwGrx2+x5WbpnTlJQ1v1T9QhInhI2vtGboPl7qLOBPz0KWreOlrZiFx+TFK3svrQ0=
+        untrusted comment: signature from abyss release key
+        RWRx16ORC4gsd6h6gvEIcMQMu/CJekA15W+OF7wGUHZWYYk/vZZzECHKrw/tfdjVNHZqAJxSr6q6dFBpORzv4UOhpxyv9FiE2gw=
+        trusted comment: file:hello.txt
+        RWRx16ORC4gsdxu9hpnZrmRmmDjZVnRwJDmq4/QomzQgg+VFHeAOggc5vuNGJnm04F14eoLqRBOp3LGeT/zYW+STbpR/R6Kl8gg=
     """.trimIndent()
 
     private val url = "https://raw.githubusercontent.com/abyss-tool/Abyss-Tools-Release/main/version.json"

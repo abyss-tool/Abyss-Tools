@@ -39,12 +39,12 @@ object ChannelSignatureVerifier {
      * ```
      */
     val TRUSTED_KEYS: List<String> = listOf(
-        // 开发期首签公钥（M1, v0.10）；密钥对由 minisign 兼容方式生成，
+        // 正式首签公钥（meng4117222，v0.10）；密钥对由 minisign 兼容方式生成，
         // 私钥仅存 GitHub Actions secrets (RELEASE_SIGNING_KEY)，永不入库。
         // 轮换走双公钥过渡期：新增、不替换，给存量版本至少一个版本窗口。
         """
-        untrusted comment: Abyss-Tools dev signing public key (M1, v0.10)
-        RWSWn6+V/umBvAHNeSekC6UjX5Tg0me06vgXgEPeJ88ulrP82fR94AYZ
+        untrusted comment: Abyss-Tools manifest signing public key (meng4117222)
+        RWRx16ORC4gsdxs6DsnctDYagiRptPX1NgFcVpQNYqh/BXGhPAHebh3B
         """.trimIndent(),
     )
 

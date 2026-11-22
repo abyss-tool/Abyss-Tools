@@ -17,13 +17,15 @@ class ChannelSignatureVerifierTest {
 
     @Test
     fun `verify passes for known-good signature over hello`() {
-        // 使用离线生成的固定测试向量（python cryptography + 开发期公钥对应私钥签出）：
+        // 固定测试向量（meng4117222 首签钥签出，与 TRUSTED_KEYS 配对）：
         // message = "hello"
         // keyId   = 969faf95fee981bc
         // sig     = 55583434...ad0d（见 /tmp/hello.minisig）
         val minisig = """
-            untrusted comment: signature from abyss dev key
-            RWSWn6+V/umBvFVYNDRKQ5H/btabzHuxtROwGrx2+x5WbpnTlJQ1v1T9QhInhI2vtGboPl7qLOBPz0KWreOlrZiFx+TFK3svrQ0=
+            untrusted comment: signature from abyss release key
+            RWRx16ORC4gsd6h6gvEIcMQMu/CJekA15W+OF7wGUHZWYYk/vZZzECHKrw/tfdjVNHZqAJxSr6q6dFBpORzv4UOhpxyv9FiE2gw=
+            trusted comment: file:hello.txt
+            RWRx16ORC4gsdxu9hpnZrmRmmDjZVnRwJDmq4/QomzQgg+VFHeAOggc5vuNGJnm04F14eoLqRBOp3LGeT/zYW+STbpR/R6Kl8gg=
             trusted comment: file:hello.txt
             RWSWn6+V/umBvFVYNDRKQ5H/btabzHuxtROwGrx2+x5WbpnTlJQ1v1T9QhInhI2vtGboPl7qLOBPz0KWreOlrZiFx+TFK3svrQ0=
         """.trimIndent()
@@ -34,8 +36,10 @@ class ChannelSignatureVerifierTest {
     @Test(expected = SignatureVerificationException::class)
     fun `verify fails if manifest byte is tampered`() {
         val minisig = """
-            untrusted comment: signature from abyss dev key
-            RWSWn6+V/umBvFVYNDRKQ5H/btabzHuxtROwGrx2+x5WbpnTlJQ1v1T9QhInhI2vtGboPl7qLOBPz0KWreOlrZiFx+TFK3svrQ0=
+            untrusted comment: signature from abyss release key
+            RWRx16ORC4gsd6h6gvEIcMQMu/CJekA15W+OF7wGUHZWYYk/vZZzECHKrw/tfdjVNHZqAJxSr6q6dFBpORzv4UOhpxyv9FiE2gw=
+            trusted comment: file:hello.txt
+            RWRx16ORC4gsdxu9hpnZrmRmmDjZVnRwJDmq4/QomzQgg+VFHeAOggc5vuNGJnm04F14eoLqRBOp3LGeT/zYW+STbpR/R6Kl8gg=
         """.trimIndent()
         // 消息被篡改为 "hellX"，必须 fail-closed
         ChannelSignatureVerifier.verifyOrThrow("hellX".toByteArray(), minisig)
@@ -54,8 +58,10 @@ class ChannelSignatureVerifierTest {
     @Test
     fun `verifyDiagnostic returns structured result`() {
         val minisig = """
-            untrusted comment: signature from abyss dev key
-            RWSWn6+V/umBvFVYNDRKQ5H/btabzHuxtROwGrx2+x5WbpnTlJQ1v1T9QhInhI2vtGboPl7qLOBPz0KWreOlrZiFx+TFK3svrQ0=
+            untrusted comment: signature from abyss release key
+            RWRx16ORC4gsd6h6gvEIcMQMu/CJekA15W+OF7wGUHZWYYk/vZZzECHKrw/tfdjVNHZqAJxSr6q6dFBpORzv4UOhpxyv9FiE2gw=
+            trusted comment: file:hello.txt
+            RWRx16ORC4gsdxu9hpnZrmRmmDjZVnRwJDmq4/QomzQgg+VFHeAOggc5vuNGJnm04F14eoLqRBOp3LGeT/zYW+STbpR/R6Kl8gg=
         """.trimIndent()
         val ok = ChannelSignatureVerifier.verifyDiagnostic("version.json", "hello".toByteArray(), minisig)
         assertTrue(ok.verified)
@@ -89,8 +95,10 @@ class ChannelSignatureVerifierTest {
         assertFalse(MinisignVerifier.verify(rotationPubkey, minisig, "hellO".toByteArray()))
         // 首签钥的签名不应被轮换钥验过（keyId 不匹配即拒）
         val devSig = """
-            untrusted comment: signature from abyss dev key
-            RWSWn6+V/umBvFVYNDRKQ5H/btabzHuxtROwGrx2+x5WbpnTlJQ1v1T9QhInhI2vtGboPl7qLOBPz0KWreOlrZiFx+TFK3svrQ0=
+            untrusted comment: signature from abyss release key
+            RWRx16ORC4gsd6h6gvEIcMQMu/CJekA15W+OF7wGUHZWYYk/vZZzECHKrw/tfdjVNHZqAJxSr6q6dFBpORzv4UOhpxyv9FiE2gw=
+            trusted comment: file:hello.txt
+            RWRx16ORC4gsdxu9hpnZrmRmmDjZVnRwJDmq4/QomzQgg+VFHeAOggc5vuNGJnm04F14eoLqRBOp3LGeT/zYW+STbpR/R6Kl8gg=
         """.trimIndent()
         assertFalse(MinisignVerifier.verify(rotationPubkey, devSig, "hello".toByteArray()))
     }
