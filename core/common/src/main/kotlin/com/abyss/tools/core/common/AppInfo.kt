@@ -6,8 +6,8 @@ package com.abyss.tools.core.common
  * 与 tools/validate_manifests.py 同源校验 —— 升版只改这里 + 打 tag。
  */
 object AppInfo {
-    const val VERSION_NAME: String = "0.9.11"
-    const val VERSION_CODE: Int = 34
+    const val VERSION_NAME: String = "0.9.16"
+    const val VERSION_CODE: Int = 39
     const val CHANNEL: String = "stable"
     const val BUILD_TYPE: String = "release"
     const val MIN_SDK: Int = 28
