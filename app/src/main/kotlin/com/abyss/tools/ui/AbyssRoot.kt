@@ -70,6 +70,8 @@ import com.abyss.tools.feature.qrcraft.QrCraftScreen
 import com.abyss.tools.feature.sandbox.SandboxScreen
 import com.abyss.tools.feature.scriptlab.ScriptLabScreen
 import com.abyss.tools.feature.settings.SettingsScreen
+import com.abyss.tools.feature.settings.SettingsSectionScreen
+import com.abyss.tools.feature.settings.SettingsSections
 import com.abyss.tools.feature.shizukukit.ShizukuKitScreen
 import com.abyss.tools.feature.syspower.SysControlScreen
 import com.abyss.tools.feature.terminal.TerminalScreen
@@ -93,6 +95,9 @@ sealed interface Screen {
     data class PluginDetail(val pluginId: String) : Screen
     data class Tool(val toolId: String) : Screen
 
+    /** 设置分区子页（FEAT-035）：sectionId ∈ SettingsSections，未知 id fail-closed 丢弃。 */
+    data class SettingsSection(val sectionId: String) : Screen
+
     /** 应用管理器 → 应用详情（v0.4：冻结 / 强停 / 提取等真实动作）。 */
     data class AppManagerDetail(val app: AbyssAppInfo) : Screen
 }
@@ -107,6 +112,7 @@ private fun Screen.stateKey(): String = when (this) {
     Screen.NavHub -> "navhub"
     Screen.Settings -> "settings"
     Screen.PluginHub -> "pluginhub"
+    is Screen.SettingsSection -> "settings:$sectionId"
     is Screen.PluginDetail -> "plugin:$pluginId"
     is Screen.Tool -> "tool:$toolId"
     is Screen.AppManagerDetail -> "appmgr:${app.packageName}"
@@ -157,7 +163,9 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
             Screen.Settings -> 3
             // 详情页（FEAT-034 FR-002）：底栏隐藏（showBottomBar == false），
             // 无 tab 语义 —— fail-closed 返回越界值，绝不误高亮任何一格。
-            is Screen.PluginDetail, is Screen.Tool, is Screen.AppManagerDetail -> -1
+            is Screen.PluginDetail, is Screen.Tool, is Screen.AppManagerDetail,
+            is Screen.SettingsSection,
+            -> -1
         }
 
     fun push(screen: Screen) {
@@ -193,6 +201,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
             Screen.NavHub -> TOKEN_NAVHUB
             Screen.Settings -> TOKEN_SETTINGS
             Screen.PluginHub -> TOKEN_PLUGINHUB
+            is Screen.SettingsSection -> "$PREFIX_SETTINGS${screen.sectionId}"
             is Screen.PluginDetail -> "$PREFIX_PLUGIN${screen.pluginId}"
             is Screen.Tool -> "$PREFIX_TOOL${screen.toolId}"
             is Screen.AppManagerDetail -> "$PREFIX_APPMGR${screen.app.packageName}"
@@ -204,6 +213,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
         private const val TOKEN_NAVHUB = "navhub"
         private const val TOKEN_SETTINGS = "settings"
         private const val TOKEN_PLUGINHUB = "pluginhub"
+        private const val PREFIX_SETTINGS = "settings:"
         private const val PREFIX_PLUGIN = "plugin:"
         private const val PREFIX_TOOL = "tool:"
         private const val PREFIX_APPMGR = "appmgr:"
@@ -218,6 +228,11 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
                     token == TOKEN_NAVHUB -> screens += Screen.NavHub
                     token == TOKEN_SETTINGS -> screens += Screen.Settings
                     token == TOKEN_PLUGINHUB -> screens += Screen.PluginHub
+                    // FEAT-035：设置分区子页 —— 未知 sectionId 整 token 丢弃（fail-closed）
+                    token.startsWith(PREFIX_SETTINGS) -> {
+                        val id = token.removePrefix(PREFIX_SETTINGS)
+                        if (SettingsSections.byId(id) != null) screens += Screen.SettingsSection(id)
+                    }
                     token.startsWith(PREFIX_PLUGIN) -> {
                         val id = token.removePrefix(PREFIX_PLUGIN)
                         if (id.isNotBlank()) screens += Screen.PluginDetail(id)
@@ -369,11 +384,21 @@ fun AbyssRoot(
 
                             Screen.Settings -> SettingsScreen(
                                 settings = registry.settings,
+                                // FEAT-035：分区入口 → push 子页（栈深 2、底栏隐藏）
+                                onOpenSection = { backStack.push(Screen.SettingsSection(it)) },
+                                launcherIcons = registry.launcherIconGateway,
+                                bottomClearance = bottomClearance,
+                            )
+
+                            is Screen.SettingsSection -> SettingsSectionScreen(
+                                sectionId = screen.sectionId,
+                                settings = registry.settings,
                                 updateManager = registry.updateManager,
                                 versionName = AppInfo.VERSION_NAME,
+                                launcherIcons = registry.launcherIconGateway,
                                 onClearPluginCache = { registry.pluginInstaller.clearCache() },
-                                bottomClearance = bottomClearance,
                                 onRestartOnboarding = onReopenOnboarding,
+                                onBack = { backStack.pop() },
                             )
 
                             // FEAT-034 FR-004：插件中心升为顶层 tab —— onBack = null
@@ -390,6 +415,8 @@ fun AbyssRoot(
                                 mirrorPreference = settings.downloadMirror,
                                 onMirrorPreference = { settings.downloadMirror = it },
                                 title = "插件",
+                                // FEAT-037：深渊agent 置顶直达
+                                agentRelease = registry.agentRelease,
                             )
 
                             is Screen.PluginDetail -> PluginDetailScreen(

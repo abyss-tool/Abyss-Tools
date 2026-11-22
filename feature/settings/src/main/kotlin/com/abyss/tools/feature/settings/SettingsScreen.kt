@@ -1,7 +1,10 @@
 package com.abyss.tools.feature.settings
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +20,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -52,10 +60,14 @@ import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.CrashGuard
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.AbyssIndicatorStyle
+import com.abyss.tools.core.common.LauncherIcon
+import com.abyss.tools.core.common.LauncherIconGateway
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
+import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.InfoRow
+import com.abyss.tools.core.designsystem.component.ListRowCard
 import com.abyss.tools.core.designsystem.component.LoadingState
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
@@ -182,6 +194,22 @@ class SettingsRepository(context: Context) {
             prefs.edit().putString(KEY_NAV_INDICATOR_STYLE, value.storageValue).apply()
         }
 
+    private var _launcherIcon by mutableStateOf(
+        com.abyss.tools.core.common.LauncherIcon.from(prefs.getString(KEY_LAUNCHER_ICON, null)),
+    )
+
+    /**
+     * 桌面图标三选一（FEAT-036）：只存字符串 "cyan"/"red"/"blue"；
+     * fail-closed 回退 CYAN。显示缓存 —— 真值以 LauncherIconGateway 的
+     * 组件启停态为准（apply 成功后才写回）。
+     */
+    var launcherIcon: com.abyss.tools.core.common.LauncherIcon
+        get() = _launcherIcon
+        set(value) {
+            _launcherIcon = value
+            prefs.edit().putString(KEY_LAUNCHER_ICON, value.storageValue).apply()
+        }
+
     private companion object {
         const val KEY_GLASS_INTENSITY = "glass_intensity"
         const val KEY_CHECK_ON_LAUNCH = "check_updates_on_launch"
@@ -191,6 +219,7 @@ class SettingsRepository(context: Context) {
         const val KEY_DOWNLOAD_MIRROR = "download_mirror"
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
         const val KEY_NAV_INDICATOR_STYLE = "nav_indicator_style"
+        const val KEY_LAUNCHER_ICON = "launcher_icon"
     }
 }
 
@@ -208,23 +237,241 @@ private sealed interface CheckUi {
 /** 自更新整包下载安装阶段。 */
 private enum class SelfUpdatePhase { IDLE, DOWNLOADING, INSTALLING, DONE, FAILED }
 
+/**
+ * 设置分区注册表（FEAT-035，设计语言参考 Ultra-Guru/Android-Guru-Agent
+ * 设置中心 —— 用户自有项目授权借鉴；实现贴合深渊工具手动 DI 轻壳）。
+ *
+ * sectionId 是返回栈序列化 token 的一部分（`settings:<sectionId>`），
+ * 未知 id 在 AbyssRoot restore 处 fail-closed 丢弃。
+ */
+object SettingsSections {
+    const val PERMISSION = "permission"
+    const val APPEARANCE = "appearance"
+    const val UPDATE = "update"
+    const val ABOUT = "about"
+
+    data class Entry(
+        val id: String,
+        val iconKey: String,
+        val title: String,
+        val summary: String,
+    )
+
+    val ALL: List<Entry> = listOf(
+        Entry(PERMISSION, "security", "权限", "Shizuku / 安装未知应用 / 可选权限一站式复查"),
+        Entry(APPEARANCE, "wallpaper", "界面", "玻璃强度 · 指示器样式 · 动态取色 · 应用图标"),
+        Entry(UPDATE, "update", "更新", "补丁更新 · 更新日志 · 插件索引与缓存"),
+        Entry(ABOUT, "info", "关于", "版本 · 许可与免责声明 · 崩溃取证"),
+    )
+
+    fun byId(id: String): Entry? = ALL.firstOrNull { it.id == id }
+}
+
 @Composable
 fun SettingsScreen(
+    settings: SettingsRepository,
+    onOpenSection: (String) -> Unit,
+    launcherIcons: LauncherIconGateway,
+    bottomClearance: Dp,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp)) {
+                Spacer(Modifier.size(10.dp))
+                Text(
+                    text = "设置",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.size(10.dp))
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    bottom = bottomClearance,
+                ),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // 分区入口卡（FEAT-035）：错峰 Box 只包卡片（标题在页头，
+                // 不与卡片同框 —— v0.9.x「文字重叠」病灶防线）。
+                items(
+                    count = SettingsSections.ALL.size,
+                    key = { index -> "section-${SettingsSections.ALL[index].id}" },
+                ) { index ->
+                    val entry = SettingsSections.ALL[index]
+                    Box(Modifier.fillMaxWidth().entranceStagger(index)) {
+                        ListRowCard(
+                            icon = AbyssIcons.icon(entry.iconKey),
+                            title = entry.title,
+                            summary = entry.summary,
+                            onClick = { onOpenSection(entry.id) },
+                        )
+                    }
+                }
+            }
+        }
+
+        // 沉在悬浮玻璃底栏上方（bottomClearance 与列表底部预留同一基准），
+        // 瞬时确认不遮挡列表关键内容。
+        SnackbarHost(
+            hostState = remember { SnackbarHostState() },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = bottomClearance),
+        )
+    }
+}
+
+/** 设置分区子页公共页头（与 NavHub DetailHeader 同构；settings 模块独立持有）。 */
+@Composable
+private fun SettingsDetailHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * 设置分区子页（FEAT-035 FR-003）：能力零删减重组 —— 全部既有设置项
+ * 语义与行为逐字不变（FR-005 零回归底线）；未知 sectionId 诚实报错
+ * （fail-closed，不猜）。
+ */
+@Composable
+fun SettingsSectionScreen(
+    sectionId: String,
+    settings: SettingsRepository,
+    updateManager: UpdateManager,
+    versionName: String,
+    launcherIcons: LauncherIconGateway,
+    onClearPluginCache: () -> Unit,
+    onRestartOnboarding: (() -> Unit)?,
+    onBack: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        SettingsDetailHeader(
+            title = SettingsSections.byId(sectionId)?.title ?: "设置",
+            onBack = onBack,
+        )
+        when (sectionId) {
+            SettingsSections.PERMISSION -> PermissionSectionPage(
+                onRestartOnboarding = onRestartOnboarding,
+            )
+            SettingsSections.APPEARANCE -> AppearanceSectionPage(
+                settings = settings,
+                launcherIcons = launcherIcons,
+            )
+            SettingsSections.UPDATE -> UpdateSectionPage(
+                settings = settings,
+                updateManager = updateManager,
+                versionName = versionName,
+                onClearPluginCache = onClearPluginCache,
+            )
+            SettingsSections.ABOUT -> AboutSectionPage(
+                versionName = versionName,
+            )
+            else -> Column(Modifier.padding(20.dp)) {
+                Text(
+                    text = "未知设置分区：$sectionId",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionSectionPage(onRestartOnboarding: (() -> Unit)?) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
+        if (onRestartOnboarding != null) {
+            Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                OnboardingSectionCard(onRestart = onRestartOnboarding)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppearanceSectionPage(
+    settings: SettingsRepository,
+    launcherIcons: LauncherIconGateway,
+) {
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
+            Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                GlassIntensityCard(settings)
+            }
+            // FEAT-036：应用图标三选一（碧眼/绯眼/隐眼）
+            Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                LauncherIconCard(
+                    settings = settings,
+                    launcherIcons = launcherIcons,
+                    onFeedback = { message ->
+                        scope.launch { snackbarHostState.showSnackbar(message) }
+                    },
+                )
+            }
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+@Composable
+private fun UpdateSectionPage(
     settings: SettingsRepository,
     updateManager: UpdateManager,
     versionName: String,
     onClearPluginCache: () -> Unit,
-    bottomClearance: Dp,
-    onRestartOnboarding: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
-
-    // 底部反馈宿主：瞬时动作（清插件缓存这类静默完成型）完成后给人话确认，
-    // 否则用户无从得知点下去到底生没生效。
     val snackbarHostState = remember { SnackbarHostState() }
 
     var checkUi by remember { mutableStateOf<CheckUi>(CheckUi.Idle) }
-    var showLicense by remember { mutableStateOf(false) }
 
     // ── 更新日志查看 ─────────────────────────────────────────────────
     var showChangelog by remember { mutableStateOf(false) }
@@ -306,129 +553,85 @@ fun SettingsScreen(
         }
     }
 
-    // Box 外壳只为给 SnackbarHost 提供底部对齐锚点；列表仍 fillMaxSize，
-    // 内容照旧滚到玻璃底栏下方（采样源语义不变）。
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp)) {
-                Spacer(Modifier.size(10.dp))
-                Text(
-                    text = "设置",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
+            Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                UpdateSectionCard(
+                    checkUi = checkUi,
+                    settings = settings,
+                    selfPhase = selfPhase,
+                    selfProgress = selfProgress,
+                    selfFailure = selfFailure,
+                    onCheck = checkUpdate,
+                    onDownloadAndInstall = downloadAndInstall,
+                    onOpenChangelog = openChangelog,
                 )
-                Spacer(Modifier.size(10.dp))
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    bottom = bottomClearance,
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // ── 外观：液态玻璃强度（实时生效）─────────────────────
-                // 错峰入场（v0.7.6）：错峰 Box 只包卡片。标题必须在 Box 外 ——
-                // Box 子项默认 TopStart 堆叠，标题与卡片同框会与半透明卡面
-                // 内容重叠（v0.9.x 全仓「文字重叠」病灶，本文件五区同修）。
-                item {
-                    Column {
-                        SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
-                        Box(Modifier.fillMaxWidth().entranceStagger(0)) {
-                            GlassIntensityCard(settings)
-                        }
-                    }
-                }
-
-                // ── 补丁更新 ─────────────────────────────────────────────
-                item {
-                    Column {
-                        SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
-                        Box(Modifier.fillMaxWidth().entranceStagger(1)) {
-                            UpdateSectionCard(
-                                checkUi = checkUi,
-                                settings = settings,
-                                selfPhase = selfPhase,
-                                selfProgress = selfProgress,
-                                selfFailure = selfFailure,
-                                onCheck = checkUpdate,
-                                onDownloadAndInstall = downloadAndInstall,
-                                onOpenChangelog = openChangelog,
-                            )
-                        }
-                    }
-                }
-
-                // ── 插件 ─────────────────────────────────────────────────
-                item {
-                    Column {
-                        SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
-                        Box(Modifier.fillMaxWidth().entranceStagger(2)) {
-                            PluginSectionCard(
-                                onClearPluginCache = {
-                                    onClearPluginCache()
-                                    // 清的是磁盘目录，界面上零可见变化 —— 不补
-                                    // 一句确认，用户无法判断动作是否生效。
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("插件缓存已清除")
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-
-                // ── 诊断（v0.7.0：崩溃防护网本地取证）────────────────────
-                item {
-                    Column {
-                        SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
-                        Box(Modifier.fillMaxWidth().entranceStagger(3)) {
-                            DiagnosticsCard()
-                        }
-                    }
-                }
-
-                // ── 权限与新手引导 ──────────────────────────────────────
-                if (onRestartOnboarding != null) {
-                    item {
-                        Column {
-                            SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
-                            Box(Modifier.fillMaxWidth().entranceStagger(4)) {
-                                OnboardingSectionCard(onRestart = onRestartOnboarding)
-                            }
-                        }
-                    }
-                }
-
-                // ── 关于 ─────────────────────────────────────────────────
-                item {
-                    Column {
-                        SectionHeader(title = "关于")
-                        Box(Modifier.fillMaxWidth().entranceStagger(5)) {
-                            AboutCard(
-                                versionName = versionName,
-                                onShowLicense = { showLicense = true },
-                            )
-                        }
-                    }
-                }
+            SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
+            Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+                PluginSectionCard(
+                    onClearPluginCache = {
+                        onClearPluginCache()
+                        // 清的是磁盘目录，界面上零可见变化 —— 不补一句确认，
+                        // 用户无法判断动作是否生效。
+                        scope.launch { snackbarHostState.showSnackbar("插件缓存已清除") }
+                    },
+                )
             }
         }
 
-        // 沉在悬浮玻璃底栏上方（bottomClearance 与列表底部预留同一基准），
-        // 瞬时确认不遮挡列表关键内容。
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(start = 16.dp, end = 16.dp, bottom = bottomClearance),
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
+
+    if (showChangelog) {
+        ChangelogDialog(
+            state = changelogState,
+            onDismiss = { showChangelog = false },
+            onRetry = {
+                scope.launch {
+                    changelogState = UiState.Loading
+                    changelogState = updateManager.fetchChangelog().toUiState()
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AboutSectionPage(versionName: String) {
+    var showLicense by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SectionHeader(title = "关于")
+        Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+            AboutCard(
+                versionName = versionName,
+                onShowLicense = { showLicense = true },
+            )
+        }
+        // 诊断（v0.7.0：崩溃防护网本地取证）—— 关于区副项（FEAT-035 归组）
+        SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
+        Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+            DiagnosticsCard()
+        }
     }
 
     if (showLicense) {
@@ -451,18 +654,124 @@ fun SettingsScreen(
             },
         )
     }
+}
 
-    if (showChangelog) {
-        ChangelogDialog(
-            state = changelogState,
-            onDismiss = { showChangelog = false },
-            onRetry = {
-                scope.launch {
-                    changelogState = UiState.Loading
-                    changelogState = updateManager.fetchChangelog().toUiState()
+/**
+ * 应用图标三选一（FEAT-036）：三张前景预览卡，选中 = 主色描边 +
+ * StatusChip 回显；切换走 LauncherIconGateway（PackageManager 别名互斥
+ * 启停，阻塞调用切 IO 线程），成功才写偏好，失败人话回执不崩。
+ */
+@Composable
+private fun LauncherIconCard(
+    settings: SettingsRepository,
+    launcherIcons: LauncherIconGateway,
+    onFeedback: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    // 真值源：gateway 组件态（切换成功后本地刷新 —— 组件态非 Compose state，
+    // 用本地快照驱动选中描边重绘）。
+    var currentIcon by remember { mutableStateOf(launcherIcons.current()) }
+    val busy = remember { mutableStateOf(false) }
+
+    AbyssGlassSurface(
+        backdrop = null,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "应用图标",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                StatusChip(
+                    text = currentIcon.label,
+                    tone = ChipTone.INFO,
+                )
+            }
+            Spacer(Modifier.size(6.dp))
+            Text(
+                text = "三款深渊之眼随选随换（桌面即时生效；图标刷新可能延迟数秒，部分设备会重启应用）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.size(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LauncherIcon.entries.forEach { icon ->
+                    val selected = currentIcon == icon
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable(enabled = !busy.value) {
+                                if (busy.value || selected) return@clickable
+                                busy.value = true
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        launcherIcons.apply(icon)
+                                    }
+                                    busy.value = false
+                                    result
+                                        .onSuccess {
+                                            currentIcon = icon
+                                            settings.launcherIcon = icon
+                                            onFeedback("已切换为「${icon.label}」——桌面图标稍后刷新")
+                                        }
+                                        .onFailure {
+                                            onFeedback(it.message ?: "图标切换失败")
+                                        }
+                                }
+                            }
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(MaterialTheme.shapes.large)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(
+                                            width = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = MaterialTheme.shapes.large,
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(
+                                painter = painterResource(
+                                    when (icon) {
+                                        LauncherIcon.CYAN -> com.abyss.tools.core.designsystem.R.drawable.ic_launcher_foreground
+                                        LauncherIcon.RED -> com.abyss.tools.core.designsystem.R.drawable.ic_launcher_foreground_red
+                                        LauncherIcon.BLUE -> com.abyss.tools.core.designsystem.R.drawable.ic_launcher_foreground_blue
+                                    },
+                                ),
+                                contentDescription = icon.label,
+                                modifier = Modifier.size(48.dp),
+                            )
+                        }
+                        Spacer(Modifier.size(6.dp))
+                        Text(
+                            text = icon.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                 }
-            },
-        )
+            }
+        }
     }
 }
 

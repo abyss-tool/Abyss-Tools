@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.CrashGuard
+import com.abyss.tools.core.common.LauncherIconGateway
 import com.abyss.tools.core.common.diagnostics.DiagnosticsLog
 import com.abyss.tools.core.common.diagnostics.DiagnosticExporter
 import com.abyss.tools.core.plugin.PluginChannelClient
@@ -12,6 +13,7 @@ import com.abyss.tools.core.plugin.PluginRepository
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuMonitor
 import com.abyss.tools.core.shell.ShizukuShellGateway
+import com.abyss.tools.core.update.AgentReleaseManager
 import com.abyss.tools.core.update.HttpTransport
 import com.abyss.tools.core.update.MirrorRouter
 import com.abyss.tools.core.update.MirroredTransport
@@ -38,6 +40,12 @@ object ServiceRegistry {
     lateinit var channelClient: PluginChannelClient
     lateinit var pluginInstaller: PluginInstaller
     lateinit var updateManager: UpdateManager
+
+    /** 桌面图标三选一网关（FEAT-036，PackageManager 别名互斥启停实现）。 */
+    lateinit var launcherIconGateway: LauncherIconGateway
+
+    /** 深渊agent 直达下载（FEAT-037，Guru 发布仓通道 + 镜像链 + 网关安装）。 */
+    lateinit var agentRelease: AgentReleaseManager
 
     /**
      * 镜像路由器（v0.7.0）：插件中心 / 设置页「测速」共享同一份探测缓存，
@@ -86,6 +94,18 @@ object ServiceRegistry {
         // APK 安装网关（真实实现）：宿主自更新与 APK 插件共用同一条
         // PackageInstaller 通道（同签名门禁 + 用户确认页转发 + 结果广播等待）。
         val apkGateway = PackageInstallerApkGateway(appContext)
+
+        // FEAT-036：桌面图标三选一（activity-alias 互斥启停）
+        launcherIconGateway = PackageLauncherIconGateway(appContext)
+
+        // FEAT-037：深渊agent 直达下载（Guru 发布仓 version.json 固定通道；
+        // 走同一镜像感知 transport —— 下载资产自动吃 MirrorRouter 镜像链）
+        agentRelease = AgentReleaseManager(
+            transport = baseTransport,
+            versionJsonUrl = AbyssChannels.AGENT_VERSION_JSON,
+            cacheDir = File(appContext.filesDir, "agent"),
+            apkGateway = apkGateway,
+        )
 
         // 插件域：索引（插件中心仓）+ 补丁通道 + 安装器
         pluginRepository = PluginRepository(pluginIndexSigned, AbyssChannels.PLUGIN_INDEX_JSON)

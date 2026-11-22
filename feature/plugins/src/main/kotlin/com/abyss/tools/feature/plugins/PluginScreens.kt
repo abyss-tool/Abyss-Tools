@@ -75,6 +75,9 @@ import com.abyss.tools.core.plugin.PluginPatch
 import com.abyss.tools.core.plugin.PluginPatchChannel
 import com.abyss.tools.core.plugin.PluginPermission
 import com.abyss.tools.core.plugin.PluginRepository
+import com.abyss.tools.core.update.AgentReleaseManager
+import com.abyss.tools.core.update.AgentReleaseManifest
+import com.abyss.tools.core.update.DownloadInfo
 import com.abyss.tools.core.update.MirrorRouter
 import com.abyss.tools.core.update.PatchReport
 import com.kyant.backdrop.Backdrop
@@ -127,6 +130,8 @@ fun PluginHubScreen(
     mirrorPreference: String = MIRROR_AUTO,
     onMirrorPreference: (String) -> Unit = {},
     title: String = "插件中心",
+    /** 深渊agent 直达下载（FEAT-037）：null = 未装配（服务未初始化时隐藏置顶卡）。 */
+    agentRelease: AgentReleaseManager? = null,
 ) {
     var indexState by remember { mutableStateOf<UiState<PluginIndex>>(UiState.Loading) }
     var retryKey by remember { mutableStateOf(0) }
@@ -245,6 +250,18 @@ fun PluginHubScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        // ── 深渊agent（FEAT-037）：置顶直达 —— 姊妹项目
+                        //    Ultra-Guru/Android-Guru-Agent 独立 APK，多镜像
+                        //    下载 + sha256 强校验 + 系统安装器。置顶于镜像区
+                        //    之前（用户指定「插件页面置顶」）。────────────────
+                        if (agentRelease != null) {
+                            item(key = "agent-pinned") {
+                                Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+                                    AgentPinnedCard(manager = agentRelease)
+                                }
+                            }
+                        }
+
                         // ── 下载镜像（v0.7.0：国内反代 + 延迟实测）──────────
                         // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，区块零改动。
                         if (mirrorRouter != null) {
@@ -1824,4 +1841,405 @@ internal fun PermissionReviewDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  深渊agent 置顶直达（FEAT-037）
+// ═══════════════════════════════════════════════════════════════════════
+
+/** 深渊agent 下载安装阶段（与自更新 SelfUpdate 同构的阶段语义）。 */
+private enum class AgentPhase { IDLE, DOWNLOADING, INSTALLING, DONE, FAILED }
+
+/**
+ * 「深渊agent」置顶卡：姊妹项目 Ultra-Guru/Android-Guru-Agent 的独立 APK
+ * 直达下载 —— 通道清单（Guru 发布仓 version.json）→ 多镜像下载
+ * （MirrorRouter 自动择优回退）→ sha256 强校验（fail-closed）→ 系统安装器。
+ *
+ * UiState 三态纪律：清单 Loading / Error(重试) / Data，加载中禁止假数据；
+ * 未知变体键不猜（assetOf 显式命中）。安装走 ApkInstallGateway（插件 APK
+ * 同路径，无发布者指纹门禁），非插件、非自更新 —— 确认对话框如实声明。
+ */
+@Composable
+private fun AgentPinnedCard(manager: AgentReleaseManager) {
+    val scope = rememberCoroutineScope()
+
+    var manifestState by remember { mutableStateOf<UiState<AgentReleaseManifest>>(UiState.Loading) }
+    var retryKey by remember { mutableStateOf(0) }
+    var variantKey by remember { mutableStateOf<String?>(null) }
+
+    var phase by remember { mutableStateOf(AgentPhase.IDLE) }
+    var progress by remember { mutableFloatStateOf(-1f) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    var showConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(retryKey) {
+        manifestState = UiState.Loading
+        manifestState = withContext(Dispatchers.IO) {
+            runCatching { manager.fetchManifest() }.toUiState()
+        }
+        // 设备 ABI 默认变体：arm64-v8a 设备优先 arm64（体积最小），否则 universal
+        val manifest = (manifestState as? UiState.Data)?.value ?: return@LaunchedEffect
+        variantKey = when {
+            manifest.download.containsKey("arm64") &&
+                android.os.Build.SUPPORTED_ABIS.any { it.startsWith("arm64-v8a") } -> "arm64"
+            else -> manifest.defaultVariantKey()
+        }
+    }
+
+    AbyssGlassSurface(
+        backdrop = null,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "🤖", style = MaterialTheme.typography.headlineSmall)
+                }
+                Spacer(Modifier.size(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "深渊agent",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Ultra-Guru/Android-Guru-Agent · 置顶直达",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                when (val s = manifestState) {
+                    is UiState.Data -> StatusChip(
+                        text = "v${s.value.versionName}",
+                        tone = ChipTone.INFO,
+                    )
+                    else -> {}
+                }
+            }
+            Spacer(Modifier.size(10.dp))
+
+            when (val s = manifestState) {
+                is UiState.Loading -> LoadingState("正在拉取深渊agent通道清单…", Modifier.fillMaxWidth())
+                is UiState.Error -> ErrorState(
+                    message = "深渊agent通道拉取失败：${s.message}",
+                    modifier = Modifier.fillMaxWidth(),
+                    onRetry = { retryKey++ },
+                )
+                is UiState.Data -> {
+                    val manifest = s.value
+                    val asset = manifest.assetOf(variantKey)
+                    val busy = phase == AgentPhase.DOWNLOADING || phase == AgentPhase.INSTALLING
+
+                    // 变体选择（通道内实际存在的键，未知键不猜）
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        manifest.download.keys.forEach { key ->
+                            androidx.compose.material3.FilterChip(
+                                selected = variantKey == key,
+                                onClick = { if (!busy) variantKey = key },
+                                label = { Text(key) },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.size(8.dp))
+
+                    InfoRow(
+                        label = "版本 / 发布",
+                        value = "${manifest.resolvedTag} · ${manifest.publishedAt ?: "未知时间"}",
+                    )
+                    if (asset != null) {
+                        InfoRow(
+                            label = "大小 / SHA-256",
+                            value = "${humanizeBytes(asset.sizeBytes)} · sha256 ${asset.sha256?.take(8) ?: "—"}…",
+                        )
+                    }
+
+                    Spacer(Modifier.size(8.dp))
+                    if (phase == AgentPhase.DOWNLOADING) {
+                        if (progress >= 0f) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                        }
+                        Text(
+                            text = "下载中（多镜像自动择优回退）…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (phase == AgentPhase.INSTALLING) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(
+                            text = "已交系统安装器，等待确认…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Button(
+                            onClick = { showConfirm = true },
+                            enabled = asset != null && !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (phase == AgentPhase.DONE) "再次下载安装" else "下载并安装")
+                        }
+                    }
+                    if (phase == AgentPhase.DONE) {
+                        Text(
+                            text = "安装流程完成 ✓（若系统弹窗已取消，可重新安装）",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (phase == AgentPhase.FAILED && failure != null) {
+                        Text(
+                            text = failure!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (asset != null) {
+                        val a = asset
+                        if (showConfirm && !busy) {
+                            AlertDialog(
+                                onDismissRequest = { showConfirm = false },
+                                title = { Text("安装深渊agent ${manifest.resolvedTag}") },
+                                text = {
+                                    Text(
+                                        text = "来源：Ultra-Guru/Android-Gur
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  深渊agent 置顶直达（FEAT-037）
+// ═══════════════════════════════════════════════════════════════════════
+
+/** 深渊agent 下载安装阶段（与自更新 SelfUpdate 同构的阶段语义）。 */
+private enum class AgentPhase { IDLE, DOWNLOADING, INSTALLING, DONE, FAILED }
+
+/** 体积人话（MB 级 APK 资产展示用；settings 侧同名函数不可跨模块私有复用）。 */
+private fun agentBytesHuman(bytes: Long): String = when {
+    bytes >= 1 shl 30 -> String.format(java.util.Locale.ROOT, "%.2f GB", bytes / 1073741824.0)
+    bytes >= 1 shl 20 -> String.format(java.util.Locale.ROOT, "%.1f MB", bytes / 1048576.0)
+    bytes >= 1 shl 10 -> String.format(java.util.Locale.ROOT, "%.1f KB", bytes / 1024.0)
+    else -> "$bytes B"
+}
+
+/**
+ * 「深渊agent」置顶卡：姊妹项目 Ultra-Guru/Android-Guru-Agent 的独立 APK
+ * 直达下载 —— 通道清单（Guru 发布仓 version.json）→ 多镜像下载
+ * （MirrorRouter 自动择优回退）→ sha256 强校验（fail-closed）→ 系统安装器。
+ *
+ * UiState 三态纪律：清单 Loading / Error(重试) / Data，加载中禁止假数据；
+ * 未知变体键不猜（assetOf 显式命中）。安装走 ApkInstallGateway（插件 APK
+ * 同路径，无发布者指纹门禁），非插件、非自更新 —— 确认对话框如实声明。
+ */
+@Composable
+private fun AgentPinnedCard(manager: AgentReleaseManager) {
+    val scope = rememberCoroutineScope()
+
+    var manifestState by remember { mutableStateOf<UiState<AgentReleaseManifest>>(UiState.Loading) }
+    var retryKey by remember { mutableStateOf(0) }
+    var variantKey by remember { mutableStateOf<String?>(null) }
+
+    var phase by remember { mutableStateOf(AgentPhase.IDLE) }
+    var progress by remember { mutableFloatStateOf(-1f) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    var showConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(retryKey) {
+        manifestState = UiState.Loading
+        manifestState = withContext(Dispatchers.IO) {
+            runCatching { manager.fetchManifest() }.toUiState()
+        }
+        // 设备 ABI 默认变体：arm64-v8a 设备优先 arm64（体积最小），否则 universal
+        val manifest = (manifestState as? UiState.Data)?.value ?: return@LaunchedEffect
+        variantKey = when {
+            manifest.download.containsKey("arm64") &&
+                android.os.Build.SUPPORTED_ABIS.any { it.startsWith("arm64-v8a") } -> "arm64"
+            else -> manifest.defaultVariantKey()
+        }
+    }
+
+    AbyssGlassSurface(
+        backdrop = null,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "🤖", style = MaterialTheme.typography.headlineSmall)
+                }
+                Spacer(Modifier.size(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "深渊agent",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Ultra-Guru/Android-Guru-Agent · 置顶直达",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                when (val s = manifestState) {
+                    is UiState.Data -> StatusChip(
+                        text = "v" + s.value.versionName,
+                        tone = ChipTone.INFO,
+                    )
+                    else -> {}
+                }
+            }
+            Spacer(Modifier.size(10.dp))
+
+            when (val s = manifestState) {
+                is UiState.Loading -> LoadingState("正在拉取深渊agent通道清单…", Modifier.fillMaxWidth())
+                is UiState.Error -> ErrorState(
+                    message = "深渊agent通道拉取失败：" + (s.message ?: ""),
+                    modifier = Modifier.fillMaxWidth(),
+                    onRetry = { retryKey++ },
+                )
+                is UiState.Data -> {
+                    val manifest = s.value
+                    val asset = manifest.assetOf(variantKey)
+                    val busy = phase == AgentPhase.DOWNLOADING || phase == AgentPhase.INSTALLING
+
+                    // 变体选择（通道内实际存在的键，未知键不猜）
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        manifest.download.keys.forEach { key ->
+                            androidx.compose.material3.FilterChip(
+                                selected = variantKey == key,
+                                onClick = { if (!busy) variantKey = key },
+                                label = { Text(key) },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.size(8.dp))
+
+                    InfoRow(
+                        label = "版本 / 发布",
+                        value = manifest.resolvedTag + " · " + (manifest.publishedAt ?: "未知时间"),
+                    )
+                    if (asset != null) {
+                        InfoRow(
+                            label = "大小 / SHA-256",
+                            value = agentBytesHuman(asset.sizeBytes) + " · sha256 " +
+                                (asset.sha256?.take(8) ?: "—") + "…",
+                        )
+                    }
+
+                    Spacer(Modifier.size(8.dp))
+                    if (phase == AgentPhase.DOWNLOADING) {
+                        if (progress >= 0f) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                        }
+                        Text(
+                            text = "下载中（多镜像自动择优回退）…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (phase == AgentPhase.INSTALLING) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(
+                            text = "已交系统安装器，等待确认…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Button(
+                            onClick = { showConfirm = true },
+                            enabled = asset != null && !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (phase == AgentPhase.DONE) "再次下载安装" else "下载并安装")
+                        }
+                    }
+                    if (phase == AgentPhase.DONE) {
+                        Text(
+                            text = "安装流程完成 ✓（若系统弹窗被取消，可重新安装）",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (phase == AgentPhase.FAILED && failure != null) {
+                        Text(
+                            text = failure.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    val a = asset
+                    if (a != null && showConfirm && !busy) {
+                        AlertDialog(
+                            onDismissRequest = { showConfirm = false },
+                            title = { Text("安装深渊agent " + manifest.resolvedTag) },
+                            text = {
+                                Text(
+                                    text = "来源：Ultra-Guru/Android-Guru-Agent（姊妹项目独立 APK，非插件）\n" +
+                                        "变体：" + variantKey + " · " + agentBytesHuman(a.sizeBytes) + "\n" +
+                                        "SHA-256：" + a.sha256 + "\n\n" +
+                                        "下载经多镜像加速并强校验摘要后交系统安装器。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        showConfirm = false
+                                        phase = AgentPhase.DOWNLOADING
+                                        failure = null
+                                        scope.launch {
+                                            try {
+                                                val file = withContext(Dispatchers.IO) {
+                                                    manager.downloadVerified(a) { read, total ->
+                                                        progress = if (total > 0) read.toFloat() / total else -1f
+                                                    }
+                                                }
+                                                phase = AgentPhase.INSTALLING
+                                                val installed = withContext(Dispatchers.IO) {
+                                                    manager.install(file)
+                                                }
+                                                installed
+                                                    .onSuccess { phase = AgentPhase.DONE }
+                                                    .onFailure {
+                                                        phase = AgentPhase.FAILED
+                                                        failure = it.message ?: "安装失败"
+                                                    }
+                                            } catch (e: Exception) {
+                                                phase = AgentPhase.FAILED
+                                                failure = e.message ?: "下载失败"
+                                            }
+                                        }
+                                    },
+                                ) { Text("下载并安装") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showConfirm = false }) { Text("取消") }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
