@@ -1,71 +1,158 @@
 package com.abyss.tools.core.update
 
-import com.abyss.tools.core.common.diagnostics.DiagnosticsLog
-import java.io.IOException
-import java.net.UnknownHostException
-import java.net.SocketTimeoutException
-import javax.net.ssl.SSLException
-
 /**
- * 更新链失败分类器（N-UPD-003，M1 P1）。
+ * N-UPD-003 · 更新失败原因
  *
- * 把网络 / 解析 / 签名 / 下载 / 校验 / 安装各阶段的异常映射为稳定的
- * 失败类别码，供诊断中心聚合展示与一键反馈；分类结果不向任何远端回传，
- * 仅本地记录。
+ * 统一归类所有失败路径的原因，供 UI 展示人话提示 + 诊断导出。
+ * 每个原因必须有：
+ * - userMessage: 用户侧人话（不暴露堆栈/URL）
+ * - recoverable: 用户是否可以自行恢复
+ * - category: 分类标签（network / security / storage / install / parse / unknown）
  */
-enum class UpdateFailureCategory(val label: String, val humanMessage: String) {
-    NETWORK_UNREACHABLE("网络不可达", "无法连接到更新服务器，请检查网络后重试"),
-    NETWORK_TIMEOUT("超时", "连接服务器超时，可能是网络波动或镜像未同步"),
-    SSL_ERROR("证书错误", "TLS 证书校验失败，网络可能被劫持"),
-    HTTP_ERROR("HTTP 错误", "服务器返回异常状态码"),
-    HOST_BLOCKED("域白名单拦截", "更新通道被导到非白名单域，疑似被劫持"),
-    SIGNATURE_INVALID("清单签名校验失败", "通道清单 detached 签名校验失败，已拒绝"),
-    MANIFEST_PARSE("清单解析失败", "通道清单格式非法，可能为镜像未同步"),
-    DIGEST_MISMATCH("摘要校验失败", "下载文件 SHA-256 摘要与清单不符，已拒绝安装"),
-    PATCH_BROKEN("补丁应用失败", "增量补丁已损坏，自动回退整包下载"),
-    INSTALL_BLOCKED("安装被系统拦截", "系统安装器拒绝（签名不一致/版本降级/空间不足）"),
-    INSUFFICIENT_SPACE("空间不足", "设备存储空间不足，请清理后重试"),
-    CANCELLED("用户取消", "用户取消了下载/安装"),
-    UNKNOWN("未知错误", "发生未知错误，可在诊断中心查看详情");
+enum class UpdateFailureReason(
+    val userMessage: String,
+    val recoverable: Boolean,
+    val category: String
+) {
+    NETWORK_UNREACHABLE("网络不可用，请检查 Wi-Fi/移动数据后重试", true, "network"),
+    DNS_LOOKUP_FAILED("无法解析更新服务器地址，请切换网络后重试", true, "network"),
+    CONNECTION_TIMEOUT("连接服务器超时，请稍后重试", true, "network"),
+    SSL_HANDSHAKE_FAILED("安全连接失败，可能被中间人劫持或证书异常", false, "network"),
+    HTTP_4XX_CLIENT("请求被服务器拒绝（%d）", false, "network"),
+    HTTP_5XX_SERVER("服务器暂时不可用（%d），请稍后重试", true, "network"),
+    HTTP_REDIRECT_TO_UNTRUSTED_HOST("服务器重定向到不可信域名，已拦截", false, "network"),
+    MIRROR_ALL_UNREACHABLE("所有镜像均不可达，请稍后再试", true, "network"),
 
-    companion object {
-        fun fromThrowable(t: Throwable?): UpdateFailureCategory = when (t) {
-            is UnknownHostException -> NETWORK_UNREACHABLE
-            is SocketTimeoutException -> NETWORK_TIMEOUT
-            is SSLException -> SSL_ERROR
-            is com.abyss.tools.core.common.security.SignatureVerificationException -> SIGNATURE_INVALID
-            is java.net.ConnectException -> NETWORK_UNREACHABLE
-            else -> {
-                val msg = t?.message?.lowercase() ?: ""
-                when {
-                    "timeout" in msg -> NETWORK_TIMEOUT
-                    "cert" in msg || "ssl" in msg -> SSL_ERROR
-                    "白名单" in msg || "不在白名单" in msg -> HOST_BLOCKED
-                    "http " in msg && t is IOException -> HTTP_ERROR
-                    "sha256" in msg || "摘要" in msg || "digest" in msg -> DIGEST_MISMATCH
-                    "补丁" in msg && "失败" in msg -> PATCH_BROKEN
-                    "签名" in msg && ("不一致" in msg || "不符" in msg) -> INSTALL_BLOCKED
-                    "空间" in msg || "space" in msg -> INSUFFICIENT_SPACE
-                    "取消" in msg || "cancel" in msg -> CANCELLED
-                    "非法" in msg || "parse" in msg || "json" in msg -> MANIFEST_PARSE
-                    else -> UNKNOWN
-                }
-            }
-        }
+    SIGNATURE_MISSING("更新文件缺少数字签名，已拒绝安装", false, "security"),
+    SIGNATURE_VERIFICATION_FAILED("签名校验失败，文件可能被篡改", false, "security"),
+    CHECKSUM_MISMATCH("文件哈希校验不匹配，下载已损坏，请切换网络重试", true, "security"),
+    PUBLISHER_KEY_MISMATCH("发布者公钥不匹配，已拒绝安装", false, "security"),
+
+    STORAGE_INSUFFICIENT("存储空间不足，请清理后重试（至少需要 %s）", true, "storage"),
+    PART_FILE_CORRUPTED("断点文件损坏，将重新下载", true, "storage"),
+    WRITE_PERMISSION_DENIED("无写入权限，请检查存储授权", true, "storage"),
+
+    INDEX_PARSE_FAILED("更新清单格式异常，请联系开发者", false, "parse"),
+    MANIFEST_DRIFT("归档仓清单版本漂移，当前版本已无法识别该清单", false, "parse"),
+
+    INSTALL_PARSE_APK_BAD("APK 文件损坏或格式不合法", true, "install"),
+    INSTALL_SIGNATURE_MISMATCH("安装包签名与已装版本不一致，需卸载旧版", true, "install"),
+    INSTALL_VERSION_DOWNGRADE("无法降级安装，当前已是更高版本", true, "install"),
+    INSTALL_INSUFFICIENT_STORAGE("安装空间不足", true, "install"),
+    INSTALL_USER_REJECTED("您取消了安装", true, "install"),
+    INSTALL_ABORTED("安装被系统中止", true, "install"),
+    INSTALL_BLOCKED("安装被系统拦截，请在系统设置中允许安装来源", true, "install"),
+
+    PATCH_PARSE_FAILED("补丁文件格式异常", false, "install"),
+    PATCH_APPLY_FAILED("补丁合成失败，请重新下载完整包", true, "install"),
+    PATCH_VERIFY_FAILED("补丁合成后校验失败", true, "install"),
+
+    UNKNOWN("更新失败：%s", true, "unknown")
+}
+
+data class UpdateFailure(
+    val reason: UpdateFailureReason,
+    val message: String,
+    val code: Int? = null,
+    val throwable: Throwable? = null
+) {
+    fun formatUserMessage(): String = when (reason) {
+        UpdateFailureReason.HTTP_4XX_CLIENT,
+        UpdateFailureReason.HTTP_5XX_SERVER -> reason.userMessage.format(code ?: 0)
+        UpdateFailureReason.STORAGE_INSUFFICIENT -> reason.userMessage.format(message)
+        UpdateFailureReason.UNKNOWN -> reason.userMessage.format(message)
+        else -> reason.userMessage
     }
 }
 
-/** 带分类的失败结果，便于 UI 层直接展示人话文案。 */
-data class ClassifiedUpdateFailure(
-    val category: UpdateFailureCategory,
-    val cause: Throwable?,
-    val detail: String? = cause?.message,
-) {
-    val humanMessage: String get() = category.humanMessage
-}
+/**
+ * N-UPD-003 · 失败分类器：把任意 throwable / HTTP 状态映射为 UpdateFailure
+ */
+object UpdateFailureClassifier {
 
-fun Throwable.toClassifiedFailure(): ClassifiedUpdateFailure {
-    val cat = UpdateFailureCategory.fromThrowable(this)
-    DiagnosticsLog.error(DiagnosticsLog.Kind.UPDATE_CHECK, cat.label, message ?: "(无细节)")
-    return ClassifiedUpdateFailure(cat, this)
+    fun classify(throwable: Throwable, context: String = ""): UpdateFailure {
+        val msg = throwable.message ?: context
+        val cls = throwable.javaClass.simpleName
+        return when {
+            msg.contains("SignatureVerificationException", ignoreCase = true)
+                || cls.contains("SignatureVerif") ->
+                UpdateFailure(UpdateFailureReason.SIGNATURE_VERIFICATION_FAILED, msg)
+            msg.contains("MissingSignature", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.SIGNATURE_MISSING, msg)
+            msg.contains("PublisherKeyMismatch", ignoreCase = true)
+                || msg.contains("public key mismatch", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.PUBLISHER_KEY_MISMATCH, msg)
+            msg.contains("checksum mismatch", ignoreCase = true)
+                || msg.contains("sha256 mismatch", ignoreCase = true)
+                || msg.contains("digest mismatch", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.CHECKSUM_MISMATCH, msg)
+            msg.contains("dns", ignoreCase = true)
+                || msg.contains("UnknownHost", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.DNS_LOOKUP_FAILED, msg)
+            msg.contains("SSL", ignoreCase = true)
+                || msg.contains("certpath", ignoreCase = true)
+                || msg.contains("handshake", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.SSL_HANDSHAKE_FAILED, msg)
+            msg.contains("timeout", ignoreCase = true)
+                || msg.contains("SocketTimeout", ignoreCase = true)
+                || msg.contains("ConnectTimedOut", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.CONNECTION_TIMEOUT, msg)
+            msg.contains("unreachable", ignoreCase = true)
+                || msg.contains("NoRouteToHost", ignoreCase = true)
+                || msg.contains("NetworkUnreachable", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.NETWORK_UNREACHABLE, msg)
+            msg.contains("ENOSPC", ignoreCase = true)
+                || msg.contains("no space left", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.STORAGE_INSUFFICIENT, msg, throwable = throwable)
+            msg.contains("EACCES", ignoreCase = true)
+                || msg.contains("permission denied", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.WRITE_PERMISSION_DENIED, msg)
+            msg.contains("corrupt", ignoreCase = true) && msg.contains("part", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.PART_FILE_CORRUPTED, msg)
+            msg.contains("redirect", ignoreCase = true) && msg.contains("host", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.HTTP_REDIRECT_TO_UNTRUSTED_HOST, msg)
+            msg.contains("INSTALL_PARSE_FAILED_NOT_APK", ignoreCase = true)
+                || msg.contains("bad apk", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_PARSE_APK_BAD, msg)
+            msg.contains("INSTALL_FAILED_VERSION_DOWNGRADE", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_VERSION_DOWNGRADE, msg)
+            msg.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE", ignoreCase = true)
+                || msg.contains("signatures do not match", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_SIGNATURE_MISMATCH, msg)
+            msg.contains("INSTALL_FAILED_INSUFFICIENT_STORAGE", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_INSUFFICIENT_STORAGE, msg)
+            msg.contains("INSTALL_FAILED_USER_REJECTED", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_USER_REJECTED, msg)
+            msg.contains("INSTALL_FAILED_ABORTED", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_ABORTED, msg)
+            msg.contains("INSTALL_FAILED_BLOCKED", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INSTALL_BLOCKED, msg)
+            msg.contains("manifest drift", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.MANIFEST_DRIFT, msg)
+            msg.contains("index parse", ignoreCase = true)
+                || msg.contains("json", ignoreCase = true) && msg.contains("malformed", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.INDEX_PARSE_FAILED, msg)
+            msg.contains("patch", ignoreCase = true) && msg.contains("parse", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.PATCH_PARSE_FAILED, msg)
+            msg.contains("patch", ignoreCase = true) && msg.contains("apply", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.PATCH_APPLY_FAILED, msg)
+            msg.contains("patch", ignoreCase = true) && msg.contains("verify", ignoreCase = true) ->
+                UpdateFailure(UpdateFailureReason.PATCH_VERIFY_FAILED, msg)
+            else -> UpdateFailure(UpdateFailureReason.UNKNOWN, msg.ifBlank { cls }, throwable = throwable)
+        }
+    }
+
+    fun classifyHttp(status: Int, host: String = ""): UpdateFailure? = when {
+        status in 200..299 -> null
+        status in 400..499 -> UpdateFailure(UpdateFailureReason.HTTP_4XX_CLIENT,
+            "HTTP $status from $host", code = status)
+        status in 500..599 -> UpdateFailure(UpdateFailureReason.HTTP_5XX_SERVER,
+            "HTTP $status from $host", code = status)
+        status == 0 -> UpdateFailure(UpdateFailureReason.NETWORK_UNREACHABLE, "no response")
+        else -> UpdateFailure(UpdateFailureReason.UNKNOWN, "HTTP $status", code = status)
+    }
+
+    fun allMirrorsFailed(tried: Int): UpdateFailure =
+        UpdateFailure(UpdateFailureReason.MIRROR_ALL_UNREACHABLE,
+            "tried $tried mirrors, all failed", code = tried)
 }

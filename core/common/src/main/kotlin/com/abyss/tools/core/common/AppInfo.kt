@@ -6,8 +6,12 @@ package com.abyss.tools.core.common
  * 与 tools/validate_manifests.py 同源校验 —— 升版只改这里 + 打 tag。
  */
 object AppInfo {
-    const val VERSION_NAME: String = "0.9.15"
-    const val VERSION_CODE: Int = 38
+    const val VERSION_NAME: String = "0.9.11"
+    const val VERSION_CODE: Int = 34
+    const val CHANNEL: String = "stable"
+    const val BUILD_TYPE: String = "release"
+    const val MIN_SDK: Int = 28
+    const val TARGET_SDK: Int = 28
 
     val version: SemVer
         get() = requireNotNull(SemVer.parse(VERSION_NAME)) {
