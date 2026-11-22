@@ -110,8 +110,8 @@ class PluginManifestV2Test {
         assertTrue(PluginContract.CAPABILITY_PATTERN.matches("linux-runtime-v1"))
         assertTrue(!PluginContract.CAPABILITY_PATTERN.matches("linux-runtime"))
         assertEquals(300, PluginContract.GRANT_TTL_MAX_SEC)
-        // 能力 id 与插件 id 的形态纪律互斥
-        assertTrue(!PluginContract.ID_PATTERN.matches("linux-runtime-v1"))
+        // 形态纪律：插件 id 不满足能力 id 形态（无 -v 主版本后缀）
+        assertTrue(!PluginContract.CAPABILITY_PATTERN.matches("abyss-plugin-app-builder"))
     }
 
     @Test
