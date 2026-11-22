@@ -157,6 +157,9 @@ class SessionGrantIssuer(
 
     private fun newNonce(): String = UUID(random.nextLong(), random.nextLong()).toString()
 
+    private fun invalid(code: String, reason: String): GrantCheck.Invalid =
+        GrantCheck.Invalid(code, reason)
+
     private fun signatureOf(gen: Long): String = "abyss-host|$hostIdentity|gen:$gen"
 
     companion object {
