@@ -88,7 +88,7 @@ Actions → Patch Release → Run workflow（填目标版本 + 变更要点）�
 ## 宿主侧消费链路（core:plugin）
 
 ```
-Abyss-Plugins/plugins.json（中心索引，8 插件聚合，sync-index 自动滚动）
+Abyss-Plugins/plugins.json（中心索引，3 个引擎级插件聚合 —— 应用构建器 / 病毒拦截 / 虚拟机，sync-index 自动滚动）
     → PluginRepository.fetchIndex()            # 插件中心页（含「我的插件」）
     → PluginDetailScreen                       # 详情 + 补丁时间线 + 应用闭环
     → PluginInstaller.installDataPlugin()      # 数据形态：校验 + 原子落盘
