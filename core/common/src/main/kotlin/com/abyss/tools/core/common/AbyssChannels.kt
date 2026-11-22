@@ -45,4 +45,13 @@ object AbyssChannels {
     /** 插件补丁通道（每个插件仓库 main 分支下的固定读取点）。 */
     fun pluginPatchChannel(pluginId: String): String =
         "https://raw.githubusercontent.com/$ORG/$pluginId/main/patches/index.json"
+
+    /**
+     * 深渊agent 通道清单（FEAT-037）：姊妹项目 Ultra-Guru/Android-Guru-Agent
+     * 的发布仓固定读取点 —— schema 与本仓 version.json 同族（versionName /
+     * versionCode / tag / download.{arm64,universal}{url,sizeBytes,sha256}）。
+     * 插件中心「深渊agent」置顶卡消费；下载资产经 MirrorRouter 镜像链。
+     */
+    const val AGENT_VERSION_JSON: String =
+        "https://raw.githubusercontent.com/Ultra-Guru/Android-Guru-Agent-Release/main/version.json"
 }
