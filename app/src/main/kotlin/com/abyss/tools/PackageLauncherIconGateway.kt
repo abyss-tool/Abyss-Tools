@@ -42,7 +42,7 @@ class PackageLauncherIconGateway(context: Context) : LauncherIconGateway {
             packageManager.setComponentEnabledSetting(
                 componentOf(candidate),
                 target,
-                PackageManager.COMPONENT_ENABLED_STATE_DONT_KILL_APP,
+                PackageManager.DONT_KILL_APP,
             )
         }
     }.recoverCatching { e ->
