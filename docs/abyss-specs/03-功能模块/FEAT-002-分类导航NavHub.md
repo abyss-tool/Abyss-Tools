@@ -27,7 +27,7 @@
 
 | 编号 | 需求描述（原子、可验证） |
 |---|---|
-| FR-001 | 分类顺序与 ToolCatalog.categories 一致，PLUGINS 恒为首项。 |
+| FR-001 | 分类顺序与 ToolCatalog.categories 一致，首分类 SYSTEM（v0.9.12 FEAT-034 起 PLUGINS 分类移除，插件中心由底部导航独立 tab 承载）。 |
 | FR-002 | FRAMEWORK 条目展示「路线图中」标签且不可假装可进入。 |
 | FR-003 | PLUGIN 条目点击进入对应插件详情页而非空页面。 |
 | FR-004 | 支持搜索 / 状态筛选，过滤结果保持分类结构。 |
@@ -47,7 +47,7 @@
 
 | 编号 | 验收条件 |
 |---|---|
-| AC-001 | 12 个分类全部可展开，条目数与 ToolCatalog.tools 一致。 |
+| AC-001 | 11 个分类全部可展开（v0.9.12 FEAT-034 起），条目数与 ToolCatalog.tools 一致。 |
 
 > 验收方法：纯 JVM 单测（`./gradlew test`）/ CI 门禁脚本 / 真机回归清单（Android 15 与 16 各一台）/ 通道清单校验，按单元性质择一或组合。
 

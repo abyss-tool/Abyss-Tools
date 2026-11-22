@@ -102,6 +102,11 @@ Android 15/16 适配立场（16KB / edge-to-edge / RECEIVER 加固 / FGS 等
 底栏仅顶层 tab 显示（stack.size == 1），详情页沉浸全屏 —— 玻璃采样源
 在内容根上，任何页面滚过玻璃件下方都会被真实采样。
 
+v0.9.12（FEAT-034）起顶层 tab 为四项：仪表盘 / 功能 / 插件 / 设置 ——
+「插件」独立 tab 直达顶层插件中心（`onBack = null`，无返回箭头）；
+`tabIndex` 精确映射 0-3，详情页返回 -1；`selectTab` 非法索引
+fail-closed 直接 return（替代旧 `else -> Settings` 猜测）。
+
 v0.6.0 起返回栈可序列化（`rememberSaveable` + listSaver）：旋转 /
 深浅色切换 / 进程重建后原位恢复；AppManagerDetail 只序列化包名键，
 恢复后经 AppInfoProvider 异步重挂（查不到则诚实留在列表页）。
@@ -111,11 +116,14 @@ v0.6.0 起返回栈可序列化（`rememberSaveable` + listSaver）：旋转 /
 | 档位 | 条件 | 渲染 |
 | --- | --- | --- |
 | Backdrop | 有采样源 + API 31+ | blur +（API 33+）AGSL lens 折射/色散 + 霜面 tint + 边缘受光 + 内阴影 |
+| Backdrop · Clear（FEAT-033） | 有采样源 + API 31+ 且指示器样式 = CLEAR | 零 blur（`blurEnabled = false`）+ 边缘带 lens/色散 + 静态 SDF rim（光带冻结中心、四角点光、相对侧暗边）+ 内阴影 |
 | Frosted | 无源 或 API < 31 | 霜面渐变 + 边缘光（零 GPU 管线，诚实降级） |
 
 纪律：`drawBackdrop` 的全部 lambda 记忆化（ModifierNodeElement 对
 lambda 按身份比较 —— 重组期新建 lambda 会引发 draw 失效风暴）；效果
 级 `runCatching`（OEM RenderEffect/AGSL 差异单项降级，进程存活优先）。
+底栏液滴指示器支持双样式切换（FEAT-033：`AbyssIndicatorStyle`，
+`blurEnabled=false` 为编译期可见布尔契约，切换不重建 `AbyssLiquidMotion`）。
 
 ## 更新体系（双仓库，全自动）
 

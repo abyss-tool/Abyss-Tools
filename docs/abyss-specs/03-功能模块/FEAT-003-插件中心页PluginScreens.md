@@ -17,6 +17,11 @@
 
 插件列表 / 我的插件 / 详情 + 补丁时间线 + 安装与更新闭环；v0.9.0 接入 M3 PullToRefreshBox 下拉刷新。
 
+v0.9.12（FEAT-034）补充**双形态契约**：`PluginHubScreen` 同时服务两种深度 ——
+- **顶层 tab 态**：`onBack = null`、`title = "插件"`——不渲染返回箭头、无返回语义（`BackHandler(canPop=false)`，系统返回不退出）；底栏可见（4 tab 第 3 格高亮）。
+- **详情页态**（自顶层点插件 push 后不属于本页；自功能页遗留路径进入时）：`onBack = pop 闭包`、`title` 缺省「插件中心」——外观 / 行为与 v0.9.10 完全一致。
+业务逻辑（索引拉取 / ChannelPolicy / 安装闭环 / 镜像测速 / 下拉刷新）两态共用同一条管线，零改动。
+
 ## 2. 现状锚点（克隆研究实测）
 
 - `Abyss-Tools/feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt`
