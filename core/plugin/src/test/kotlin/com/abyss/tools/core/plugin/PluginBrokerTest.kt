@@ -53,7 +53,11 @@ class PluginBrokerTest {
 
     @Test
     fun `依赖已装且版本满足 - 计划不含 missing`() {
-        val installed = mapOf("abyss-plugin-linux" to SemVer.parse("0.2.0")!!)
+        val installed = mapOf(
+            "abyss-plugin-linux" to SemVer.parse("0.2.0")!!,
+            // 目标插件已装（运行中）：missing 只看依赖方
+            "abyss-plugin-app-builder" to SemVer.parse("0.2.0")!!,
+        )
         val result = resolverOf().resolve("abyss-plugin-app-builder", fixtureIndex(), installed)
         val plan = result as DependencyResolver.Resolution.InstallPlan
         assertTrue(plan.missingDeps.isEmpty())
@@ -84,6 +88,10 @@ class PluginBrokerTest {
     fun `循环依赖 - E_DEPENDENCY_CYCLE（运行时兜底）`() {
         // 构造：linux ↔ app-builder 互指（索引 CI 会拦；运行时仍需兜底）
         val index = testIndex { entries ->
+            // 环构造：linux ↔ app-builder 互指；两侧都声明 provides 命中
+            // linux-runtime-v1（消费方 provides 命中是进入递归的前置 ——
+            // 否则先以 E_CAPABILITY_MISMATCH 拒，环探测不可达）
+            val provide = listOf(ProvideSpec(capability = "linux-runtime-v1", since = "0.2.0"))
             val linux = entries.first { it.id == "abyss-plugin-linux" }
             entries[entries.indexOf(linux)] = linux.copy(
                 depends = listOf(
@@ -94,7 +102,10 @@ class PluginBrokerTest {
                         reason = "测试环：linux 反向依赖构建器",
                     ),
                 ),
+                provides = provide,
             )
+            val builder = entries.first { it.id == "abyss-plugin-app-builder" }
+            entries[entries.indexOf(builder)] = builder.copy(provides = provide)
         }
         val result = resolverOf().resolve("abyss-plugin-app-builder", index, installed = emptyMap())
         val rejection = result as DependencyResolver.Resolution.Rejection

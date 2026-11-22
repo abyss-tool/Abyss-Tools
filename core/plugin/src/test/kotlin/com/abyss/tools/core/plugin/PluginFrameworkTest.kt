@@ -60,6 +60,7 @@ class PluginFrameworkTest {
         assertTrue(linux.providesLinuxRuntime)
         // capabilities：能力描述透传（JsonObject，语义由 :runtime-api 契约定义）
         val desc = linux.capabilities!!
+            .getValue("linux-runtime-v1") as kotlinx.serialization.json.JsonObject
         assertEquals(2, (desc["domains"] as? kotlinx.serialization.json.JsonArray)?.size)
         assertEquals(300, ((desc["auth"] as? kotlinx.serialization.json.JsonObject)?.get("grantTtlSec") as? kotlinx.serialization.json.JsonPrimitive)?.content?.toInt())
         assertEquals(2, linux.minHost)
