@@ -40,6 +40,13 @@ class SignedHttpTransportTest {
             errors[url]?.let { throw it }
             return (responses[url] ?: throw IOException("404 not found: $url")).toByteArray(Charsets.UTF_8)
         }
+        override fun download(
+            url: String,
+            dest: java.io.File,
+            onProgress: (readBytes: Long, totalBytes: Long) -> Unit,
+        ) {
+            throw IOException("fake transport: download not used in signed-manifest tests")
+        }
     }
 
     @Test
