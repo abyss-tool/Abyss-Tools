@@ -330,8 +330,13 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
             "signature from abyss release key", path,
         )
         put_contents(TOKEN, path, text, sha, message)
+        # .minisig 更新语义（v0.9.14 修）：文件已存在时（第二个及以后的签名版
+        # 本），GitHub contents PUT 必须携带旧文件 blob sha，否则 422
+        # "sha wasn't supplied" —— v0.9.14 发版即栽在此（v0.9.13 首建无 sha
+        # 掩盖了该 bug）。首次发布（404 → not_found_ok 空 dict）不受影响。
+        sig_existing = get_contents(TOKEN, f"{path}.minisig", not_found_ok=True)
         put_contents(
-            TOKEN, f"{path}.minisig", sig, None,
+            TOKEN, f"{path}.minisig", sig, sig_existing.get("sha"),
             f"chore(channel): {path}.minisig detached 签名（N-SEC-001）[skip ci]",
         )
 
