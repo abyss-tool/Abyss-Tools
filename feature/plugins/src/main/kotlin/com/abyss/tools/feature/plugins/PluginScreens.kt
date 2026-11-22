@@ -108,6 +108,10 @@ private enum class ReviewTarget { DATA, APK }
  * @param mirrorRouter 下载镜像路由器（探测缓存与下载管线共享）。
  * @param mirrorPreference 当前镜像偏好（"auto" 或镜像 id）。
  * @param onMirrorPreference 镜像偏好写回（持久化到设置存储）。
+ * @param onBack 返回回调；顶层 tab 态传 null —— 不渲染返回箭头、不提供
+ *   返回语义（FEAT-034 FR-006）；详情页态传 pop 闭包，外观与 v0.9.10 一致。
+ * @param title 页头标题；顶层 tab 态传「插件」与 tab 文案一致，详情页缺省
+ *   「插件中心」保持零回归。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,13 +119,14 @@ fun PluginHubScreen(
     repository: PluginRepository,
     channelClient: PluginChannelClient,
     installer: PluginInstaller,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onOpenPlugin: (String) -> Unit,
     stateVersion: Int = 0,
     onPluginsChanged: () -> Unit = {},
     mirrorRouter: MirrorRouter? = null,
     mirrorPreference: String = MIRROR_AUTO,
     onMirrorPreference: (String) -> Unit = {},
+    title: String = "插件中心",
 ) {
     var indexState by remember { mutableStateOf<UiState<PluginIndex>>(UiState.Loading) }
     var retryKey by remember { mutableStateOf(0) }
@@ -187,12 +192,18 @@ fun PluginHubScreen(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+            // 顶层 tab 态（FEAT-034 FR-006）：无返回语义 —— 不渲染返回箭头；
+            // 占位 Spacer 让标题与详情页态的文本起点视觉对齐（页内容 20dp）。
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                }
+            } else {
+                Spacer(Modifier.size(12.dp))
             }
             Column {
                 Text(
-                    text = "插件中心",
+                    text = title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )

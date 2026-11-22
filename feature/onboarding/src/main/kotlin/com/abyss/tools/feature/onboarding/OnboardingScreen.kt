@@ -53,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.abyss.tools.core.common.ToolCatalog
-import com.abyss.tools.core.common.ToolCategory
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
 import com.abyss.tools.core.designsystem.component.rememberReducedMotion
@@ -553,7 +552,7 @@ private fun FeatureTourStep() {
         fontWeight = FontWeight.Bold,
     )
     Text(
-        text = "主界面分三个 tab：仪表盘看状态、功能页进全部工具、设置管更新与权限。" +
+        text = "主界面分四个 tab：仪表盘看状态、功能页进全部工具、插件管引擎级插件、设置管更新与权限。" +
             "功能页里你能找到这些分类 ——",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -561,13 +560,12 @@ private fun FeatureTourStep() {
     PermissionCard(
         title = "功能分类一览（${ToolCatalog.tools.size} 项工具 · ${ToolCatalog.categories.size} 个分类）",
         rows = ToolCatalog.categories
-            .filter { it != ToolCategory.PLUGINS }
             .map { category ->
                 category.title to "${category.description}（${ToolCatalog.toolsOf(category).size} 项）"
             },
     )
     PermissionCard(
-        title = "插件（排在功能页第一位）",
+        title = "插件（独立 tab）",
         rows = listOf(
             "插件中心" to "应用构建器 / 病毒拦截 / 虚拟机 —— 三个引擎级大插件按需安装",
         ),

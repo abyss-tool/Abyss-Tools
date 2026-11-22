@@ -4,7 +4,8 @@ package com.abyss.tools.core.common
  * 工具目录（导航页的数据底座）。
  *
  * 承载形态三分法（v0.8.0 大内置化重构定型）：
- *  - [ToolStatus.READY]      壳内已可用（当前为插件中心入口）
+ *  - [ToolStatus.READY]      壳内已可用（词汇位保留；插件中心入口已于 v0.9.13
+ *                            升级为底部导航「插件」独立 tab，见 FEAT-034）
  *  - [ToolStatus.BUILT_IN]   主壳内置功能 —— v0.8.0 起承载形态大迁移：除
  *                            应用构建器外的全部原重型插件（终端 / 脚本 /
  *                            沙箱 / 媒体 / 网络 / 备份）全部内置化落地真实
@@ -23,15 +24,15 @@ package com.abyss.tools.core.common
  * 构建底座（Alpine+PRoot）、病毒特征引擎（ClamAV 级）、整机虚拟机
  * （QEMU 级）；其余一律内置，避免插件中心碎片化。
  *
- * 插件永远是导航页的第一个分类 —— 这是深渊工具「主壳轻、能力重」的
- * 产品结构表达。
+ * 插件承载形态分界（v0.9.13 起，FEAT-034）：**引擎级插件能力由底部导航
+ * 「插件」独立 tab 承载**；工具目录只登记主壳内置 / 插件承载的工具行，
+ * 不再为插件中心保留分类与入口行。
  */
 enum class ToolCategory(
     val id: String,
     val title: String,
     val description: String,
 ) {
-    PLUGINS("plugins", "插件", "三个引擎级插件构成的重型能力生态：应用构建器 / 病毒拦截 / 虚拟机 —— 小功能内置，引擎级能力插件化"),
     SYSTEM("system", "系统工具", "基于 Shizuku 的免 Root 系统管控：冻结 / 隐藏 / 提取 / 授权总管 / 系统控制"),
     TERMINAL("terminal", "终端与脚本", "内置 Shizuku Shell 终端与脚本实验室：编辑 → 执行 → 历史一站直达"),
     DEV("dev", "开发与构建", "手机端 APK 构建：Alpine + PRoot 底座 + 三条构建路径（引擎级大插件承载）"),
@@ -65,9 +66,6 @@ data class ToolDef(
 
 object ToolCatalog {
 
-    /** 插件中心行项（v0.8.5：从通用占位页改接真实插件中心）。 */
-    const val ID_PLUGIN_HUB = "plugin-hub"
-
     /** 伪装四件套的稳定 id（AbyssRoot 路由消费，避免散落字符串）。 */
     const val ID_BATTERY_DISGUISE = "battery-disguise"
     const val ID_MODEL_DISGUISE = "model-disguise"
@@ -97,16 +95,6 @@ object ToolCatalog {
     val categories: List<ToolCategory> = ToolCategory.entries.toList()
 
     val tools: List<ToolDef> = listOf(
-        // ── 插件（第一分类，入口即插件中心）────────────────────────────
-        ToolDef(
-            id = "plugin-hub",
-            title = "插件中心",
-            summary = "三个引擎级插件仓库：应用构建器 / 病毒拦截 / 虚拟机，浏览 / 安装 / 补丁更新一站式。",
-            category = ToolCategory.PLUGINS,
-            status = ToolStatus.READY,
-            iconKey = "extension",
-        ),
-
         // ── 开发与构建（引擎级插件：构建底座）──────────────────────────
         ToolDef(
             id = "app-builder",

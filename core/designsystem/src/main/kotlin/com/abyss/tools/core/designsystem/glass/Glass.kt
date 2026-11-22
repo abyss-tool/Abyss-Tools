@@ -95,6 +95,13 @@ fun Modifier.abyssBackdropSource(backdrop: LayerBackdrop): Modifier =
  */
 data class AbyssGlassStyle(
     val blurRadius: Dp = 14.dp,
+    /**
+     * 模糊开关（FEAT-033）：false = Clear 档 —— effects 链整段跳过
+     * vibrancy() + blur()（0 半径仍可能产生一次 GPU pass，故用布尔契约
+     * 而非 blurRadius = 0 「隐式关模糊」），背景像素不被模糊、不被饱和度
+     * 增强；lens / highlight / innerShadow / shadow 不受影响。
+     */
+    val blurEnabled: Boolean = true,
     val lensHeight: Dp = 2.dp,
     val lensAmount: Dp = 10.dp,
     val chromaticAberration: Boolean = true,
@@ -154,8 +161,13 @@ fun AbyssGlassSurface(
         {
             // OEM RenderEffect/AGSL 差异防御：单项失败降级为无该效果，
             // 组合树与进程存活优先（runCatching 单项守卫）。
-            runCatching { vibrancy() }
-            runCatching { blur((style.blurRadius * intensity).toPx()) }
+            // FEAT-033（Clear 档）：blurEnabled = false 时整段跳过 vibrancy
+            // + blur —— 背景像素不被模糊、不被饱和度增强；lens 保留供边缘
+            // 带折射（仅边缘带，中心区域清晰）。
+            if (style.blurEnabled) {
+                runCatching { vibrancy() }
+                runCatching { blur((style.blurRadius * intensity).toPx()) }
+            }
             if (style.lensHeight > 0.dp && lensEnabled) {
                 runCatching {
                     lens(
