@@ -1,12 +1,12 @@
 > 深渊工具 Abyss Tools · 软件规格说明书（功能）  
-> 状态：**已实现（v0.9.12）** ｜ 优先级：**P1** ｜ 里程碑：**M1** ｜ 承载形态：**主壳内置** ｜ 基线：**v0.9.10 / versionCode 33** ｜ 编制日期：**2026-11-22**
+> 状态：**已实现（v0.9.13）** ｜ 优先级：**P1** ｜ 里程碑：**M1** ｜ 承载形态：**主壳内置** ｜ 基线：**v0.9.10 / versionCode 33** ｜ 编制日期：**2026-11-22**
 
 | 项 | 值 |
 | --- | --- |
 | 规格编号 | `FEAT-034` |
 | 所属域 | 功能 |
 | 承载形态 | 主壳内置 |
-| 当前状态 | 已实现（v0.9.12） |
+| 当前状态 | 已实现（v0.9.13） |
 | 优先级 / 里程碑 | P1 / M1 |
 | 组织与基线 | abyss-tool 主仓 `main` 520 blobs + 发布仓 7 blobs 全量研究；433 个 `.kt`/`.md` 全文扫描引用点；v0.9.10 / versionCode 33 |
 | 标签 | 底部导航 · 四 tab · 插件中心 · 信息架构 |
@@ -64,7 +64,7 @@
 | 路径 | 关键事实 |
 | --- | --- |
 | `app/.../ui/AbyssRoot.kt` | `bottomItems` 3 项；`tabIndex`：`Dashboard→0 / NavHub→1 / else→2`（**`PluginHub` 目前被 `else` 误归到「设置」**，因二级页隐藏底栏而从未暴露）；`selectTab`：`0/1/else→Settings`；`showBottomBar = stack.size == 1`；`Screen.PluginHub` 分支传 `onBack = { backStack.pop() }`；`ToolCatalog.ID_PLUGIN_HUB -> PluginHubScreen(...)` 遗留分支；`NavHubScreen(onOpenPluginHub = { backStack.push(Screen.PluginHub) })`；`DashboardScreen(onOpenPlugins = { backStack.push(Screen.PluginHub) })` |
-| `core/common/.../ToolCatalog.kt` | `ToolCategory.PLUGINS` 为枚举首项（注释「插件永远是导航页的第一个分类」）；`categories = ToolCategory.entries.toList()` 共 **12** 分类；`tools` 首条即 `ToolDef(id = "plugin-hub", category = PLUGINS, status = READY, iconKey = "extension")`；`ID_PLUGIN_HUB` 常量；`toolsOf(category)` / `pluginDrivenCount` / `builtInCount` 数据驱动 |
+| `core/common/.../ToolCatalog.kt` | `ToolCategory.PLUGINS` 为枚举首项（注释「插件永远是导航页的第一个分类」）；`categories = ToolCategory.entries.toList()` 共 **11** 分类；`tools` 首条即 `ToolDef(id = "plugin-hub", category = PLUGINS, status = READY, iconKey = "extension")`；`ID_PLUGIN_HUB` 常量；`toolsOf(category)` / `pluginDrivenCount` / `builtInCount` 数据驱动 |
 | `feature/navhub/.../NavHubScreen.kt` | 对 `category == ToolCategory.PLUGINS` 走特殊 `PluginHubEntry` 门面卡分支；**紧接着仍会渲染 `toolsOf(PLUGINS)` 的 1 条「插件中心」工具行** → 功能页实际存在**两个**插件入口；页头 `${ToolCatalog.tools.size} 项工具 · ${ToolCatalog.categories.size} 个分类` 由数据驱动；`onOpenPluginHub` 参数 |
 | `feature/plugins/.../PluginScreens.kt` | `PluginHubScreen(onBack: () -> Unit, ...)` **必填**；第 183–205 行页头硬编码 `IconButton(ArrowBack, onClick = onBack)` + 标题「插件中心」；作为顶层 tab 时该返回箭头语义错误 |
 | `feature/onboarding/.../OnboardingScreen.kt` | 第 556 行写死「主界面分三个 tab」；第 562–567 行 `ToolCatalog.categories.filter { it != ToolCategory.PLUGINS }`；第 570 行「插件（排在功能页第一位）」——**最易漏的文案，必须同步** |
@@ -86,7 +86,7 @@
 | FR-005 | 复用既有 `Screen.PluginHub` 类型、`stateKey() = "pluginhub"`、`TOKEN_PLUGINHUB` 序列化 token；旋转 / 进程重建后落在「插件」tab 且底栏第 3 格高亮。 |
 | FR-006 | `PluginHubScreen` 的 `onBack` 改为可空；顶层传 `null` 时**不渲染返回箭头**，标题显示「插件」；详情页传 `{ backStack.pop() }` 时外观、行为、标题「插件中心」与 v0.9.10 完全一致。 |
 | FR-007 | 功能页插件残留清零：删除 `ToolCategory.PLUGINS` 枚举项、`plugin-hub` 工具行、`ID_PLUGIN_HUB` 常量、`PluginHubEntry` 门面卡、`onOpenPluginHub` 参数、`AbyssRoot` 内 `ToolCatalog.ID_PLUGIN_HUB ->` 分支。 |
-| FR-008 | 功能页首个分类改为 `SYSTEM`（系统工具），页头统计由 `ToolCatalog.categories.size` / `tools.size` 自动变为 11 分类 / N−1 项工具，禁止手写数字。 |
+| FR-008 | 功能页首个分类改为 `SYSTEM`（系统工具），页头统计由 `ToolCatalog.categories.size` / `tools.size` 自动变为 10 分类 / N−1 项工具，禁止手写数字。 |
 | FR-009 | 新手引导文案同步：三个 tab → 四个 tab；「插件（排在功能页第一位）」→「插件（独立 tab）」；删除 `.filter { it != ToolCategory.PLUGINS }`（枚举已删）。 |
 | FR-010 | `DashboardScreen` 的 `onOpenPlugins` 改为 `backStack.selectTab(2)`；仪表盘点击后停在顶层插件 tab（`stack.size == 1`），不再产生二级同名页面。 |
 | FR-011 | 从「插件」tab 进入 `PluginDetail` 仍为 `push`（`stack.size == 2`、底栏隐藏），系统返回逐层出栈回到「插件」tab，不退回桌面。 |
@@ -118,7 +118,7 @@
 ### 4.5 功能页与数据层清理
 
 - 文件头注释「插件永远是导航页的第一个分类」→ 改为「引擎级插件能力由底部导航『插件』独立 tab 承载；工具目录只登记主壳内置 / 插件承载的工具行」。
-- `categories = ToolCategory.entries.toList()` 自动 12 → **11**；`tools.size` 自动 −1；`pluginDrivenCount` 不变（三个 `PLUGIN` 状态条目仍在），`builtInCount` 不变。
+- `categories = ToolCategory.entries.toList()` 自动 11 → **10**；`tools.size` 自动 −1；`pluginDrivenCount` 不变（三个 `PLUGIN` 状态条目仍在），`builtInCount` 不变。
 - `NavHubScreen`：`item(key = "header-${category.id}")` 内 `if (category == ToolCategory.PLUGINS) … else …` 整段收敛为 `SectionHeader(...)`；删除 `PluginHubEntry` 私有 Composable 与 `onOpenPluginHub` 参数；编译期清理随之失效的 import（`AbyssGlassSurface` / `pressScale` / `MutableInteractionSource` / `clickable` / `ToolCategory` 等）。`ToolScreen`、`DetailHeader`、`ToolRow` 不变。
 - `OnboardingScreen`：三处文案 + `.filter { it != ToolCategory.PLUGINS }` 删除；`ToolCategory` import 清理。
 
@@ -141,11 +141,11 @@
 
 | 动作 | 内容 |
 | --- | --- |
-| 升版策略 | 若与 `FEAT-033` **同批发布**：共用 `AppInfo.VERSION_NAME = "0.9.12"` / `VERSION_CODE = 35`，一次升版、一份 release notes，两条 spec 状态同时改「已实现（v0.9.12）」；若**分批**：先发布者占 0.9.12 / 35，另一条顺延 0.9.13 / 36，**禁止重复占用 35**（`SRS-003` versionCode 单调门禁兜底） |
-| 发布要点 | `docs/release-notes/v0.9.12.md` 一行一条，含 `FEAT-034`；注明「底栏四 tab / 插件独立入口 / 功能页插件分类移除」 |
-| 打 tag | `v0.9.12` → `auto-release.yml` → `assembleRelease` + 签名指纹门禁 → `publish_release.py` |
+| 升版策略 | 若与 `FEAT-033` **同批发布**：共用 `AppInfo.VERSION_NAME = "0.9.13"` / `VERSION_CODE = 36`，一次升版、一份 release notes，两条 spec 状态同时改「已实现（v0.9.13）」；若**分批**：先发布者占 0.9.13 / 36，另一条顺延 0.9.14 / 37，**禁止重复占用 36**（`SRS-003` versionCode 单调门禁兜底） |
+| 发布要点 | `docs/release-notes/v0.9.13.md` 一行一条，含 `FEAT-034`；注明「底栏四 tab / 插件独立入口 / 功能页插件分类移除」 |
+| 打 tag | `v0.9.13` → `auto-release.yml` → `assembleRelease` + 签名指纹门禁 → `publish_release.py` |
 | 发布仓 | `version.json` / `patches.json` / `changelog.json` 由 CI 滚动，**禁止手改**；`patches.json` 维持 `patches: []`（vcdiff 合成引擎未接入，仍整包安装） |
-| 规格同步 | 修订 `ARC-004`（顶层 tab 枚举 + 4 tab）、`ARC-010`（11 分类）、`FEAT-002`（FR-001 / AC-001）、`FEAT-003`（顶层态）、`FEAT-001`（三 tab → 四 tab）、`SRS-004`（承载形态分界表述）、`FEAT-033`（0.2 协同边界）、`SPEC-INDEX.md`（新增 FEAT-034 行）、`README.md`、`docs/ARCHITECTURE.md`、`docs/abyss-specs/深渊工具_整体增强方案.md` |
+| 规格同步 | 修订 `ARC-004`（顶层 tab 枚举 + 4 tab）、`ARC-010`（10 分类）、`FEAT-002`（FR-001 / AC-001）、`FEAT-003`（顶层态）、`FEAT-001`（三 tab → 四 tab）、`SRS-004`（承载形态分界表述）、`FEAT-033`（0.2 协同边界）、`SPEC-INDEX.md`（新增 FEAT-034 行）、`README.md`、`docs/ARCHITECTURE.md`、`docs/abyss-specs/深渊工具_整体增强方案.md` |
 
 ---
 
@@ -170,13 +170,13 @@
 | AC-002 | 「插件」tab 直达插件中心页，**无返回箭头**、标题「插件」、底栏可见（4 格高亮第 3 格）；从功能页进入插件详情时仍是二级页、有返回箭头、底栏隐藏。 |
 | AC-003 | 从「插件」tab 点任一插件 → `PluginDetail` → 系统返回逐层出栈回「插件」tab；不退回桌面、不跳到仪表盘。 |
 | AC-004 | 旋转 / 深浅色切换 / 杀进程重建后，停在「插件」tab 且第 3 格高亮；`rememberSaveable` 反序列化的 `pluginhub` token 正常消费。 |
-| AC-005 | 功能页**零插件残留**：首分类为「系统工具」，无「插件」门面卡、无「插件中心」工具行、页头统计显示 11 个分类；`ToolCatalog.categories.size == 11`。 |
-| AC-006 | 新手引导文案为「四个 tab」，且不再出现「排在功能页第一位」；功能分类一览列出 11 个分类且不因 `filter` 残留编译失败。 |
+| AC-005 | 功能页**零插件残留**：首分类为「系统工具」，无「插件」门面卡、无「插件中心」工具行、页头统计显示 10 个分类；`ToolCatalog.categories.size == 10`。 |
+| AC-006 | 新手引导文案为「四个 tab」，且不再出现「排在功能页第一位」；功能分类一览列出 10 个分类且不因 `filter` 残留编译失败。 |
 | AC-007 | 仪表盘点插件入口后 `stack.size == 1`、落在「插件」tab；不存在「顶层插件页 + 二级插件中心页」两种深度。 |
 | AC-008 | `selectTab(-1 / 4 / Int.MAX_VALUE)` 栈不变、页面不变、无崩溃（fail-closed）；旧 `else -> Settings` 行为已移除。 |
 | AC-009 | 4 tab 小屏（320dp 宽）/ 大屏 / 折叠屏下标签不换行、图标不裁切、液滴宽度与槽宽一致；拖拽横跨 0→3 全行程吸附正确、动量外推仍为 ~0.4 tab。 |
 | AC-010 | 与 `FEAT-033` 合并后：4 tab 下切换 `FROSTED`/`CLEAR` 即时生效、`CLEAR` 仍无模糊、边缘高光仍静态可见；切换不重建 `motion`、不打断进行中的拖拽。 |
-| AC-011 | 纯 JVM 单测：`ToolCatalog` id 唯一、`PLUGIN` 条目 `pluginId` 非空、`categories.size == 11`、`byId("plugin-hub") == null`；`./gradlew test` 全绿。 |
+| AC-011 | 纯 JVM 单测：`ToolCatalog` id 唯一、`PLUGIN` 条目 `pluginId` 非空、`categories.size == 10`、`byId("plugin-hub") == null`；`./gradlew test` 全绿。 |
 | AC-012 | CI 全绿：`assembleDebug` + `assembleRelease` + `test` + `validate_manifests.py`；`version.json` 与 `changelog.json` 版本一致；真机回归 Android 15 / 16 各一台 × 深浅色 × 动态取色开/关；§4.7 列出的文档全部同步。 |
 
 > 验收方法：纯 JVM 单测（`./gradlew test`）/ CI 门禁脚本 / 真机回归清单（Android 15 与 16 各一台）/ 通道清单校验，按单元性质择一或组合。
@@ -214,7 +214,8 @@
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
 | 0.1 | 2026-11-22 | 基于 abyss-tool 主仓 / 发布仓全量研究 + 433 文件引用点扫描创建；用户补充需求「导航栏增加插件项、把功能里的插件转移到插件里」；对齐 v0.9.10 / versionCode 33 基线；按 `N-ENG-008` 先写 spec 后实现。 |
-| 0.2 | 2026-11-22 | v0.9.11 / code 34 已被当日计划外的图标更换发版占用（`SRS-003` versionCode 单调约束）→ §4.7 / 附录 B 的发布契约整体顺延为 **v0.9.12 / 35**。 |
+| 0.2 | 2026-11-22 | v0.9.11 / code 34 已被当日计划外的图标更换发版占用（`SRS-003` versionCode 单调约束）→ §4.7 / 附录 B 的发布契约整体顺延为 **v0.9.13 / 36**。 |
+| 0.4 | 2026-11-22 | v0.9.12 / code 35 已被 N-SEC-001/002 批次（PR #12）占用 → 本批次发布契约整体顺延 **v0.9.13 / 36**；同时修正研究口径：`ToolCategory` 实际 11 项（非 12）→ 移除 PLUGINS 后 **10 分类**，测试与文档数字同步修正。 |
 
 ---
 
@@ -253,16 +254,16 @@
 | `feature/navhub/.../NavHubScreen.kt` | 改 | 删 `PluginHubEntry` / `onOpenPluginHub` / PLUGINS 特殊分支；统一 `SectionHeader`；清理失效 import |
 | `feature/plugins/.../PluginScreens.kt` | 改 | `onBack` 可空 + `title` 参数；页头条件渲染返回箭头与左右 padding；**业务逻辑零改动** |
 | `feature/onboarding/.../OnboardingScreen.kt` | 改 | 三 tab → 四 tab 文案；删 `.filter { it != ToolCategory.PLUGINS }`；「插件（独立 tab）」；清理 import |
-| `core/common/src/test/.../ToolCatalogTest.kt`（若存在） | 改 | 断言 `categories.size == 11`、`byId("plugin-hub") == null`、id 唯一、`PLUGIN.pluginId` 非空 |
-| `core/common/.../AppInfo.kt` | 改 | 0.9.12 / 35（同批）或按 §4.7 顺延 |
-| `docs/release-notes/v0.9.12.md` | 新增 | 发布要点含 FEAT-034（同批时并列 FEAT-033） |
+| `core/common/src/test/.../ToolCatalogTest.kt`（若存在） | 改 | 断言 `categories.size == 10`、`byId("plugin-hub") == null`、id 唯一、`PLUGIN.pluginId` 非空 |
+| `core/common/.../AppInfo.kt` | 改 | 0.9.13 / 36（同批）或按 §4.7 顺延 |
+| `docs/release-notes/v0.9.13.md` | 新增 | 发布要点含 FEAT-034（同批时并列 FEAT-033） |
 | `docs/abyss-specs/03-功能模块/FEAT-034-….md` | 新增 | 本文件 |
 | `docs/abyss-specs/03-功能模块/FEAT-033-….md` | 改 | 0.2：关联规格、4 tab 协同边界、附录 B 同步 |
-| `docs/abyss-specs/03-功能模块/FEAT-002-分类导航NavHub.md` | 改 | FR-001「PLUGINS 恒为首项」→「首分类 SYSTEM」；AC-001 12 → 11 |
+| `docs/abyss-specs/03-功能模块/FEAT-002-分类导航NavHub.md` | 改 | FR-001「PLUGINS 恒为首项」→「首分类 SYSTEM」；AC-001 12 → 10 |
 | `docs/abyss-specs/03-功能模块/FEAT-003-插件中心页PluginScreens.md` | 改 | 补「顶层 tab 态 / 详情页态」双形态契约 |
 | `docs/abyss-specs/03-功能模块/FEAT-001-仪表盘Dashboard.md` | 改 | 三 tab → 四 tab；插件入口改 selectTab |
 | `docs/abyss-specs/01-架构/ARC-004-导航与返回栈.md` | 改 | §4 顶层 tab 枚举补 `PluginHub`；补 4 tab 索引映射 |
-| `docs/abyss-specs/01-架构/ARC-010-工具目录与分类数据字典.md` | 改 | §4「12 分类」→「11 分类」并去掉 `plugins` |
+| `docs/abyss-specs/01-架构/ARC-010-工具目录与分类数据字典.md` | 改 | §4「12 分类」→「10 分类」并去掉 `plugins` |
 | `docs/abyss-specs/00-总纲/SRS-004-承载形态分界纪律.md` | 改 | 「插件永远第一分类」表述 |
 | `docs/abyss-specs/SPEC-INDEX.md` | 改 | 新增 `FEAT-034` 行 |
 | `docs/abyss-specs/深渊工具_整体增强方案.md` | 改 | 「12 分类 / 三 tab」描述 |

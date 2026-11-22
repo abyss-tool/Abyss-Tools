@@ -14,8 +14,8 @@ import org.junit.Test
 class ToolCatalogTest {
 
     @Test
-    fun `分类数 11（PLUGINS 分类已删除）`() {
-        assertEquals(11, ToolCatalog.categories.size)
+    fun `分类数 10（PLUGINS 分类已删除）`() {
+        assertEquals(10, ToolCatalog.categories.size)
         assertTrue(ToolCatalog.categories.none { it.name == "PLUGINS" })
     }
 

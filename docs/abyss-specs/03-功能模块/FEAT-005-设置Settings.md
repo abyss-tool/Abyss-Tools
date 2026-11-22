@@ -15,7 +15,7 @@
 
 ## 1. 目标与范围
 
-玻璃强度 / 动态取色 / 更新渠道与检查补丁更新 / 权限复查 / 更新日志弹层 / 缓存清除 / 许可与免责声明；v0.9.0 补 SnackbarHost 动作反馈；v0.9.12（FEAT-033）外观区增列**滑动指示器样式**（`nav_indicator_style`：霜面液滴 FROSTED / 清透玻璃 CLEAR，M3 SingleChoiceSegmentedButtonRow，当前帧即时生效、重启保持、坏值 fail-closed 回退）。
+玻璃强度 / 动态取色 / 更新渠道与检查补丁更新 / 权限复查 / 更新日志弹层 / 缓存清除 / 许可与免责声明；v0.9.0 补 SnackbarHost 动作反馈；v0.9.13（FEAT-033）外观区增列**滑动指示器样式**（`nav_indicator_style`：霜面液滴 FROSTED / 清透玻璃 CLEAR，M3 SingleChoiceSegmentedButtonRow，当前帧即时生效、重启保持、坏值 fail-closed 回退）。
 
 ## 2. 现状锚点（克隆研究实测）
 

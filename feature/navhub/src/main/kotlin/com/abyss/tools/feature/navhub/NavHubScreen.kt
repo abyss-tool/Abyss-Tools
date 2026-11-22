@@ -39,7 +39,7 @@ import com.abyss.tools.core.designsystem.component.StatusChip
 /**
  * 功能页 —— 全部工具的分类目录（主界面的第二 tab）。
  *
- * v0.9.12（FEAT-034）：插件分类与门面入口卡移除 —— 引擎级插件能力由
+ * v0.9.13（FEAT-034）：插件分类与门面入口卡移除 —— 引擎级插件能力由
  * 底部导航「插件」独立 tab 承载，功能页只登记工具目录，页头统计由
  * ToolCatalog 数据驱动。
  *

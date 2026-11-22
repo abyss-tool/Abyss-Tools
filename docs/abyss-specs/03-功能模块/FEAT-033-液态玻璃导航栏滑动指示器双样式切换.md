@@ -1,12 +1,12 @@
 > 深渊工具 Abyss Tools · 软件规格说明书（功能）  
-> 状态：**已实现（v0.9.12）** ｜ 优先级：**P1** ｜ 里程碑：**M1** ｜ 承载形态：**主壳内置** ｜ 基线：**v0.9.10 / versionCode 33** ｜ 编制日期：**2026-11-22**
+> 状态：**已实现（v0.9.13）** ｜ 优先级：**P1** ｜ 里程碑：**M1** ｜ 承载形态：**主壳内置** ｜ 基线：**v0.9.10 / versionCode 33** ｜ 编制日期：**2026-11-22**
 
 | 项 | 值 |
 | --- | --- |
 | 规格编号 | `FEAT-033` |
 | 所属域 | 功能 |
 | 承载形态 | 主壳内置 |
-| 当前状态 | 已实现（v0.9.12） |
+| 当前状态 | 已实现（v0.9.13） |
 | 优先级 / 里程碑 | P1 / M1 |
 | 组织与基线 | abyss-tool 组织主仓 `main` 520 文件 + 发布仓 7 文件全量研究；v0.9.10 / versionCode 33 |
 | 标签 | 液态玻璃 · 滑动指示器 · 设置项 · Clear 档 |
@@ -160,11 +160,11 @@ AGSL 增量（在既有 `RIM_AGSL` 上加一个 uniform，**不新建着色器�
 
 | 动作 | 内容 |
 | --- | --- |
-| 升版 | 与 `FEAT-034` **同批发布**：共用 `AppInfo.VERSION_NAME = "0.9.12"` / `VERSION_CODE = 35`（`build.gradle.kts` 正则推导，不动字面量），一次升版、两条 spec 同时标「已实现（v0.9.12）」；versionCode 单调由 `SRS-003` 门禁兜底 |
-| 发布要点 | 新建 `docs/release-notes/v0.9.12.md`，一行一条；含本规格编号 `FEAT-033` 与 `FEAT-034` |
-| 打 tag | `v0.9.12` → `auto-release.yml` → `assembleRelease` + 签名指纹门禁 → `publish_release.py` |
-| 发布仓 | `version.json` / `patches.json` / `changelog.json` **由 CI 滚动，禁止手改**；`patches.json` 维持 `patches: []`，`latestTag` → `v0.9.12`（客户端 vcdiff 合成引擎未接入，仍整包安装） |
-| 规格同步 | 修订 `ARC-005`（新增 Clear 档行）、`FEAT-005`（外观项增列）、`SPEC-INDEX.md`（新增条目 + 状态）、`docs/ARCHITECTURE.md`（玻璃组件小节）；本文件状态改「已实现（v0.9.12）」 |
+| 升版 | 与 `FEAT-034` **同批发布**：共用 `AppInfo.VERSION_NAME = "0.9.13"` / `VERSION_CODE = 36`（`build.gradle.kts` 正则推导，不动字面量），一次升版、两条 spec 同时标「已实现（v0.9.13）」；versionCode 单调由 `SRS-003` 门禁兜底 |
+| 发布要点 | 新建 `docs/release-notes/v0.9.13.md`，一行一条；含本规格编号 `FEAT-033` 与 `FEAT-034` |
+| 打 tag | `v0.9.13` → `auto-release.yml` → `assembleRelease` + 签名指纹门禁 → `publish_release.py` |
+| 发布仓 | `version.json` / `patches.json` / `changelog.json` **由 CI 滚动，禁止手改**；`patches.json` 维持 `patches: []`，`latestTag` → `v0.9.13`（客户端 vcdiff 合成引擎未接入，仍整包安装） |
+| 规格同步 | 修订 `ARC-005`（新增 Clear 档行）、`FEAT-005`（外观项增列）、`SPEC-INDEX.md`（新增条目 + 状态）、`docs/ARCHITECTURE.md`（玻璃组件小节）；本文件状态改「已实现（v0.9.13）」 |
 
 ---
 
@@ -232,7 +232,8 @@ AGSL 增量（在既有 `RIM_AGSL` 上加一个 uniform，**不新建着色器�
 | --- | --- | --- |
 | 0.1 | 2026-11-22 | 基于 abyss-tool 组织主仓 / 发布仓全量研究与液态玻璃 Clear 档横向调研创建；对齐 v0.9.10 / versionCode 33 基线；按 `N-ENG-008` 先写 spec 后实现。 |
 | 0.2 | 2026-11-22 | 用户补充需求「底栏新增插件 tab、功能页插件转移到插件里」→ 新增并行规格 `FEAT-034`；本文件补：关联规格、§1 范围外 4 tab 硬边界、§2 锚点、§4.4 合并终态代码与「tab 数变化 vs 样式切换」区分、§4.7 同批/分批升版策略、AC-013 联合验收、附录 B/C 同步。渲染参数与两档定义**不变**。 |
-| 0.3 | 2026-11-22 | v0.9.11 / code 34 已被当日计划外的应用图标更换发版占用（`SRS-003` versionCode 单调约束）→ §4.7 / 附录 B 的发布契约整体顺延为 **v0.9.12 / 35**。 |
+| 0.3 | 2026-11-22 | v0.9.11 / code 34 已被当日计划外的应用图标更换发版占用（`SRS-003` versionCode 单调约束）→ §4.7 / 附录 B 的发布契约整体顺延为 **v0.9.13 / 36**。 |
+| 0.4 | 2026-11-22 | v0.9.12 / code 35 已被 N-SEC-001/002 批次（PR #12）占用 → 本批次发布契约整体顺延 **v0.9.13 / 36**。 |
 
 ---
 
@@ -278,8 +279,8 @@ AGSL 增量（在既有 `RIM_AGSL` 上加一个 uniform，**不新建着色器�
 | `core/designsystem/.../glass/AbyssGlassBottomBar.kt` | 改 | 签名增 `indicatorStyle`；两套 droplet style；`4b` alpha / `4d` mode 分支；①②③ 与 `rememberBarStyle()` 不动 |
 | `feature/settings/.../SettingsScreen.kt` | 改 | `SettingsRepository` 增偏好；`GlassIntensityCard` 内增 `SingleChoiceSegmentedButtonRow` |
 | `app/.../ui/AbyssRoot.kt` | 改 | `AbyssGlassBottomBar` 加 `indicatorStyle` 一行；**`bottomItems` / 路由由 `FEAT-034` 改，本规格不动**（合并终态见 §4.4） |
-| `core/common/.../AppInfo.kt` | 改 | `0.9.12` / `35` |
-| `docs/release-notes/v0.9.12.md` | 新增 | 发布要点 |
+| `core/common/.../AppInfo.kt` | 改 | `0.9.13` / `36` |
+| `docs/release-notes/v0.9.13.md` | 新增 | 发布要点 |
 | `docs/abyss-specs/03-功能模块/FEAT-033-….md` | 新增 | 本文件（0.2 已补 FEAT-034 协同边界，0.3 重定版本） |
 | `docs/abyss-specs/03-功能模块/FEAT-034-….md` | 新增 | 底栏四 tab / 插件独立入口（并行 spec） |
 | `docs/abyss-specs/01-架构/ARC-005-….md` | 改 | 契约表增 Clear 档 |

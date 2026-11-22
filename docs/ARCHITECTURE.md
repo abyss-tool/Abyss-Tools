@@ -102,7 +102,7 @@ Android 15/16 适配立场（16KB / edge-to-edge / RECEIVER 加固 / FGS 等
 底栏仅顶层 tab 显示（stack.size == 1），详情页沉浸全屏 —— 玻璃采样源
 在内容根上，任何页面滚过玻璃件下方都会被真实采样。
 
-v0.9.12（FEAT-034）起顶层 tab 为四项：仪表盘 / 功能 / 插件 / 设置 ——
+v0.9.13（FEAT-034）起顶层 tab 为四项：仪表盘 / 功能 / 插件 / 设置 ——
 「插件」独立 tab 直达顶层插件中心（`onBack = null`，无返回箭头）；
 `tabIndex` 精确映射 0-3，详情页返回 -1；`selectTab` 非法索引
 fail-closed 直接 return（替代旧 `else -> Settings` 猜测）。
