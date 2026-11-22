@@ -153,7 +153,11 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
         get() = when (current) {
             Screen.Dashboard -> 0
             Screen.NavHub -> 1
-            else -> 2
+            Screen.PluginHub -> 2
+            Screen.Settings -> 3
+            // 详情页（FEAT-034 FR-002）：底栏隐藏（showBottomBar == false），
+            // 无 tab 语义 —— fail-closed 返回越界值，绝不误高亮任何一格。
+            is Screen.PluginDetail, is Screen.Tool, is Screen.AppManagerDetail -> -1
         }
 
     fun push(screen: Screen) {
@@ -169,10 +173,14 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
     }
 
     fun selectTab(index: Int) {
+        // FEAT-034 FR-003：显式覆盖 0/1/2/3；非法索引 fail-closed 直接 return
+        // —— 不改栈、不切页、不抛（替代旧 else -> Settings 的猜测行为）。
         val target = when (index) {
             0 -> Screen.Dashboard
             1 -> Screen.NavHub
-            else -> Screen.Settings
+            2 -> Screen.PluginHub
+            3 -> Screen.Settings
+            else -> return
         }
         lastAction = NavAction.TAB
         stack = listOf(target)
@@ -228,9 +236,12 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
     }
 }
 
+// FEAT-034：底栏 3 tab → 4 tab，「插件」为独立入口（index 2，直达顶层
+// 插件中心）；等宽槽位与液滴步长由 AbyssGlassBottomBar 按 items.size 参数化。
 private val bottomItems = listOf(
     AbyssNavItem(AbyssIcons.icon("dashboard"), "仪表盘"),
     AbyssNavItem(AbyssIcons.icon("explore"), "功能"),
+    AbyssNavItem(AbyssIcons.icon("extension"), "插件"),
     AbyssNavItem(AbyssIcons.icon("settings"), "设置"),
 )
 
@@ -341,7 +352,9 @@ fun AbyssRoot(
                                 pluginRepository = registry.pluginRepository,
                                 updateManager = registry.updateManager,
                                 onOpenTool = { backStack.push(Screen.Tool(it)) },
-                                onOpenPlugins = { backStack.push(Screen.PluginHub) },
+                                // FEAT-034 FR-010：仪表盘插件入口统一切到「插件」
+                                // 顶层 tab（stack.size == 1），不再产生二级同名页。
+                                onOpenPlugins = { backStack.selectTab(2) },
                                 bottomClearance = bottomClearance,
                                 installedPluginCount = installedPluginCount,
                                 autoCheckUpdates = settings.checkOnLaunch,
@@ -352,7 +365,6 @@ fun AbyssRoot(
                             Screen.NavHub -> NavHubScreen(
                                 bottomClearance = bottomClearance,
                                 onOpenTool = { backStack.push(Screen.Tool(it)) },
-                                onOpenPluginHub = { backStack.push(Screen.PluginHub) },
                             )
 
                             Screen.Settings -> SettingsScreen(
@@ -364,17 +376,20 @@ fun AbyssRoot(
                                 onRestartOnboarding = onReopenOnboarding,
                             )
 
+                            // FEAT-034 FR-004：插件中心升为顶层 tab —— onBack = null
+                            //（无返回箭头），标题与 tab 文案一致；详情页语义零变化。
                             Screen.PluginHub -> PluginHubScreen(
                                 repository = registry.pluginRepository,
                                 channelClient = registry.channelClient,
                                 installer = registry.pluginInstaller,
-                                onBack = { backStack.pop() },
+                                onBack = null,
                                 onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
                                 stateVersion = pluginStateVersion,
                                 onPluginsChanged = bumpPluginState,
                                 mirrorRouter = registry.mirrorRouter,
                                 mirrorPreference = settings.downloadMirror,
                                 onMirrorPreference = { settings.downloadMirror = it },
+                                title = "插件",
                             )
 
                             is Screen.PluginDetail -> PluginDetailScreen(
@@ -399,21 +414,6 @@ fun AbyssRoot(
                             )
 
                             is Screen.Tool -> when (screen.toolId) {
-                                // ── 插件中心行项（v0.8.5）：目录里遗留的「插件中心」
-                                //    行项此前落到通用占位页，改接线真实插件中心。 ──
-                                ToolCatalog.ID_PLUGIN_HUB -> PluginHubScreen(
-                                    repository = registry.pluginRepository,
-                                    channelClient = registry.channelClient,
-                                    installer = registry.pluginInstaller,
-                                    onBack = { backStack.pop() },
-                                    onOpenPlugin = { backStack.push(Screen.PluginDetail(it)) },
-                                    stateVersion = pluginStateVersion,
-                                    onPluginsChanged = bumpPluginState,
-                                    mirrorRouter = registry.mirrorRouter,
-                                    mirrorPreference = settings.downloadMirror,
-                                    onMirrorPreference = { settings.downloadMirror = it },
-                                )
-
                                 // ── 伪装四件套（v0.3 内置化：真实功能页）──────────
                                 ToolCatalog.ID_BATTERY_DISGUISE -> BatterySpoofScreen(
                                     shizukuStatus = shizukuStatus,
@@ -556,7 +556,10 @@ fun AbyssRoot(
                                     toolId = screen.toolId,
                                     onOpenPlugin = { pluginId ->
                                         if (pluginId.isBlank()) {
-                                            backStack.push(Screen.PluginHub)
+                                            // FEAT-034 AC-007：全 app 只有一个插件中心
+                                            // 深度 —— 统一落顶层「插件」tab，不再 push
+                                            // 二级插件中心页。
+                                            backStack.selectTab(2)
                                         } else {
                                             backStack.push(Screen.PluginDetail(pluginId))
                                         }

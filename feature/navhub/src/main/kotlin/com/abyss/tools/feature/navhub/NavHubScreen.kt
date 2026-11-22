@@ -1,8 +1,6 @@
 package com.abyss.tools.feature.navhub
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
@@ -30,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.ToolCatalog
-import com.abyss.tools.core.common.ToolCategory
 import com.abyss.tools.core.common.ToolDef
 import com.abyss.tools.core.common.ToolStatus
 import com.abyss.tools.core.designsystem.component.AbyssIcons
@@ -38,16 +34,14 @@ import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.ListRowCard
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.entranceStagger
-import com.abyss.tools.core.designsystem.component.pressScale
 import com.abyss.tools.core.designsystem.component.StatusChip
-import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
-import com.kyant.backdrop.Backdrop
 
 /**
  * 功能页 —— 全部工具的分类目录（主界面的第二 tab）。
  *
- * 结构铁律：**插件永远排第一分类** —— 深渊工具「主壳轻、能力重」的
- * 产品表达：点击插件分类进入插件中心。
+ * v0.9.12（FEAT-034）：插件分类与门面入口卡移除 —— 引擎级插件能力由
+ * 底部导航「插件」独立 tab 承载，功能页只登记工具目录，页头统计由
+ * ToolCatalog 数据驱动。
  *
  * v0.8.5：页头与底栏文案从「导航」改为「功能」（用户反馈：这页就是
  * 功能目录，不是导航目录）。
@@ -56,7 +50,6 @@ import com.kyant.backdrop.Backdrop
 fun NavHubScreen(
     bottomClearance: Dp,
     onOpenTool: (String) -> Unit,
-    onOpenPluginHub: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -93,21 +86,11 @@ fun NavHubScreen(
                 // 前 ENTRANCE_MAX_STAGGER_STEPS 张依次延迟形成波浪，更深的
                 // 卡片立即入场（滚动复用不让人等）。分类内工具数 < 10。
                 item(key = "header-${category.id}") {
-                    if (category == ToolCategory.PLUGINS) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
-                        ) {
-                            PluginHubEntry(onOpenPluginHub = onOpenPluginHub)
-                        }
-                    } else {
-                        SectionHeader(
-                            title = category.title,
-                            subtitle = category.description,
-                            modifier = Modifier.entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
-                        )
-                    }
+                    SectionHeader(
+                        title = category.title,
+                        subtitle = category.description,
+                        modifier = Modifier.entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
+                    )
                 }
                 items(
                     count = ToolCatalog.toolsOf(category).size,
@@ -123,68 +106,6 @@ fun NavHubScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-/** 插件分类的特殊入口卡（玻璃件，导航页的门面）。 */
-@Composable
-private fun PluginHubEntry(onOpenPluginHub: () -> Unit) {
-    // 点击接线修复（v0.7.6）：onOpenPluginHub 此前从未接线 —— 门面入口卡
-    // 点不动。interactionSource 自持并同步喂给 clickable + pressScale，
-    // 按下整卡「按进液体」缩放（涟漪让位给果冻手感，与底栏同款纪律）。
-    val interaction = remember { MutableInteractionSource() }
-    AbyssGlassSurface(
-        backdrop = null, // NavHub 内无采样源 → Frosted 档（霜面 + 边缘光）
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .pressScale(interaction)
-            .clip(MaterialTheme.shapes.large),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = interaction,
-                    indication = null,
-                    onClick = onOpenPluginHub,
-                )
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "🧩", style = MaterialTheme.typography.headlineSmall)
-            }
-            Spacer(Modifier.size(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = "插件",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "三大引擎级插件 · 小功能内置 · 引擎级能力插件化 · 独立补丁更新",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = "进入 ›",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
         }
     }
 }
