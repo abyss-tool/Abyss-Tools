@@ -64,9 +64,31 @@ ghproxy.net / gh-proxy.com / ghproxy.cn / raw.gitmirror.com）。信任模型：
   `objects.githubusercontent.com`（Release 资产重定向域）——
   `OkHttpTransport` 请求前与重定向后双重校验，白名单外一律拒绝。
 - SHA-256 摘要**缺失即拒绝**（v0.6.0 起，不再有「框架期兼容」放行）。
-- 已知边界：清单本身尚未做 detached 签名（minisign / Ed25519 方案在
-  路线图）—— 当前防线 = 发布仓写权限最小化 + versionCode 单调门禁 +
-  APK 摘要校验。若发布仓 PAT 泄露，第一时间吊销并轮换 RELEASE_TOKEN。
+- **清单 detached 签名（v0.10 / N-SEC-001 起，已落地）**：发布仓三件套
+  （version.json / patches.json / changelog.json）、插件中心 plugins.json、
+  三个插件仓 patches/index.json 全部附带 minisign 兼容 detached 签名
+  （`.minisig`，Ed25519，发布流水线对**写入字节**签名、清单与签名同 job
+  原子提交）；客户端 `SignedHttpTransport` **先拉 `.minisig` 验签再解析**，
+  公钥内置 `ChannelSignatureVerifier.TRUSTED_KEYS`（唯一事实源），无签名
+  一律拒绝 —— **不存在「无签名也放行」的兼容后门**：
+  - **存量客户端兼容/灰度策略**：v0.9.9（PR #10）起客户端已强制验签，
+    v0.9.10 客户端对缺签名通道 fail-closed（当时发布侧尚未产出签名，更新
+    链处于「拒绝」态）—— 本节所述发布侧签名上线即恢复「验签通过」，属
+    **修复而非 breaking**；v0.9.8 及更早客户端从不请求 `.minisig`，不受
+    影响。历史上没有任何「签名缺失也放行」的客户端版本存在。
+  - **镜像同步语义**：`.minisig` 与清单同路径，镜像同步延迟会表现为
+    「清单 200 / 签名 404」—— 客户端给人话提示「镜像可能尚未同步，请
+    稍后重试或切换网络」并拒绝解析（fail-closed，绝不放行未验签清单）；
+    镜像只做通路不做信任源，签名校验不依赖镜像诚实。
+  - **密钥管理**：私钥（raw Ed25519 seed）只存各仓 GitHub Actions secrets
+    （`RELEASE_SIGNING_KEY`），永不入库；签名格式与 minisign 0.11 CLI 兼容
+    （`minisign -V` 可独立复核）。密钥轮换走**双公钥过渡期**：新公钥加入
+    `TRUSTED_KEYS`（新增不替换），旧签名在兼容窗口内继续有效，窗口
+    ≥ 1 个版本；若发布私钥疑似泄露，第一时间吊销各仓 secret、生成新钥对
+    并按双公钥流程换签。
+  - 发布仓 CI 门禁（`validate_manifests.py`）：`.minisig` 存在且可验 +
+    清单 `download.sha256` = 该 tag GitHub Release APK 附件真实 digest，
+    任一不符直接失败。
 
 ## 命令执行面（Shizuku 通道）
 
