@@ -49,7 +49,7 @@ class PluginFrameworkTest {
     }
 
     @Test
-    fun `解析 v2 能力声明（provides / depends / capabilities / assetChannel）`() {
+    fun `解析 v2 能力声明（provides·depends·capabilities·assetChannel）`() {
         val index = PluginParsers.parseIndex(resource("plugins-index.json"))
         val linux = index.plugins.first { it.id == "abyss-plugin-linux" }
         // provides：引擎级插件声明唯一能力

@@ -69,6 +69,10 @@ data class PluginIndexEntry(
     val providesLinuxRuntime: Boolean
         get() = provides.any { it.capability == "linux-runtime-v1" }
 
+    /** 快捷判定：linux-runtime-v1 消费方（瘦客户端依赖声明）。 */
+    val dependsOnLinuxRuntime: Boolean
+        get() = depends.any { it.capability == "linux-runtime-v1" }
+
     /** 快捷判定：v2 插件（minHost=2，v1 宿主加载即 fail-closed）。 */
     val requiresHostApi2: Boolean get() = minHost >= 2
 }
