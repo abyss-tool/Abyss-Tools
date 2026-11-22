@@ -13,13 +13,23 @@
 
 ## 契约常量（plugin-sdk:plugin-api PluginContract）
 
-- `HOST_API_VERSION = 1` —— 只增不减；插件以 `minHost` 声明需求，宿主
-  比对不满足则拒绝加载（fail-closed）。
+- `HOST_API_VERSION = 2` —— 只增不减；插件以 `minHost` 声明需求，宿主
+  比对不满足则拒绝加载（fail-closed）。**v2 增量（ADR-100 D-5）**：新增
+  依赖解析与能力绑定（`PluginBroker`）；`minHost=1` 插件在 v2 宿主照常
+  加载，`minHost=2` 插件在 v1 宿主 fail-closed 并提示升级；兼容期 ≥2 个
+  宿主版本，期间 `depends` 字段在 v1 宿主被忽略（索引层标注「需新版宿主」）。
 - `MANIFEST_FILE = "plugin.json"` —— 插件仓根与安装目录内的入口文件。
 - `PLUGINS_DIR = "plugins"` —— 宿主 `filesDir` 下的插件根目录；安装态
   单一事实源：`filesDir/plugins/<id>/plugin.json` 存在即已安装。
 - `PATCHES_INDEX = "patches/index.json"` —— 插件仓补丁通道固定读取点。
 - `ID_PATTERN` —— 插件 id 形如 `abyss-plugin-terminal`（小写 + 连字符）。
+- `CAPABILITY_PATTERN` / `CAPABILITY_LINUX_RUNTIME_V1`（v2 新增）——
+  能力 id 形如 `linux-runtime-v1`；主版本变化必须新开 id，禁止原地改语义。
+- `ACTION_PLUGIN` / `ACTION_LINUX_RUNTIME`（v2 新增）—— AIDL 双向桥与
+  Linux 运行时服务的发现动作串。
+- `META_HOST_ENTRY` / `META_UI_ENTRIES` / `META_CAPABILITIES` —— manifest
+  meta-data 声明键（v2 新增能力声明键）。
+- `GRANT_TTL_MAX_SEC = 300`（v2 新增）—— 跨插件令牌有效期上限（ARC-102 FR-005）。
 
 ## plugin.json schema（v1）
 
@@ -49,7 +59,35 @@ automation, desktop, network, data, tools, dev}。
 `shizuku` 为可选声明（缺省 null = 不涉及）：`ownAuth: true` 表示本插件
 为独立 APK 且需用户在 Shizuku 内**单独授权一次**（Shizuku 授权严格
 per-app，宿主授权不能继承给独立插件包名）—— 详情页会展示独立授权引导
-与 `reason`；运行在宿主进程内的数据插件不声明此字段。
+与 `reason`；运行在宿主进程内的数据插件不声明此字段。**HOST_API v2 收敛
+（LIN-005）**：引擎级授权持有方（`abyss-plugin-linux`）必填；纯编排型
+消费方（如应用构建器）**必须删除**本声明（CI 门禁「出现即失败」）。
+
+## plugin.json v2 增量字段（DC-100 §2 —— 全部可选，v1 解析器天然兼容）
+
+```json
+{
+  "provides": [{"capability": "linux-runtime-v1", "since": "0.2.0", "stable": true}],
+  "depends": [{
+    "pluginId": "abyss-plugin-linux",
+    "capability": "linux-runtime-v1",
+    "versionRange": ">=0.2.0 <1.0.0",
+    "optional": false,
+    "reason": "构建需要 Linux 运行环境，由 Linux 插件统一提供。"
+  }],
+  "capabilities": {"linux-runtime-v1": {"domains": ["PROOT_USERLAND", "QEMU_VM"]}},
+  "assetChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-linux/main/assets/index.json"
+}
+```
+
+字段纪律（DC-100 §3）：`provides[].capability` 形如 `^[a-z0-9-]+-v[0-9]+$`
+且插件内唯一；`depends[].pluginId` 符合 `ID_PATTERN` 且不得指向归档 id；
+`versionRange` 为 SemVer 区间（统一 SemVer 比较，禁止 `split('.')`）；
+`optional=false` 时 `reason` 必填且 ≥10 字符；`assetChannel` 过
+ChannelPolicy 域白名单与重定向复检（abyss-asset-v1 大资产通道，与
+abyss-patch-v1 严格分离）。消费方永不直连提供方 —— 跨插件调用一律经宿主
+`PluginBroker` 中介（`getCapability` 四重校验 + `SessionGrant` 令牌，
+详见 `11-Linux插件解耦/ARC-102`）。
 
 ## 插件仓库骨架（三个引擎级插件仓库同构）
 

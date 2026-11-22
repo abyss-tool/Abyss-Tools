@@ -13,6 +13,10 @@
 | 组织与基线 | abyss-tool 组织 19 仓库克隆研究；v0.9.5 / versionCode 28 |
 | 标签 | VNC · 输入 |
 
+
+> **承接公告（ADR-100 D-4，2026-11-22）**：本规格已由 `11-Linux插件解耦/LIN-002（QEMU_VM 完整系统执行域 · VNC 回环与输入路由）` 承接 —— `abyss-plugin-virtual-machine` 归档，其能力收编为 Linux 插件的 `QEMU_VM` 执行域与资产通道。
+
+
 ## 1. 目标与范围
 
 本地回环 VNC 显示管线 + 触屏 → PS/2 / USB Tablet 输入路由，含缩放与滚轮手势映射。
