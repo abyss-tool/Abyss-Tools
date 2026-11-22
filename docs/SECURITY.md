@@ -46,6 +46,36 @@
 3. 发布仓 `version.json` 标记 breaking，客户端提示卸载重装；
 4. 新旧 jks 的 `minApp` / 补丁通道 from 链全部重新起链。
 
+## Secrets 与令牌纪律（N-SEC-002，M1 起）
+
+### 最小权限矩阵（唯一事实源，新增 secret 必须先登记）
+
+| 仓 | Secret | 权限 / 内容 | 约束 |
+| --- | --- | --- | --- |
+| Abyss-Tools | `RELEASE_TOKEN` | fine-grained PAT，**仅发布仓 Abyss-Tools-Release 的 Contents RW** | 禁止授其他仓/组织权限；90 天有效期 |
+| Abyss-Tools | `RELEASE_SIGNING_KEY` | 清单签名私钥（raw Ed25519 seed，base64 单行） | 永不入库不入日志；轮换走双公钥过渡 |
+| Abyss-Tools | `ABYSS_KEYSTORE_B64` + 口令三件套 | APK 发布签名材料 | v0.6.0 起出库 secrets（SEC-008 历史决策不变） |
+| Abyss-Plugins | `RELEASE_SIGNING_KEY` | plugins.json 签名私钥（同首签钥） | 独立配置，不与主仓共享 PAT |
+| abyss-plugin-*（3 仓） | `RELEASE_SIGNING_KEY` | 补丁通道签名私钥 | 各仓独立配置（FR-005：不共用主仓 RELEASE_TOKEN） |
+| 各仓 | `GITHUB_TOKEN` | Actions 内置，workflow `permissions` 显式收敛 | 发布仓 / 插件中心 / 插件仓 CI 均只读或最小写 |
+
+### 90 天轮换与吊销演练（FR-002 / FR-003）
+
+`tools/pat_rotate_drill.py` 提供三步演练：`--probe`（身份 + 各仓读探针 +
+发布链路关键资产可读性）、`--audit-secrets`（「仓 → secret → 消费点」
+使用记录审计）、`--check-tooling`（发布工具链错误路径不回显令牌的静态
+断言 —— AC-001 的「错误信息不泄露令牌」半边）。轮换 SOP 五步见脚本输出
+尾部；真实吊销在 GitHub → Developer settings 手工执行（脚本绝不持有
+吊销权限，也不打印任何令牌值）。
+
+### 审计红线（FR-004）
+
+- workflow / 脚本日志**禁止回显**任何 secret 值（CI 步骤只回显
+  「材料就绪」状态，不回显内容）；
+- 发布工具链（`publish_release.py` / `publish_patch.py` / `sync_index.py`）
+  错误输出仅含 HTTP 状态与响应片段，不含令牌 —— 由
+  `pat_rotate_drill.py --check-tooling` 在 CI 侧持续断言。
+
 ## 下载镜像（v0.7.0 起）
 
 国内网络直连 GitHub 极不稳定，v0.7.0 引入镜像链（ghfast.top /
