@@ -20,10 +20,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -47,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.CrashGuard
 import com.abyss.tools.core.common.AbyssChannels
+import com.abyss.tools.core.common.AbyssIndicatorStyle
 import com.abyss.tools.core.common.UiState
 import com.abyss.tools.core.common.toUiState
 import com.abyss.tools.core.designsystem.component.ChipTone
@@ -158,6 +163,25 @@ class SettingsRepository(context: Context) {
             prefs.edit().putString(KEY_DOWNLOAD_MIRROR, value).apply()
         }
 
+    private var _navIndicatorStyle by mutableStateOf(
+        com.abyss.tools.core.common.AbyssIndicatorStyle.from(
+            prefs.getString(KEY_NAV_INDICATOR_STYLE, null),
+        ),
+    )
+
+    /**
+     * 底栏滑动指示器渲染档位（FEAT-033）：只存字符串 "frosted"/"clear"
+     * （不存 ordinal / 类名）；读取端 fail-closed —— 任何非两值字符串
+     * （含空串 / 旧版残留 / 被篡改）经 AbyssIndicatorStyle.from 回退
+     * FROSTED，不抛、不写回覆盖用户原值（下次读仍回退）。
+     */
+    var navIndicatorStyle: com.abyss.tools.core.common.AbyssIndicatorStyle
+        get() = _navIndicatorStyle
+        set(value) {
+            _navIndicatorStyle = value
+            prefs.edit().putString(KEY_NAV_INDICATOR_STYLE, value.storageValue).apply()
+        }
+
     private companion object {
         const val KEY_GLASS_INTENSITY = "glass_intensity"
         const val KEY_CHECK_ON_LAUNCH = "check_updates_on_launch"
@@ -166,6 +190,7 @@ class SettingsRepository(context: Context) {
         const val KEY_ONBOARDING_DONE = "onboarding_completed"
         const val KEY_DOWNLOAD_MIRROR = "download_mirror"
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
+        const val KEY_NAV_INDICATOR_STYLE = "nav_indicator_style"
     }
 }
 
@@ -441,6 +466,7 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GlassIntensityCard(settings: SettingsRepository) {
     AbyssGlassSurface(
@@ -472,6 +498,50 @@ private fun GlassIntensityCard(settings: SettingsRepository) {
                 value = settings.glassIntensity,
                 onValueChange = { settings.glassIntensity = it },
                 valueRange = 0.4f..1.6f,
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+
+            // ── 滑动指示器双样式（FEAT-033）：两档互斥、随时互切、当前帧
+            //    即时生效、重启保持；切换样式不重建 AbyssLiquidMotion。──
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "滑动指示器样式",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                StatusChip(
+                    text = when (settings.navIndicatorStyle) {
+                        AbyssIndicatorStyle.FROSTED -> "霜面液滴"
+                        AbyssIndicatorStyle.CLEAR -> "清透玻璃"
+                    },
+                    tone = ChipTone.INFO,
+                )
+            }
+            Spacer(Modifier.size(8.dp))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                AbyssIndicatorStyle.entries.forEachIndexed { index, style ->
+                    SegmentedButton(
+                        selected = settings.navIndicatorStyle == style,
+                        onClick = { settings.navIndicatorStyle = style },
+                        shape = SegmentedButtonDefaults.itemShape(index, AbyssIndicatorStyle.entries.size),
+                        label = {
+                            Text(
+                                when (style) {
+                                    AbyssIndicatorStyle.FROSTED -> "霜面液滴"
+                                    AbyssIndicatorStyle.CLEAR -> "清透玻璃"
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.size(6.dp))
+            Text(
+                text = "切换底部导航滑动指示器的材质：霜面液滴带轻微磨砂与折射；清透玻璃无模糊、仅保留边缘玻璃高光，背景清晰透出",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))

@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.abyss.tools.core.common.AbyssIndicatorStyle
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -80,16 +81,37 @@ private fun rememberBarStyle(): AbyssGlassStyle {
 }
 
 @Composable
-private fun rememberDropletStyle(): AbyssGlassStyle {
+private fun rememberDropletStyle(indicatorStyle: AbyssIndicatorStyle): AbyssGlassStyle {
     val palette = LocalAbyssGlassPalette.current
-    return AbyssGlassStyle(
-        blurRadius = 4.dp,
-        lensHeight = 1.5.dp,
-        lensAmount = 7.dp,
-        chromaticAberration = false,
-        solidTint = palette.dropletTint,
-        edgeAlpha = 1f,
-    )
+    // FEAT-033：dropletStyle 的 remember(key) 只换参数对象 —— 指示器档位
+    // 严禁进 rememberAbyssLiquidMotion 的 key（重建 motion 会清空拖动状态、
+    // 弹簧从头起跳，见 AbyssLiquidMotion 已登记教训）。
+    return remember(indicatorStyle, palette) {
+        when (indicatorStyle) {
+            // FROSTED 档（FR-008）：参数逐字冻结 = v0.9.10 现状，零回归
+            AbyssIndicatorStyle.FROSTED -> AbyssGlassStyle(
+                blurRadius = 4.dp,
+                blurEnabled = true,
+                lensHeight = 1.5.dp,
+                lensAmount = 7.dp,
+                chromaticAberration = false,
+                solidTint = palette.dropletTint,
+                edgeAlpha = 1f,
+            )
+            // CLEAR 档（§4.2）：blurEnabled = false 跳过 vibrancy + blur（零
+            // 模糊，背景 100% 清晰透出）；lens 只走边缘带（2.0/10dp）+ 色散；
+            // 液滴膜 tint 用 clearDropletTint 极薄白/黑纱（≤0.08 alpha）
+            AbyssIndicatorStyle.CLEAR -> AbyssGlassStyle(
+                blurRadius = 0.dp,
+                blurEnabled = false,
+                lensHeight = 2.0.dp,
+                lensAmount = 10.dp,
+                chromaticAberration = true,
+                solidTint = palette.clearDropletTint,
+                edgeAlpha = 1f,
+            )
+        }
+    }
 }
 
 @Composable
@@ -98,6 +120,7 @@ fun AbyssGlassBottomBar(
     items: List<AbyssNavItem>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    indicatorStyle: AbyssIndicatorStyle = AbyssIndicatorStyle.FROSTED,
     modifier: Modifier = Modifier,
 ) {
     val motion = rememberAbyssLiquidMotion(selectedIndex, items.size)
@@ -107,7 +130,18 @@ fun AbyssGlassBottomBar(
     val density = LocalDensity.current
     val palette = LocalAbyssGlassPalette.current
     val barStyle = rememberBarStyle()
-    val dropletStyle = rememberDropletStyle()
+    val dropletStyle = rememberDropletStyle(indicatorStyle)
+
+    // FEAT-033：4b 薄膜 alpha 与 4d 边缘光模式按档位分支；FROSTED 档数值
+    // 与 v0.9.10 逐字一致（dropletIndicatorAlpha / press*0.08 / FLOW）。
+    val indicatorAlpha = when (indicatorStyle) {
+        AbyssIndicatorStyle.FROSTED -> palette.dropletIndicatorAlpha
+        AbyssIndicatorStyle.CLEAR -> palette.clearIndicatorAlpha
+    }
+    val indicatorPressGain = if (indicatorStyle == AbyssIndicatorStyle.FROSTED) 0.08f else 0.04f
+    val rimMode = if (indicatorStyle == AbyssIndicatorStyle.CLEAR) AbyssRimMode.CLEAR else AbyssRimMode.FLOW
+    // FROSTED 档保持 Color.White（现状逐字不变）；CLEAR 渐变降级档亮线用 palette.rimColor
+    val rimColor = if (indicatorStyle == AbyssIndicatorStyle.CLEAR) palette.rimColor else Color.White
 
     var barWidthPx by remember { mutableIntStateOf(0) }
     val count = items.size.coerceAtLeast(1)
@@ -238,12 +272,14 @@ fun AbyssGlassBottomBar(
                         modifier = Modifier.matchParentSize(),
                     ) {}
 
-                    // 4b 选中色薄膜（alpha 按明暗档分：浅色 0.20 / 深色 0.14）
+                    // 4b 选中色薄膜（FEAT-033：FROSTED palette.dropletIndicatorAlpha
+                    // + press*0.08；CLEAR clearIndicatorAlpha + press*0.04，压低
+                    // 保证背景文字/图标清晰可读）
                     Box(
                         Modifier
                             .matchParentSize()
                             .graphicsLayer {
-                                alpha = palette.dropletIndicatorAlpha + motion.press.value * 0.08f
+                                alpha = indicatorAlpha + motion.press.value * indicatorPressGain
                             }
                             .background(MaterialTheme.colorScheme.primary, CircleShape),
                     )
@@ -271,11 +307,12 @@ fun AbyssGlassBottomBar(
                         }
                     }
 
-                    // 4d 边缘渐变光
+                    // 4d 边缘渐变光（FEAT-033：FROSTED = FLOW 速度甩光带（现状）；
+                    // CLEAR = 静态玻璃高光，光带冻结中心、rim 增益、四角点光）
                     Box(
                         Modifier
                             .matchParentSize()
-                            .abyssLiquidRim(motion),
+                            .abyssLiquidRim(motion, mode = rimMode, rimColor = rimColor),
                     )
                 }
             }

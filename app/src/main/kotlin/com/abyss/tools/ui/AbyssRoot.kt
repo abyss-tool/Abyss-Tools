@@ -579,6 +579,9 @@ fun AbyssRoot(
                     items = bottomItems,
                     selectedIndex = backStack.tabIndex,
                     onSelect = { backStack.selectTab(it) },
+                    // FEAT-033：滑动指示器双样式（FROSTED 默认 / CLEAR 清透玻璃）；
+                    // 档位只换 droplet 绘制参数，不进 motion 的 remember key。
+                    indicatorStyle = settings.navIndicatorStyle,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()

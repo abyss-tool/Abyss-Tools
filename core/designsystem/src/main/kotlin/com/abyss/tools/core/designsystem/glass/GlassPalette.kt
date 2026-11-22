@@ -40,6 +40,10 @@ data class AbyssGlassPalette(
     val dropletTint: Color,
     /** 选中色薄膜 alpha：浅色模式提至 0.20 保证对比 */
     val dropletIndicatorAlpha: Float,
+    /** Clear 档液滴膜 tint（FEAT-033）：极薄白/黑纱（≤0.08 alpha），中心近乎纯透明 */
+    val clearDropletTint: Color,
+    /** Clear 档选中色薄膜 alpha（FEAT-033）：显著低于 Frosted 档，保证背景文字/图标清晰可读 */
+    val clearIndicatorAlpha: Float,
 ) {
     companion object {
         /** 浅色档：白色液态玻璃 */
@@ -53,6 +57,8 @@ data class AbyssGlassPalette(
             highlightBlendMode = androidx.compose.ui.graphics.BlendMode.SrcOver,
             dropletTint = Color.White.copy(alpha = 0.32f),
             dropletIndicatorAlpha = 0.20f,
+            clearDropletTint = Color.White.copy(alpha = 0.06f),
+            clearIndicatorAlpha = 0.08f,
         )
 
         /** 深色档：深渊近黑（保留原有美学） */
@@ -66,6 +72,9 @@ data class AbyssGlassPalette(
             highlightBlendMode = androidx.compose.ui.graphics.BlendMode.Plus,
             dropletTint = Color(0x260A0E13),
             dropletIndicatorAlpha = 0.14f,
+            // 0x0A0E13 @ alpha 0.04（0x0A/255 ≈ 0.039）
+            clearDropletTint = Color(0x0A0A0E13),
+            clearIndicatorAlpha = 0.06f,
         )
     }
 }
