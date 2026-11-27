@@ -84,18 +84,29 @@ class MirrorRouter {
         )
     }
 
-    /** 并发探测全部候选镜像并写缓存（探测对象 = url 的真实资产路径）。 */
+    /**
+     * 并发探测全部候选镜像并写缓存（探测对象 = url 的真实资产路径）。
+     *
+     * NB-1 修复：ConcurrentHashMap 不接受 null 值 —— 旧代码
+     * `results[id] = probeSync(...)`（Long?，镜像不可达时 null）会在
+     * 探测线程内直接抛 NPE：线程带未捕获异常死亡、堆栈污染日志，
+     * 「null 值记录不可达」的缓存契约从未成立（不可达镜像只能靠
+     * 缺键偶然等效）。改用 -1 哨兵并发收集，收口时归一化为 null。
+     */
     fun refreshProbeCache(url: String) {
         val kind = MirrorCatalog.assetKindOf(url) ?: return
         val candidates = MirrorCatalog.forAsset(kind)
-        val results = ConcurrentHashMap<String, Long?>()
+        val raw = ConcurrentHashMap<String, Long>() // -1 = 不可达哨兵
         val threads = candidates.map { mirror ->
             Thread {
-                results[mirror.id] = probeSync(mirror, url)
+                val latency = probeSync(mirror, url)
+                raw[mirror.id] = latency ?: PROBE_UNREACHABLE
             }.apply { isDaemon = true; start() }
         }
         threads.forEach { runCatching { it.join(PROBE_JOIN_MS) } }
-        probeCache = results.toMap()
+        probeCache = raw.toMap().mapValues { (_, v) ->
+            if (v == PROBE_UNREACHABLE) null else v
+        }
     }
 
     /** 同步单镜像探测（TTFB 毫秒；失败 → null）。HEAD + Range 兜底。 */
@@ -119,6 +130,9 @@ class MirrorRouter {
 
         /** 单探测线程 join 上界（防单个镜像拖死整批排序）。 */
         const val PROBE_JOIN_MS = 5_000L
+
+        /** 探测不可达哨兵（ConcurrentHashMap 容不下 null，见 NB-1）。 */
+        const val PROBE_UNREACHABLE = -1L
 
         val probeClient: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(4, TimeUnit.SECONDS)

@@ -102,4 +102,20 @@ class VirusDispositionExecutorTest {
         assertFalse(allowlist.contains(shaFp))
         assertTrue(VirusAuditLog.recent().any { it.action == VirusAuditLog.Action.ALLOWLIST_REMOVE })
     }
+
+    @Test fun `audit export includes rotated history file`() {
+        // NB-3b 回归：导出必须包含轮转件 .log.1（旧实现静默丢弃较早历史）
+        val dir = java.io.File(System.getProperty("java.io.tmpdir"), "virus-audit-rot-${System.nanoTime()}")
+        dir.mkdirs()
+        dir.resolve("abyss-virus-audit.log").writeText("L1 current-line")
+        dir.resolve("abyss-virus-audit.log.1").writeText("L0 rotated-line")
+        VirusAuditLog.attachLogDir(dir)
+        val out = java.io.File(dir, "export.txt")
+        assertNotNull(VirusAuditLog.exportTo(out, maskSha = false))
+        val text = out.readText()
+        assertTrue(text.contains("current-line"))
+        assertTrue("导出必须含轮转历史", text.contains("rotated-line"))
+        assertTrue(text.contains("轮转 .1"))
+        VirusAuditLog.clear()
+    }
 }

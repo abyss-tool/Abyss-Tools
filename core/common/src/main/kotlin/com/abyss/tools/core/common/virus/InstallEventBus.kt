@@ -36,8 +36,15 @@ object InstallEventBus {
     }
 
     /**
-     * 标记监听已启动（幂等）。FR-004：重复注册不产生重复事件。
-     * @return true 表示本次为首次注册；false 表示此前已注册（幂等跳过）。
+     * 标记监听已启动（幂等指**监听注册**，非 mode）。FR-004：重复调用不
+     * 重复注册监听、不产生重复事件。
+     *
+     * NB-2 语义澄清：[currentMode] 每次调用都如实更新（旧文档「重复注册
+     * 无副作用」与旧测试注释「断言第一次的 mode 保留」都误述为 mode 也
+     * 幂等 —— 实际断言的是第二次的 mode 生效）。模式更新是**特性**：
+     * Shizuku 断链时 Android 层降级调 ensureRegistered(BROADCAST_ONLY)，
+     * UI 的「当前监听能力」必须随之可见。
+     * @return true 表示本次为首次注册；false 表示此前已注册（监听幂等跳过）。
      */
     fun ensureRegistered(mode: InstallMonitorMode): Boolean {
         currentMode = mode

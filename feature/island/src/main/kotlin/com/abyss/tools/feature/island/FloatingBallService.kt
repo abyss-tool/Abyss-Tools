@@ -365,8 +365,19 @@ class FloatingBallService : Service() {
     // ── 数据源：电量（真实广播）+ 时间（分钟对齐 tick）───────────────────
     private fun registerBattery() {
         // ACTION_BATTERY_CHANGED 是受保护的系统粘性广播：registerReceiver 的
-        // 返回值就是最近一次广播（当前电量快照）—— 读数从第一帧起就是真实值
-        val snapshot = registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        // 返回值就是最近一次广播（当前电量快照）—— 读数从第一帧起就是真实值。
+        // B-29（N-CMP-001 升级前置）：Android 13+ 显式 RECEIVER_NOT_EXPORTED
+        //（受保护系统广播照收，暴露面最小化；与 PackageInstallerApkGateway /
+        // SignalOverlayService 同模式），老系统降级默认注册。
+        val snapshot = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                batteryReceiver,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        } else {
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        }
         snapshot?.let { batteryFlow.value = BatteryInfo.from(it) }
     }
 
