@@ -251,7 +251,9 @@ fun DashboardScreen(
 
 @Composable
 private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int) {
-    val pluginCount = (indexState as? UiState.Data)?.value?.plugins?.size ?: 3
+    // NB-19（UiState 三态纪律 ARC-007 FR-001）：Loading / Error 禁止展示
+    // 编造数字 —— 此前 `?: 3` 在索引拉取失败时永久展示假统计。
+    val pluginCount: Int? = (indexState as? UiState.Data)?.value?.plugins?.size
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(
             value = ToolCatalog.builtInCount,
@@ -274,18 +276,20 @@ private fun StatsRow(indexState: UiState<PluginIndex>, installedPluginCount: Int
 /**
  * 单张统计卡：数值从 0 滚动到目标值（v0.7.6）—— 与卡片错峰入场同步的
  * 仪式感。系统移除动画时直接显示终值；目标值变化时从当前值续动
- * （插件安装 / 索引刷新不跳变）。
+ * （插件安装 / 索引刷新不跳变）。value == null（Loading / Error）时
+ * 如实显示「—」，不缩回去造数字（NB-19）。
  */
 @Composable
-private fun StatCard(value: Int, label: String, modifier: Modifier = Modifier) {
+private fun StatCard(value: Int?, label: String, modifier: Modifier = Modifier) {
     val reducedMotion = rememberReducedMotion()
-    val count = remember { Animatable(if (reducedMotion) value.toFloat() else 0f) }
+    val target = value ?: 0
+    val count = remember { Animatable(if (reducedMotion) target.toFloat() else 0f) }
     LaunchedEffect(value) {
         if (reducedMotion) {
-            count.snapTo(value.toFloat())
+            count.snapTo(target.toFloat())
         } else {
             count.animateTo(
-                targetValue = value.toFloat(),
+                targetValue = target.toFloat(),
                 animationSpec = tween(durationMillis = 900, delayMillis = 220, easing = FastOutSlowInEasing),
             )
         }
@@ -298,7 +302,7 @@ private fun StatCard(value: Int, label: String, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "${count.value.roundToInt()}",
+            text = if (value == null) "—" else "${count.value.roundToInt()}",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -385,7 +389,12 @@ private fun PluginEntryCard(
     installedPluginCount: Int,
     onOpen: () -> Unit,
 ) {
-    val count = (indexState as? UiState.Data)?.value?.plugins?.size ?: 13
+    // NB-19：三态如实 —— 不再用 `?: 13` 假计数。
+    val countText = when (indexState) {
+        is UiState.Data -> "插件中心 · ${indexState.value.plugins.size} 个引擎级插件"
+        is UiState.Loading -> "插件中心 · 读取中"
+        is UiState.Error -> "插件中心 · 索引不可用"
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -395,7 +404,7 @@ private fun PluginEntryCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "插件中心 · $count 个引擎级插件",
+                text = countText,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,

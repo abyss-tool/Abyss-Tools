@@ -284,7 +284,12 @@ fun AbyssRoot(
     val settings = registry.settings
 
     // 恢复出的待重挂应用详情（一次性消费）
-    LaunchedEffect(backStack.pendingAppDetailPackage) {
+    // NB-15：key 不能挂 pendingAppDetailPackage —— effect 开头就把它置
+    // null，期间任意一次重组（如 ShizukuMonitor 立即回调把状态从
+    // NotRunning 翻成 Running —— 本应用核心场景必现）会让 key 变 null
+    // → 正在挂起的 effect 被取消 → 进程死亡恢复的应用详情页静默丢失。
+    // LaunchedEffect(Unit) 只跑一次，不受该 var 重组波动影响。
+    LaunchedEffect(Unit) {
         val pkg = backStack.pendingAppDetailPackage ?: return@LaunchedEffect
         backStack.pendingAppDetailPackage = null
         val onAppManager = (backStack.current as? Screen.Tool)?.toolId == ToolCatalog.ID_APP_MANAGER

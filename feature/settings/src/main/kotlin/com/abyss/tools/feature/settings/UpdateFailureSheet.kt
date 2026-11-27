@@ -111,9 +111,13 @@ fun UpdateFailureSheet(
                     modifier = Modifier.weight(1f)) {
                     Text("复制诊断ID")
                 }
-                Button(onClick = onRetry,
+                Button(
+                    // NB-22：非可恢复分支的按钮恒禁用且点了也是 retry —— 文案
+                    // 是「知道了」却不可点、可点时语义也不对。改为常开：
+                    // 可恢复 → 重试；不可恢复 → 关闭（与下方「关闭」同语义）。
+                    onClick = { if (failure.reason.recoverable) onRetry() else onDismiss() },
                     modifier = Modifier.weight(1f),
-                    enabled = failure.reason.recoverable) {
+                ) {
                     Text(if (failure.reason.recoverable) "重试更新" else "知道了")
                 }
             }

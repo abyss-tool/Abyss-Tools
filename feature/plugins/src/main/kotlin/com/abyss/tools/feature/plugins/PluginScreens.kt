@@ -734,7 +734,11 @@ private fun PluginDetailContent(
                     patchProgress = if (total > 0) read.toFloat() / total else -1f
                 }.onSuccess { file ->
                     patchPhase = PatchPhase.VERIFYING
-                    if (!installer.verifyPatch(patch, file)) {
+                    // NB-23：全文件 SHA-256 哈希是重 IO —— 必须在 IO 线程
+                    // （与下方 applyDataPatch 同款），此前在主线程逐字节
+                    // 读整个补丁包（多 MB 时可感知卡顿）。
+                    val verified = withContext(Dispatchers.IO) { installer.verifyPatch(patch, file) }
+                    if (!verified) {
                         patchPhase = PatchPhase.FAILED
                         patchFailure = "SHA-256 校验失败 —— 拒绝应用（fail-closed）"
                     } else {
