@@ -6,7 +6,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 本地诊断日志中心（N-EXP-003，M1）。
@@ -58,7 +57,6 @@ object DiagnosticsLog {
     private const val MAX_FILE_ROTATIONS = 2
 
     private val buffer = ConcurrentLinkedQueue<Event>()
-    private val memoryCount = AtomicInteger(0)
 
     @Volatile
     private var logDir: File? = null
@@ -80,9 +78,11 @@ object DiagnosticsLog {
     fun record(kind: Kind, subject: String, message: String, level: Level = Level.ERROR) {
         val ev = Event(System.currentTimeMillis(), level, kind, subject, message)
         buffer.offer(ev)
-        if (memoryCount.incrementAndGet() > MAX_MEMORY_EVENTS) {
+        // NB-7：队列自身水位为准 —— offer/poll + 独立计数器非原子（同
+        // VirusAuditLog NB-3a），clear() 与 record() 并发时计数与队列漂移，
+        // 计数永久失真后 200 条上限失效；while 修剪恒收敛。
+        while (buffer.size > MAX_MEMORY_EVENTS) {
             buffer.poll()
-            memoryCount.decrementAndGet()
         }
         appendToFile(ev)
     }
@@ -126,7 +126,6 @@ object DiagnosticsLog {
      */
     fun clear() {
         buffer.clear()
-        memoryCount.set(0)
         runCatching { logFile()?.delete() }
         runCatching { rotatedFile()?.delete() }
     }
