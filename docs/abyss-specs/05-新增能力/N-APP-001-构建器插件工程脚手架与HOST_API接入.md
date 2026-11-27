@@ -1,14 +1,14 @@
 # N-APP-001 · 构建器插件工程脚手架与 HOST_API 接入
 
 > 深渊工具 Abyss Tools · 软件规格说明书（新增能力）  
-> 状态：**规划中 · 待实现** ｜ 优先级：**P0** ｜ 里程碑：**M1** ｜ 承载形态：**新增能力** ｜ 基线：**v0.9.5 / versionCode 28** ｜ 编制日期：**2026-11-21**
+> 状态：**已实现（v0.2.0 瘦客户端架构 · ADR-100 D-3）** ｜ 优先级：**P0** ｜ 里程碑：**M1** ｜ 承载形态：**新增能力** ｜ 基线：**v0.9.5 / versionCode 28** ｜ 编制日期：**2026-11-21**
 
 | 项 | 值 |
 | --- | --- |
 | 规格编号 | `N-APP-001` |
 | 所属域 | 新增能力 |
 | 承载形态 | 新增能力 |
-| 当前状态 | 规划中 · 待实现 |
+| 当前状态 | 已实现（abyss-plugin-app-builder v0.2.0，瘦客户端形态） |
 | 优先级 / 里程碑 | P0 / M1 |
 | 组织与基线 | abyss-tool 组织 19 仓库克隆研究；v0.9.5 / versionCode 28 |
 | 标签 | M1 · 脚手架 · 引擎级插件 |
@@ -77,9 +77,32 @@
 
 - 插件仓目前无任何源码，脚手架是全部后续工作的前置。
 
+
+## 0. 实现说明（架构演进 · ADR-100 D-3）
+
+**重要架构变更（2026-11-22）**：本规格的实现从「构建器插件自包含底座」演进为**瘦客户端架构**——底座（Alpine+PRoot/Shizuku 执行域）已整体迁出至 `abyss-plugin-linux` 仓，构建器插件自身零引擎、零授权、零资产管线。理由：
+- 全生态**唯一授权点**收归 Linux 插件（授权次数=1），避免多插件各自授权；
+- 多插件共享底座（构建器 / 未来的 Code-Editor / Package-Builder），避免 ~4MB×N 重复打包；
+- 能力切片边界诚实声明（ARC-101 FR-001），构建器不持有引擎字符串常量。
+
+### FR 实现对照表
+
+| FR | 实现位置 | 说明 |
+|---|---|---|
+| FR-001 Gradle 工程 | `abyss-plugin-app-builder` 根仓（settings.gradle.kts + build.gradle.kts + app/runtime-client/precheck 三模块） | compileSdk 36 / minSdk 26 / targetSdk 28，AGP 8.13.2 / Kotlin 2.3.21 / JDK 17，与主壳整组对齐 |
+| FR-002 plugin-api 契约 | `runtime-client/.../PluginContract.kt`（契约镜像副本 · SDK-001）+ `plugin.json` minHost=2 | HOST_API v2；接入 `linux-runtime-v1` 能力依赖声明 |
+| FR-003 AndroidManifest | `app/src/main/AndroidManifest.xml` | META_HOST_ENTRY=META_UI_ENTRIES 正确声明；FOREGROUND_SERVICE/WAKE_LOCK/REQUEST_INSTALL_PACKAGES/INTERNET 四权限 |
+| FR-004 独立 keystore | `app/build.gradle.kts` signingConfigs 从 `ABYSS_PLUGIN_*` secrets 注入 | 与宿主签名分离；缺失时 release 降级 unsigned，由 Release 门禁兜底 |
+| FR-005 APK 上传 Release | `.github/workflows/plugin-ci.yml` + `patch-release.yml` | 产物 APK 上传 artifact，发布流水线同步 sha256/sizeBytes 到 plugins.json（sync_index.py 自动探测） |
+| FR-006 CI assemble + 单测 | `.github/workflows/plugin-ci.yml` | 已增加 Gradle assembleDebug/Release + pure-JVM unit tests（runtime-client/precheck 模块测试） |
+
+### CI 验证
+- Plugin CI run #14（main 分支）：assemble + test 全绿。
+
 ## 8. 变更记录
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 1.0 | 2026-11-27 | 瘦客户端 v0.2.0 落地（ADR-100 D-3）；CI assemble+test 全绿；M1 交付。 |
 
