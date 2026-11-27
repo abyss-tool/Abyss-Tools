@@ -1,7 +1,7 @@
 # N-VIR-002 · 信任判定管线
 
 > 深渊工具 Abyss Tools · 软件规格说明书（新增能力）  
-> 状态：**规划中 · 待实现** ｜ 优先级：**P0** ｜ 里程碑：**M1** ｜ 承载形态：**新增能力** ｜ 基线：**v0.9.5 / versionCode 28** ｜ 编制日期：**2026-11-21**
+> 状态：**已实现（v0.9.18）** ｜ 优先级：**P0** ｜ 里程碑：**M1** ｜ 承载形态：**新增能力** ｜ 基线：**v0.9.5 / versionCode 28** ｜ 编制日期：**2026-11-21**
 
 | 项 | 值 |
 | --- | --- |
@@ -72,4 +72,5 @@ data class VerdictReport(val verdict: Verdict, val reasons: List<String>)
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | v0.9.18 落地：ScanSubject/Verdict/VerdictReason/VerdictReport + VerdictChecker 接口 + 4 个内置 checker（allowlist→blacklist→local-rules→cloud 占位）+ VerdictPipeline（MALICIOUS 短路/白名单短路/无信号 UNKNOWN 严格 fail-closed），纯 JVM 单测覆盖四档 verdict + 云不可达降级 + checker 异常容错。 |
 
