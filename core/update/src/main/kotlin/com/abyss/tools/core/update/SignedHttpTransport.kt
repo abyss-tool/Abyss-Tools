@@ -54,7 +54,10 @@ class SignedHttpTransport(
             throw e
         }
         val sigText = try {
-            delegate.get(sigUrl)
+            // B-04 收口：签名文件同样走原始字节路径（base64+注释为纯 ASCII，
+            // decode 恒等；但保持「签名链路零字符串往返」不变量，杜绝
+            // delegate 自定义 get() 语义时引入归一化）
+            delegate.getBytes(sigUrl).decodeToString()
         } catch (e: IOException) {
             val msg = "无法拉取清单签名文件（$sigUrl）：${e.message}"
             DiagnosticsLog.error(

@@ -66,4 +66,5 @@ Shizuku AAR 只进网关实现；并发消费 stdout/stderr，1MB 单流上限�
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | B-08 收口：`ShellResult` 新增 `timedOut`/`streamAbandoned` 字段；看门狗触发（fired 标志 + elapsed 双信号）→ `timedOut=true` 且 `isSuccess` 恒 false（超时 ≠ 成功）；`CappedFdReader.await()` 放弃流时截断位置 true（旧实现 truncated=false 空文本 = fail-open，与类注释「结果如实标注」相悖）；终端/脚本实验室 UI 对两者显示明确系统行。回归用例：`ShellResultSemanticsTest`。 |
 

@@ -68,4 +68,5 @@ release-assets.githubusercontent.com（ChannelPolicy 资产域白名单同构）
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | B-04 收口：`MirroredTransport` 重写 `getBytes` —— 逐镜调 `base.getBytes(rewrite(mirror,url))` 返回网络原文字节；缺省接口实现的 String decode/re-encode 往返（CRLF/BOM/非法 UTF-8 → U+FFFD）曾整链绕过 N-SEC-001「原始字节验签」。`SignedHttpTransport` 签名文件同步走字节路径。回归用例：`MirroredTransportTest`（字节保真/全链回退/非 GitHub 直通/端到端验签）。 |
 

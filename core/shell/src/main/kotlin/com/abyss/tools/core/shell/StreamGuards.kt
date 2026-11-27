@@ -1,6 +1,7 @@
 package com.abyss.tools.core.shell
 
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
 
@@ -13,6 +14,10 @@ data class CappedText(val text: String, val truncated: Boolean)
  *
  * 截断策略：保留前 [maxBytes] 字节，置 truncated = true（UI 层提示
  * 「输出已截断」），绝不静默假装读完了。
+ *
+ * B-17 修复：截断后**继续排空**剩余流（丢弃不入库）—— 若无人消费，
+ * 子进程写满管道后会阻塞到看门狗 30s 强杀；排空让它自然走到 EOF，
+ * 读取线程及时收尾、streamAbandoned 语义可判定。
  */
 object StreamGuards {
 
@@ -28,16 +33,32 @@ object StreamGuards {
                 val remaining = maxBytes - buffer.size()
                 if (remaining <= 0) {
                     truncated = true
+                    drainQuietly(stream)
                     break
                 }
                 if (read > remaining) {
                     buffer.write(chunk, 0, remaining)
                     truncated = true
+                    drainQuietly(stream)
                     break
                 }
                 buffer.write(chunk, 0, read)
             }
         }
         return CappedText(buffer.toByteArray().decodeToString(), truncated)
+    }
+
+    /**
+     * 截断后排空（丢弃，不入库）：解除子进程管道写阻塞。流的自然 EOF /
+     * 看门狗杀进程后管道断开都会结束排空；IO 异常静默容忍（截断语义
+     * 已如实上报，排空失败不影响结论）。
+     */
+    private fun drainQuietly(stream: InputStream) {
+        val chunk = ByteArray(8 * 1024)
+        try {
+            while (stream.read(chunk) != -1) { /* 丢弃 */ }
+        } catch (_: IOException) {
+            // 流已断：截断结论不受影响
+        }
     }
 }

@@ -167,16 +167,21 @@ object ShizukuMonitor {
  * 与 Shizuku 内置终端同源）→ IRemoteProcess 的 stdin/stdout/stderr
  * ParcelFileDescriptor。
  *
- * 管道纪律（v0.6.0 起，评审 #7 —— 原顺序读 + 无上限 + 假超时的重写）：
+ * 管道纪律（v0.6.0 起，评审 #7 —— 原顺序读 + 无上限 + 假超时的重写；
+ * v0.9.18 B-08/B-17 语义收口）：
  *  - stdout / stderr 各起一条读取线程**并发消费**（先读 stdout 再读
  *    stderr 的顺序形态在大输出命令上会管道死锁：stderr 写满 ~64 KB 后
  *    子进程阻塞，父进程还在等 stdout EOF，互等）；
  *  - 每条流 [maxStreamBytes] 字节上限（截断并如实上报 truncated，
- *    绝不无界读入内存）；
+ *    绝不无界读入内存）；截断后继续排空剩余流（B-17，防子进程管道
+ *    写阻塞到看门狗强杀）；
  *  - 看门狗线程在 [timeoutMs] 后强杀进程 —— process.waitFor() 由此获得
- *    真实上界（协程取消打不断的阻塞 IO，靠 destroy 兑底）；
+ *    真实上界（协程取消打不断的阻塞 IO，靠 destroy 兑底）；触发即
+ *    [ShellResult.timedOut]（B-08：超时 ≠ 成功，isSuccess 恒 false）；
  *  - 读取线程 join 有界：流被孙进程继承等极端场景下放弃该流（守护
- *    线程不阻进程退出），结果如实标注。
+ *    线程不阻进程退出），结果如实标注 —— [ShellResult.streamAbandoned]
+ *    且截断位为 true（B-08：旧实现返回 truncated=false 空文本 =
+ *    fail-open，注释承诺与实现相悖）。
  */
 class ShizukuShellGateway(
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
@@ -211,35 +216,45 @@ class ShizukuShellGateway(
             }
         }
 
-    /** 并发读双流 + 看门狗超时 + 有界 join。 */
+    /** 并发读双流 + 看门狗超时 + 有界 join + 超时/放弃如实上报（B-08）。 */
     private fun runWithGuards(process: IRemoteProcess): ShellResult {
         val stdoutReader = CappedFdReader(process.inputStream, "abyss-sh-stdout")
         val stderrReader = CappedFdReader(process.errorStream, "abyss-sh-stderr")
         stdoutReader.start()
         stderrReader.start()
 
-        // 看门狗：超时强杀（对已完成进程的 destroy 是无害 no-op）
+        // 看门狗：超时强杀（对已完成进程的 destroy 是无害 no-op）。
+        // fired 标志在 destroy 前置位 —— 与 elapsed 双信号取或，窗口竞态
+        //（刚好在预算边缘完成）也按「跑满预算」如实上报，宁严勿漏。
+        val watchdogFired = java.util.concurrent.atomic.AtomicBoolean(false)
         val watchdog = thread(isDaemon = true, name = "abyss-sh-watchdog") {
             runCatching { Thread.sleep(timeoutMs) }
                 .onFailure { return@thread } // 正常完成被打断：不杀
+            watchdogFired.set(true)
             runCatching { process.destroy() }
         }
 
         val exitCode: Int
+        val startedAt = System.nanoTime()
         try {
             exitCode = process.waitFor()
         } finally {
             watchdog.interrupt()
         }
+        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+        val timedOut = watchdogFired.get() || elapsedMs >= timeoutMs
 
-        // 进程退出 → 流应 EOF；孙进程继承管道等极端场景给有界 join
+        // 进程退出 → 流应 EOF；孙进程继承管道等极端场景给有界 join。
+        // 放弃的流：truncated=true + streamAbandoned=true（B-08 语义）。
         val stdout = stdoutReader.await()
         val stderr = stderrReader.await()
         return ShellResult(
             exitCode = exitCode,
-            stdout = stdout.text,
-            stderr = stderr.text,
-            truncated = stdout.truncated || stderr.truncated,
+            stdout = stdout.text.text,
+            stderr = stderr.text.text,
+            truncated = stdout.text.truncated || stderr.text.truncated,
+            timedOut = timedOut,
+            streamAbandoned = stdout.abandoned || stderr.abandoned,
         )
     }
 
@@ -274,12 +289,23 @@ class ShizukuShellGateway(
             latch.countDown()
         }
 
-        /** 有界等待（读取卡死时放弃该流，返回空文本 —— 结果仍会标注）。 */
-        fun await(): CappedText {
-            latch.await(STREAM_JOIN_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
-            return result
+        /**
+         * 有界等待（读取卡死时放弃该流）：返回文本 + 是否放弃。
+         * 放弃时截断位置 true —— 输出不完整必须如实标注（B-08：旧实现
+         * 返回 truncated=false 空文本，被上层当完整成功消费 = fail-open）。
+         */
+        fun await(): StreamOutcome {
+            val completed = latch.await(STREAM_JOIN_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            return if (completed) {
+                StreamOutcome(result, abandoned = false)
+            } else {
+                StreamOutcome(CappedText(result.text, truncated = true), abandoned = true)
+            }
         }
     }
+
+    /** 单流读取结果 + 是否被放弃（B-08 语义载体，纯 JVM 可测）。 */
+    data class StreamOutcome(val text: CappedText, val abandoned: Boolean)
 
     companion object {
         /** 命令硬超时：伪装命令 / 蓝图步骤的兜底上界（30s）。 */

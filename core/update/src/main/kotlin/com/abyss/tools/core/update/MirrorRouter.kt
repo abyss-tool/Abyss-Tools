@@ -156,22 +156,22 @@ class MirroredTransport(
     override fun get(url: String): String {
         // 非 GitHub 域（本地 / 未来其它通道）不改写，直通
         if (MirrorCatalog.assetKindOf(url) == null) return base.get(url)
-        var lastError: Exception? = null
-        var chain = router.orderedMirrors(url, lazyProbe = false) // 热路径不隐式探测（UI 负责填缓存）
-        // 冷却期内的失败镜像跳过；但至少保留链尾一个（防全跳过成空链）
-        val cooled = chain.filter { cooledOut(it.id) }
-        if (cooled.isNotEmpty()) chain = cooled
-        for (mirror in chain) {
-            try {
-                val result = base.get(MirrorCatalog.rewrite(mirror, url))
-                recentFailures.remove(mirror.id)
-                return result
-            } catch (e: Exception) {
-                lastError = e
-                recentFailures[mirror.id] = System.currentTimeMillis()
-            }
-        }
-        throw lastError ?: IllegalStateException("镜像链为空：$url")
+        return tryEachMirror(url) { base.get(MirrorCatalog.rewrite(it, url)) }
+    }
+
+    /**
+     * 原始字节读取（N-SEC-001 验签链路，B-04 修复）：与 [get] 同一镜像链、
+     * 同一回退/冷却语义，但逐镜调 [HttpTransport.getBytes] 返回**网络原文
+     * 字节**，绝不经 String decode/re-encode 往返 —— 否则 CRLF/BOM/非法
+     * UTF-8（0xFF）会被归一化成 U+FFFD，签名验证对象不再是网络原文，
+     * N-SEC-001「原始字节验签」承诺被整链绕过。
+     *
+     * [SignedHttpTransport.getSigned] 的 delegate 为本类时（:app 装配），
+     * 缺省接口实现 get().toByteArray(UTF_8) 的字符串往返陷阱即在此堵死。
+     */
+    override fun getBytes(url: String): ByteArray {
+        if (MirrorCatalog.assetKindOf(url) == null) return base.getBytes(url)
+        return tryEachMirror(url) { base.getBytes(MirrorCatalog.rewrite(it, url)) }
     }
 
     override fun download(
@@ -182,15 +182,32 @@ class MirroredTransport(
         if (MirrorCatalog.assetKindOf(url) == null) {
             return base.download(url, dest, onProgress)
         }
-        var lastError: Exception? = null
-        var chain = router.orderedMirrors(url, lazyProbe = false)
+        tryEachMirror(url) {
+            base.download(MirrorCatalog.rewrite(it, url), dest, onProgress)
+            Unit
+        }
+    }
+
+    /** 可用镜像链：应用失败冷却过滤；但至少保留链尾一个（防全跳过成空链）。 */
+    private fun activeChain(url: String): List<DownloadMirror> {
+        var chain = router.orderedMirrors(url, lazyProbe = false) // 热路径不隐式探测（UI 负责填缓存）
         val cooled = chain.filter { cooledOut(it.id) }
         if (cooled.isNotEmpty()) chain = cooled
-        for (mirror in chain) {
+        return chain
+    }
+
+    /**
+     * 逐镜像尝试通用骨架：首个成功即返回并清失败记忆；单镜失败（网络 /
+     * 4xx-5xx）记忆失败时刻后换下一镜；全部失败抛**最后一次**异常
+     * （如实上报，不吞错）。
+     */
+    private fun <T> tryEachMirror(url: String, fetch: (DownloadMirror) -> T): T {
+        var lastError: Exception? = null
+        for (mirror in activeChain(url)) {
             try {
-                base.download(MirrorCatalog.rewrite(mirror, url), dest, onProgress)
+                val result = fetch(mirror)
                 recentFailures.remove(mirror.id)
-                return
+                return result
             } catch (e: Exception) {
                 lastError = e
                 recentFailures[mirror.id] = System.currentTimeMillis()

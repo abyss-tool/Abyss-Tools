@@ -109,6 +109,8 @@ private const val EXIT_PREFIX = "exit:"
 
 /** 单流截断的人话提示（ShellGateway 管道纪律的 UI 侧如实上报）。 */
 private const val TRUNCATED_NOTE = "输出超限已截断（单流 1MB 上限）"
+private const val TIMEOUT_NOTE = "命令超时被强杀（30s 硬超时）—— 退出码不可信"
+private const val STREAM_ABANDONED_NOTE = "输出流未收尾（管道被继承），结果不完整"
 
 /**
  * 内置终端 —— Shizuku adb shell 上下文的单命令面板（v0.8.0 从插件内置化）。
@@ -165,6 +167,8 @@ fun TerminalScreen(
             result.stdout.lineSequence().forEach { add(ConsoleLine(it, LineKind.OUTPUT)) }
             result.stderr.lineSequence().forEach { add(ConsoleLine(it, LineKind.ERROR)) }
             if (result.truncated) add(ConsoleLine(TRUNCATED_NOTE, LineKind.SYSTEM))
+            if (result.timedOut) add(ConsoleLine(TIMEOUT_NOTE, LineKind.SYSTEM))
+            if (result.streamAbandoned) add(ConsoleLine(STREAM_ABANDONED_NOTE, LineKind.SYSTEM))
             add(ConsoleLine("$EXIT_PREFIX ${result.exitCode}", LineKind.SYSTEM))
         }
         appendBatch(batch)
