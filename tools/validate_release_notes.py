@@ -74,10 +74,14 @@ def load_latest_from_changelog(path: Path) -> tuple[str, str]:
     except Exception as e:
         print(f"::error::无法解析 {path}: {e}", file=sys.stderr)
         sys.exit(2)
-    history = data.get("history") or data.get("versions") or []
-    if not history:
-        fail("changelog history 为空")
-    latest = history[0] if isinstance(history, list) else next(iter(history.values()))
+    # 真实 schema（abyss-changelog-v1）：顶层 latest = 当前版本，history =
+    # 历史版本。旧实现误读 history[0]（恰为上一版），latest 判定错位。
+    latest = data.get("latest")
+    if latest is None:
+        history = data.get("history") or data.get("versions") or []
+        if not history:
+            fail("changelog 既无 latest 也无 history")
+        latest = history[0] if isinstance(history, list) else next(iter(history.values()))
     raw_notes = latest.get("notes") or ""
     # B-05：changelog notes 允许结构化数组（逐行要点）—— join 换行后校验
     notes = "\n".join(raw_notes) if isinstance(raw_notes, list) else raw_notes

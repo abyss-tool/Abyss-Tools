@@ -410,7 +410,10 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
         "date": today,
         "title": args.title or f"{args.tag} —— {args.notes[0] if args.notes else '例行发布'}",
         "notes": args.notes,
-        "markdown": ("\n".join(f"- {n}" for n in args.notes)) if args.notes else None,
+        # 已带要点前缀的行不重复加（auto-release 结构化回退自带 "- "）
+        "markdown": ("\n".join(
+            (n if n.lstrip().startswith(("- ", "* ")) else f"- {n}") for n in args.notes
+        )) if args.notes else None,
         "releaseUrl": f"https://github.com/{RELEASE_REPO}/releases/tag/{args.tag}",
     }
     changelog["history"] = changelog.get("history", [])[:20]
