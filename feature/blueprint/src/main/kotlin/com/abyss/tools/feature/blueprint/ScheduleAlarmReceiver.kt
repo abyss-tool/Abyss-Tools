@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.abyss.tools.core.shell.ShizukuShellGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +101,17 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
          *  → 降级 setAndAllowWhileIdle。intent 不再携带间隔 extra —— 到期后
          *  由 store 重读蓝图，模式变更 / 删除都能在下一次重排时自然收敛。
          */
+
+        /**
+         * 蓝图调度 PendingIntent 的 data URI 字符串（B-13 身份锚）：
+         * `abyss://blueprint/<id>` —— 前缀 + id 字面量构成单射映射，
+         * 任意两个不同蓝图（含 hashCode 碰撞对，如 "Aa"/"BB"）的
+         * Intent.filterEquals 必不相等 → PendingIntent 天然隔离。
+         * 纯字符串函数（零 Android 依赖）供单测锁定契约。
+         */
+        fun blueprintDataUriString(blueprintId: String): String =
+            "abyss://blueprint/$blueprintId"
+
         fun scheduleNext(context: Context, blueprintId: String, schedule: BlueprintSchedule) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val pending = pendingIntent(context, blueprintId)
@@ -134,6 +146,11 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
 
         private fun intent(context: Context, blueprintId: String): Intent =
             Intent(context, ScheduleAlarmReceiver::class.java)
+                // B-13: data URI 参与 Intent.filterEquals —— 旧形态仅靠
+                // requestCode（blueprintId.hashCode）+ component 匹配（extras
+                // 不参与），哈希碰撞的两个蓝图共用同一 PendingIntent，
+                // FLAG_UPDATE_CURRENT 相互覆盖 → 其中一个永不触发。
+                .setData(Uri.parse(blueprintDataUriString(blueprintId)))
                 .putExtra(EXTRA_BLUEPRINT_ID, blueprintId)
 
         private fun pendingIntent(context: Context, blueprintId: String): PendingIntent =
@@ -144,4 +161,5 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
     }
+
 }

@@ -69,4 +69,5 @@ appops 查改 / settings 读写 / dumpsys 白名单摘要面板 / 指令历史 5
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | B-14 收口：`KitCommands.requireSafeToken` 从元字符黑名单收敛为复用 `ShizukuCommands.requireSafeToken` 白名单（`^[A-Za-z0-9._:-]+$`）—— 黑名单漏拦 `/` 路径穿越与 `-` 开头选项形态（`--help` 可被当 appops op 解析）。putSetting 的 shellQuote 值域与 dumpsys 精确白名单不变。回归用例：`KitCommandsTest` B-14 两例。 |
 

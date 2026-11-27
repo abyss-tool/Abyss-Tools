@@ -28,19 +28,20 @@ enum class CommandType(val label: String) {
 
 object KitCommands {
 
-    /** 令牌位黑名单：出现任意 shell 元字符即拒绝（引号 / 换义 / 管道 / 重定向…）。 */
-    private val SHELL_METACHARS = setOf(
-        '\'', '"', '\\', '`', '$', ';', '&', '|', '<', '>', '(', ')',
-        '{', '}', '[', ']', '*', '?', '#', '!', '~', '=',
-    )
-
-    /** 令牌校验（fail-closed）：trim 后非空、无空白、无元字符，原样返回。 */
+    /**
+     * 令牌校验（fail-closed，B-14 统一）：trim 后委托 core:shell 的
+     * `ShizukuCommands.requireSafeToken` 白名单（`^[A-Za-z0-9._:-]+$`）。
+     *
+     * 旧实现是元字符**黑名单**，与 core:shell 两套标准 —— 漏拦 `/`
+     *（路径穿越形态）与 `-` 开头选项形态（如把 `--help` 当 appops op
+     * 解析）。收敛为单一白名单后全仓令牌纪律一致；putSetting 的
+     * shellQuote 值域与 dumpsys 精确白名单不变。
+     */
     fun requireSafeToken(raw: String, what: String): String {
         val token = raw.trim()
         require(token.isNotEmpty()) { "$what 不能为空" }
         require(token.none { it.isWhitespace() }) { "$what 不能包含空白字符" }
-        require(token.none { it in SHELL_METACHARS }) { "$what 含 shell 元字符，已拒绝（fail-closed）" }
-        return token
+        return ShizukuCommands.requireSafeToken(token, what)
     }
 
     /**

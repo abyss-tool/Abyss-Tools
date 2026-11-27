@@ -69,4 +69,5 @@
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | B-13 收口：调度 Intent 增加单射 data URI（`abyss://blueprint/<id>`）参与 `Intent.filterEquals` —— 旧形态仅靠 `blueprintId.hashCode()` 做 requestCode，碰撞对（如 Aa/BB）共用 PendingIntent 被 `FLAG_UPDATE_CURRENT` 相互覆盖。回归用例：`BlueprintPendingIntentIdentityTest`（碰撞对 hashCode 相等断言 + data URI 单射）。 |
 

@@ -40,6 +40,36 @@ class KitCommandsTest {
         }
     }
 
+    // ── B-14 回归：黑名单时代漏拦的形态，白名单统一后必须拒绝 ──────────
+
+    @Test
+    fun `令牌校验拒绝黑名单漏拦的选项与路径形态（B-14）`() {
+        // - 开头选项形态：appops set pkg --help allow 可被当 op 解析
+        assertThrows(IllegalArgumentException::class.java) {
+            KitCommands.requireSafeToken("--help", "op 名")
+        }
+        // / 路径穿越形态：黑名单不含 /，曾可透传 ../system
+        assertThrows(IllegalArgumentException::class.java) {
+            KitCommands.requireSafeToken("../system", "参数")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            KitCommands.requireSafeToken("a/b", "参数")
+        }
+        // 空格形态（含制表/换行）
+        assertThrows(IllegalArgumentException::class.java) {
+            KitCommands.requireSafeToken("a\tb", "参数")
+        }
+    }
+
+    @Test
+    fun `令牌校验保持白名单合法形态透传（B-14 无回归）`() {
+        // 白名单 ^[A-Za-z0-9._:-]+$ 的全部字符类
+        assertEquals("com.abyss.tools", KitCommands.requireSafeToken("com.abyss.tools", "包名"))
+        assertEquals("android:mock_location", KitCommands.requireSafeToken("android:mock_location", "op 名"))
+        assertEquals("screen_brightness", KitCommands.requireSafeToken("screen_brightness", "设置键名"))
+        assertEquals("key-with-dash", KitCommands.requireSafeToken("key-with-dash", "设置键名"))
+    }
+
     // ── appops 命令形态 ───────────────────────────────────────────────
 
     @Test
