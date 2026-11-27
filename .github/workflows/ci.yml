@@ -67,6 +67,8 @@ jobs:
           echo "ABYSS_KEYSTORE_FILE=$SIGNING_DIR/release.jks" >> "$GITHUB_ENV"
           echo "release 签名材料已注入（未回显任何机密值）"
 
+      # N-ENG-001：与 tools/local_gate.sh（full 模式）同一组 Gradle 任务 ——
+      # CI 与本地共用命令序列，杜绝「CI 绿本地红」。
       - name: Assemble debug + release APK
         env:
           ABYSS_KEYSTORE_PASSWORD: ${{ secrets.ABYSS_KEYSTORE_PASSWORD }}
@@ -121,32 +123,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate update-channel & plugin fixtures & version sync
-        run: python3 tools/validate_manifests.py
+      # ── N-ENG-001 本地/CI 同源门禁（FR-003：杜绝「CI 绿本地红」）──────
+      #    原四个内联步骤（validate_manifests / spec_lint / ui_text_budget /
+      #    release-notes 逐文件循环）收敛进 tools/local_gate.sh --jvm ——
+      #    本地贡献者跑同一脚本得到同一结果；脚本内容：
+      #      [1/4] validate_manifests.py  通道夹具 schema + 版本单一事实源
+      #      [2/4] spec_lint.py           N-ENG-008 规格登记完整性
+      #      [3/4] ui_text_budget.py      UI-001 文案预算
+      #      [4/4] validate_release_notes.py --markdown  N-ENG-010 逐文件
+      - name: Local gate (N-ENG-001, python part)
+        run: bash tools/local_gate.sh --jvm
 
-      # ── N-ENG-008 Spec-Lint：规格登记完整性 + 头字段校验（M1 门禁） ──
-      - name: Spec-Lint (N-ENG-008)
-        run: python3 tools/spec_lint.py
+      # ── N-ENG-009 归档仓漂移审计：13 归档仓 GitHub archived 状态 +
+      #    plugin.json 快照与 HUB-014 漂移台账逐仓一致性（fail-closed；
+      #    token 只读即可，无 token 亦可用公共限额）
+      - name: Audit archived repos (N-ENG-009)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tools/audit_archived_repos.py
 
-      # ── UI-001 功能文案精简门禁：feature / core:designsystem 装饰长
-      #    文案预算检查（keep-text 注释与哈希白名单见 tools/ 目录）──
-      - name: UI Text Budget (UI-001)
-        run: python3 tools/ui_text_budget.py
-
-      # ── N-ENG-010 发布说明质量门禁（B-05 收口：主仓 docs/release-notes/
-      #    v*.md 逐文件强制校验 —— 原实现只在 latest.md 存在时才跑，
-      #    而 latest.md 从未存在过 = 恒跳过；发布仓侧由 validate-manifests
-      #    接入同款脚本 + publish_release.py 发布前置 fail-closed）
-      - name: Release-Notes Lint (N-ENG-010, all v*.md)
-        run: |
-          shopt -s nullglob
-          files=(docs/release-notes/v*.md)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::主仓没有任何 docs/release-notes/v*.md —— N-ENG-010 要求每版本附说明"
-            exit 1
-          fi
-          for f in "${files[@]}"; do
-            echo "校验 $f"
-            python3 tools/validate_release_notes.py --markdown "$f"
-          done
-          echo "✓ ${#files[@]} 份发布说明全部通过质量门禁"
