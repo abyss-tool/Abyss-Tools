@@ -254,14 +254,14 @@ object SettingsSections {
         val id: String,
         val iconKey: String,
         val title: String,
-        val summary: String,
     )
 
+    // UI-001：Entry.summary 装饰字段删除 —— 分区入口卡只留图标 + 标题。
     val ALL: List<Entry> = listOf(
-        Entry(PERMISSION, "security", "权限", "Shizuku / 安装未知应用 / 可选权限一站式复查"),
-        Entry(APPEARANCE, "wallpaper", "界面", "玻璃强度 · 指示器样式 · 动态取色 · 应用图标"),
-        Entry(UPDATE, "update", "更新", "补丁更新 · 更新日志 · 插件索引与缓存"),
-        Entry(ABOUT, "info", "关于", "版本 · 许可与免责声明 · 崩溃取证"),
+        Entry(PERMISSION, "security", "权限"),
+        Entry(APPEARANCE, "wallpaper", "界面"),
+        Entry(UPDATE, "update", "更新"),
+        Entry(ABOUT, "info", "关于"),
     )
 
     fun byId(id: String): Entry? = ALL.firstOrNull { it.id == id }
@@ -310,7 +310,6 @@ fun SettingsScreen(
                         ListRowCard(
                             icon = AbyssIcons.icon(entry.iconKey),
                             title = entry.title,
-                            summary = entry.summary,
                             onClick = { onOpenSection(entry.id) },
                         )
                     }
@@ -413,7 +412,7 @@ private fun PermissionSectionPage(onRestartOnboarding: (() -> Unit)?) {
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SectionHeader(title = "权限与引导", subtitle = "Shizuku / 安装未知应用 / 可选权限一站式复查")
+        SectionHeader(title = "权限与引导")
         if (onRestartOnboarding != null) {
             Box(Modifier.fillMaxWidth().entranceStagger(0)) {
                 OnboardingSectionCard(onRestart = onRestartOnboarding)
@@ -438,7 +437,7 @@ private fun AppearanceSectionPage(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionHeader(title = "外观", subtitle = "Material 3 · 深渊色板 · 液态玻璃")
+            SectionHeader(title = "外观")
             Box(Modifier.fillMaxWidth().entranceStagger(0)) {
                 GlassIntensityCard(settings)
             }
@@ -562,7 +561,7 @@ private fun UpdateSectionPage(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionHeader(title = "补丁更新", subtitle = "双仓库模式：开发仓 → 发布仓 → 客户端")
+            SectionHeader(title = "补丁更新")
             Box(Modifier.fillMaxWidth().entranceStagger(0)) {
                 UpdateSectionCard(
                     checkUi = checkUi,
@@ -576,7 +575,7 @@ private fun UpdateSectionPage(
                 )
             }
 
-            SectionHeader(title = "插件", subtitle = "插件中心索引 / 本地缓存")
+            SectionHeader(title = "插件")
             Box(Modifier.fillMaxWidth().entranceStagger(1)) {
                 PluginSectionCard(
                     onClearPluginCache = {
@@ -628,7 +627,7 @@ private fun AboutSectionPage(versionName: String) {
             )
         }
         // 诊断（v0.7.0：崩溃防护网本地取证）—— 关于区副项（FEAT-035 归组）
-        SectionHeader(title = "诊断", subtitle = "崩溃报告本地取证 · 侧载渠道无 Play 统计")
+        SectionHeader(title = "诊断")
         Box(Modifier.fillMaxWidth().entranceStagger(1)) {
             DiagnosticsCard()
         }
@@ -640,6 +639,7 @@ private fun AboutSectionPage(versionName: String) {
             title = { Text("许可与免责声明") },
             text = {
                 Text(
+                    // keep-text: 免责声明（UGRL 许可全文，用户主动展开阅读）
                     text = "深渊工具为受限许可（UGRL）软件：仅供个人学习与安全研究，" +
                         "在你拥有全部控制权或已获书面授权的设备上编译、运行与测试。\n\n" +
                         "禁止再分发、商业使用与未授权测试。本软件内置系统级能力（Shell 执行、" +
@@ -693,7 +693,7 @@ private fun LauncherIconCard(
             }
             Spacer(Modifier.size(6.dp))
             Text(
-                text = "三款深渊之眼随选随换（桌面即时生效；图标刷新可能延迟数秒，部分设备会重启应用）",
+                text = "三款深渊之眼随选随换（图标刷新可能延迟数秒）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -717,7 +717,7 @@ private fun LauncherIconCard(
                                         .onSuccess {
                                             currentIcon = icon
                                             settings.launcherIcon = icon
-                                            onFeedback("已切换为「${icon.label}」——桌面图标稍后刷新")
+                                            onFeedback("已切换为「${icon.label}」，桌面图标稍后刷新")
                                         }
                                         .onFailure {
                                             onFeedback(it.message ?: "图标切换失败")
@@ -846,12 +846,6 @@ private fun GlassIntensityCard(settings: SettingsRepository) {
                     )
                 }
             }
-            Spacer(Modifier.size(6.dp))
-            Text(
-                text = "切换底部导航滑动指示器的材质：霜面液滴带轻微磨砂与折射；清透玻璃无模糊、仅保留边缘玻璃高光，背景清晰透出",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
@@ -861,12 +855,6 @@ private fun GlassIntensityCard(settings: SettingsRepository) {
                         text = "跟随壁纸动态取色",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(Modifier.size(2.dp))
-                    Text(
-                        text = "Android 12+ 从壁纸种子色派生整套色板（Material You）；关闭或老系统用深渊默认色板",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(
@@ -948,7 +936,7 @@ private fun UpdateSectionCard(
             }
 
             checkUi is CheckUi.Failed ->
-                "检查失败：${(checkUi as CheckUi.Failed).message}（首个 APK 发布前，发布仓仅含清单骨架 —— 属预期状态）"
+                "检查失败：${(checkUi as CheckUi.Failed).message}"
 
             else -> null
         }
@@ -1021,7 +1009,7 @@ private fun SelfUpdateUi(
                     }
                 } else {
                     Text(
-                        text = "通道尚未发布 APK 资产（download 为空）—— v0.2 发布流水线起提供整包下载。",
+                        text = "通道尚未发布 APK 资产（download 为空）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1045,7 +1033,7 @@ private fun SelfUpdateUi(
             }
 
             SelfUpdatePhase.DONE -> Text(
-                "安装完成 —— 重启后生效。",
+                "安装完成，重启后生效",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -1216,14 +1204,8 @@ private fun AboutCard(versionName: String, onShowLicense: () -> Unit) {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "面向极客的系统级超级工具箱 —— Shizuku / 沙箱 / 终端 / 脚本引擎的模块化终端。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Spacer(Modifier.size(8.dp))
-        InfoRow(label = "版本", value = "v$versionName（框架预览）")
+        InfoRow(label = "版本", value = "v$versionName")
         InfoRow(label = "开发仓库", value = AbyssChannels.DEV_REPO)
         InfoRow(label = "发布仓库", value = AbyssChannels.RELEASE_REPO)
         InfoRow(label = "插件中心", value = AbyssChannels.PLUGIN_HUB_REPO)
@@ -1275,8 +1257,7 @@ private fun DiagnosticsCard() {
 
             if (lastReport == null) {
                 Text(
-                    text = "自本版本安装以来未捕获到崩溃。若发生闪退，重启后此处会出现完整堆栈，" +
-                        "可截图反馈给开发者。",
+                    text = "自本版本安装以来未捕获到崩溃",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

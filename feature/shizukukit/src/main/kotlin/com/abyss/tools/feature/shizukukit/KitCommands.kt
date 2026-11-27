@@ -105,7 +105,7 @@ object AppOpsCommands {
      */
     val presets: List<AppOpsPreset> = listOf(
         AppOpsPreset("mock_location", "模拟位置", "允许应用成为系统模拟位置源（Fake GPS 同款通道）"),
-        AppOpsPreset("RUN_IN_BACKGROUND", "后台运行", "后台运行资格 —— 关掉可压制后台耗电"),
+        AppOpsPreset("RUN_IN_BACKGROUND", "后台运行", "后台运行资格（关掉可压制后台耗电）"),
         AppOpsPreset("RUN_ANY_IN_BACKGROUND", "任意后台运行", "含前台服务的完全后台资格（比后台运行更强）"),
         AppOpsPreset("SYSTEM_ALERT_WINDOW", "悬浮窗", "在其它应用上方绘制悬浮窗 / 覆盖层"),
         AppOpsPreset("WRITE_SETTINGS", "改系统设置", "直接读写 Settings 三张表的资格"),

@@ -193,11 +193,7 @@ fun BatterySpoofScreen(
                         valueRange = 0f..100f,
                         steps = 99,
                     )
-                    Text(
-                        text = "全系统生效：任何 App（含系统界面）读到的都是这个等级。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // UI-001：等级说明段删除 —— 数值即语义
                 }
             }
 
@@ -252,12 +248,7 @@ fun BatterySpoofScreen(
                                 text = "持续保持（防 ROM 回写）",
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            Text(
-                                text = "守护服务每 20s 重申伪装值 —— 定制 ROM 把真实电量" +
-                                    "回写时自动压回，系统显示恒为伪装值",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            // UI-001：守护服务说明段删除 —— 标题即语义
                         }
                         Switch(checked = guard, onCheckedChange = { guard = it })
                     }
@@ -342,17 +333,7 @@ fun BatterySpoofScreen(
                 }
             }
 
-            item {
-                SectionHeader(title = "原理与边界", subtitle = null)
-                InfoCard(
-                    title = "dumpsys battery —— Android 官方电池测试通道",
-                    body = "经 Shizuku 以 adb shell 权限写入电池服务状态，" +
-                        "系统级生效、免 Root、重启后自动恢复真实值。" +
-                        "侧录电池曲线的 App（如电池健康类工具）同样读到伪装值。" +
-                        "部分定制 ROM 的电量管理服务可能周期性回写真实值 ——" +
-                        "开启「持续保持」后守护服务每 20s 自动压回，显示恒为伪装值。",
-                )
-            }
+            // UI-001：原理与边界说明卡删除（FEAT-028 规格承载边界语义）
         }
     }
 }

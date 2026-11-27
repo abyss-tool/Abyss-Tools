@@ -119,7 +119,7 @@ fun IslandScreen(onBack: () -> Unit) {
                     }
                     Spacer(Modifier.size(4.dp))
                     Text(
-                        text = "深渊工具已可在其他应用上层绘制悬浮球。",
+                        text = "悬浮球已可在其他应用上层绘制",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -309,7 +309,7 @@ fun IslandScreen(onBack: () -> Unit) {
                 }
                 Spacer(Modifier.size(4.dp))
                 Text(
-                    text = "改动即时生效：运行中的悬浮球会实时重绘。",
+                    text = "改动即时生效（运行中的悬浮球实时重绘）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -321,7 +321,7 @@ fun IslandScreen(onBack: () -> Unit) {
                 Spacer(Modifier.size(6.dp))
                 listOf(
                     "点击球体：展开 / 收起快捷面板",
-                    "按住拖动：移动位置；松手自动吸附到左 / 右屏幕边缘",
+                    "按住拖动移动位置，松手自动吸附到屏幕左右边缘",
                     "面板展示系统实时时间与真实电量（取自系统电池广播，非估算）",
                     "点击面板以外区域：自动收起",
                     "部分定制系统（MIUI / EMUI 等）还需额外允许「后台弹窗」，否则面板可能无法弹出",
@@ -346,7 +346,7 @@ fun IslandScreen(onBack: () -> Unit) {
                 }
                 Spacer(Modifier.size(4.dp))
                 Text(
-                    text = "球点击展开后的样子。样张使用示例数据；真实面板的时间与电量均为系统实时读数。",
+                    text = "展开面板样张（真实面板为系统实时读数）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

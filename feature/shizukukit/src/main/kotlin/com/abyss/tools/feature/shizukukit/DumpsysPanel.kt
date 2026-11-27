@@ -51,7 +51,6 @@ internal fun DumpsysPanel(
         item {
             SectionHeader(
                 title = "白名单诊断命令",
-                subtitle = "只读 dumpsys 目标逐条执行，输出在下方结果卡查看",
             )
         }
 
@@ -93,13 +92,6 @@ internal fun DumpsysPanel(
         item { KitBusyLine(runner.busy) }
         item { ExecResultCard(record) }
 
-        item {
-            KitExpanderCard(
-                title = "为什么是白名单",
-                body = "dumpsys 面板只放行只读诊断命令：写操作（如 battery set）在伪装四件套有" +
-                    "专用页，自由拼接输入一律拒绝 —— fail-closed，防误伤系统服务。" +
-                    "package / procstats 等输出量大，自动截断到 64KB 展示。",
-            )
-        }
+        // UI-001：白名单说明卡删除（fail-closed 纪律见 FEAT-007 规格）
     }
 }

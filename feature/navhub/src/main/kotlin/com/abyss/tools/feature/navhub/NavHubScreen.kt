@@ -43,8 +43,9 @@ import com.abyss.tools.core.designsystem.component.StatusChip
  * 底部导航「插件」独立 tab 承载，功能页只登记工具目录，页头统计由
  * ToolCatalog 数据驱动。
  *
- * v0.8.5：页头与底栏文案从「导航」改为「功能」（用户反馈：这页就是
- * 功能目录，不是导航目录）。
+ * UI-001（功能文案精简）：页头统计副标、分类 description、工具
+ * summary、占位详情页五段长说明全部清零 —— 分类头单行、工具行
+ * 图标 + 标题 + 状态圆点；占位页只留一句短状态标签。
  */
 @Composable
 fun NavHubScreen(
@@ -63,11 +64,6 @@ fun NavHubScreen(
                 text = "功能",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = "深渊工具的全部能力域 · ${ToolCatalog.tools.size} 项工具 · ${ToolCatalog.categories.size} 个分类",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.size(8.dp))
         }
@@ -88,7 +84,6 @@ fun NavHubScreen(
                 item(key = "header-${category.id}") {
                     SectionHeader(
                         title = category.title,
-                        subtitle = category.description,
                         modifier = Modifier.entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
                     )
                 }
@@ -115,7 +110,6 @@ private fun ToolRow(tool: ToolDef, onClick: () -> Unit) {
     ListRowCard(
         icon = AbyssIcons.icon(tool.iconKey),
         title = tool.title,
-        summary = tool.summary,
         onClick = onClick,
         badge = { StatusChip(text = tool.status.label, tone = tool.status.tone()) },
     )
@@ -181,16 +175,10 @@ fun ToolScreen(
                         Spacer(Modifier.size(8.dp))
                         StatusChip(text = tool.status.label, tone = tool.status.tone())
                     }
-                    Spacer(Modifier.size(6.dp))
-                    Text(
-                        text = tool.summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
             item {
-                SectionHeader(title = "所属分类", subtitle = "${tool.category.title} · ${tool.category.description}")
+                SectionHeader(title = "所属分类 · ${tool.category.title}")
             }
             when (tool.status) {
                 ToolStatus.PLUGIN -> {
@@ -199,7 +187,7 @@ fun ToolScreen(
                     }
                 }
                 ToolStatus.BUILT_IN -> {
-                    item { BuiltInFeatureCard(tool = tool) }
+                    item { BuiltInFeatureCard() }
                 }
                 ToolStatus.FRAMEWORK -> {
                     item { FrameworkPlaceholderCard() }
@@ -249,12 +237,6 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "安装对应插件后可用。插件与主壳解耦，独立仓库 / 独立 CI / 独立补丁更新。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Spacer(Modifier.size(10.dp))
         androidx.compose.material3.Button(onClick = { onOpenPlugin(pluginId) }) {
             Text(if (pluginId.isBlank()) "前往插件中心" else "查看插件 · $pluginId")
@@ -268,7 +250,7 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
  */
 
 @Composable
-private fun BuiltInFeatureCard(tool: ToolDef) {
+private fun BuiltInFeatureCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -280,20 +262,6 @@ private fun BuiltInFeatureCard(tool: ToolDef) {
             text = "主壳内置 · 无需安装插件",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "自 v0.2 起本工具由独立插件仓并入主壳，随深渊工具版本更新直接获得，" +
-                "不再占用插件中心位次。当前安装版本尚未接线「${tool.title}」的功能页 ——" +
-                "请前往 设置 → 检查更新，升级到最新版后从 功能 页重新进入。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.size(8.dp))
-        Text(
-            text = "内置路线：「${tool.title}」随主壳迭代（原插件仓已归档）",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
         )
     }
 }
@@ -312,13 +280,6 @@ private fun FrameworkPlaceholderCard() {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "本工具已在深渊工具的总体蓝图（SRS §6 开发里程碑）中排期，" +
-                "当前版本专注框架成型：导航 / 插件体系 / 补丁更新引擎。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -335,12 +296,6 @@ private fun ReadyPlaceholderCard() {
             text = "壳内可用",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "该入口为宿主内置能力，功能实现随 v0.2 起排期落地。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

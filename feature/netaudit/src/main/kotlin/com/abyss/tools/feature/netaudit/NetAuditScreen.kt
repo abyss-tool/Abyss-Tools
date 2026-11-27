@@ -223,7 +223,7 @@ fun NetAuditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // ── 1. 能力与边界（诚实声明常驻，不随加载状态消失）─────────
-            item(key = "intro") { NetAuditIntroCard() }
+            // UI-001：intro 说明卡移除（key 保留防列表漂移）
 
             // ── 2. Shizuku 门禁（inline WARN chip + 人话指引）────────
             item(key = "shizuku-gate") {
@@ -306,7 +306,6 @@ fun NetAuditScreen(
                             HorizontalDivider()
                             SectionHeader(
                                 title = "应用流量画像",
-                                subtitle = "按总流量降序 · 条形宽度正比于本榜最大值（主色 = 下载，辅色 = 上传）",
                                 trailing = {
                                     StatusChip(
                                         text = "${visibleRows.size} / ${snap.perUid.size}",
@@ -321,7 +320,7 @@ fun NetAuditScreen(
                         item(key = "empty") {
                             EmptyState(
                                 title = "没有匹配的流量记录",
-                                message = "换个关键词或调整过滤条件；本口径下没有可归因流量的应用不会出现在榜单。",
+                                message = "换个关键词或调整过滤条件（无可归因流量的应用不入榜）",
                             )
                         }
                     } else {
@@ -383,32 +382,7 @@ private fun NetAuditHeader(title: String, onBack: () -> Unit) {
     }
 }
 
-// ── 说明卡家族（视觉同 disguise / appmgr 的卡片：surfaceVariant 半透明）──
-
-@Composable
-private fun NetAuditIntroCard() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-            .padding(16.dp),
-    ) {
-        Text(
-            text = "能力与边界",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "读取系统 netstats（dumpsys，Shizuku 免 Root）做应用维度流量画像 —— " +
-                "数字为系统统计口径的尽力而为聚合（不同 ROM 格式差异，可能含重复周期桶，" +
-                "视为上限估计）。VpnService 级深度包审计与域名画像属网络守护插件（路线图）。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
+// ── 说明卡家族（UI-001：能力与边界说明卡删除）──────────────────
 
 /**
  * Shizuku 门禁（inline WARN chip + 人话指引）：本页签名不含授权回调 ——
@@ -431,9 +405,9 @@ private fun ShizukuInlineWarn(shizukuStatus: ShizukuStatus) {
             tone = ChipTone.WARN,
         )
         Spacer(Modifier.size(6.dp))
+        // keep-text: 授权引导（未授权态的指路一句话）
         Text(
-            text = "本页数据经 Shizuku 以 adb shell 上下文执行 dumpsys 读取（免 Root）。" +
-                "授权入口在仪表盘/系统控制中心 —— 授权后回本页点刷新即可重新采集。",
+            text = "授权入口在仪表盘 / 系统控制中心，授权后回本页点刷新",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -540,7 +514,7 @@ private fun TruncatedBanner() {
         Spacer(Modifier.size(4.dp))
         Text(
             text = "单流上限 1MB（通道 StreamGuards）：截断点之后的统计桶未计入，" +
-                "榜单可能缺少尾部应用 —— 数字按上限估计口径解读。",
+                "榜单可能缺少尾部应用（数字按上限口径解读）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

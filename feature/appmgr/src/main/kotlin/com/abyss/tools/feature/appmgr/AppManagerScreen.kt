@@ -375,17 +375,7 @@ fun AppManagerScreen(
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.SemiBold,
                                             )
-                                            Spacer(Modifier.size(4.dp))
-                                            Text(
-                                                text = if (frozenCount == 0) {
-                                                    "冻结 = 免 Root 停用应用且保留数据。" +
-                                                        "进入任意应用详情页即可冻结。"
-                                                } else {
-                                                    "冻结的应用已停用（数据保留）。进入详情页可解冻恢复。"
-                                                },
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
+                                            // UI-001：冻结卡说明段删除 —— 计数即语义
                                         }
                                         if (frozenCount > 0) {
                                             StatusChip(
@@ -418,7 +408,7 @@ fun AppManagerScreen(
                                     } else {
                                         "没有匹配的应用"
                                     },
-                                    message = "换个关键词，或调整上方的过滤条件（支持应用名 / 包名，中英文均可）。",
+                                    message = "换个关键词，或调整上方的过滤条件（应用名 / 包名，中英文均可）",
                                 )
                             }
                         } else {

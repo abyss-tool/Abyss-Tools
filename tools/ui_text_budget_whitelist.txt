@@ -1,0 +1,146 @@
+# UI-001 功能文案精简白名单（ui_text_budget）
+#
+# 格式：<sha256(字面量)>  # <类别>：<理由>
+# 类别纪律（见 tools/ui_text_budget.py 头注）：只允许 错误 / 授权引导 /
+# 高危确认 / 免责声明 / 数值单位 / 按钮动作 / 输入label / 空态一句 /
+# 结果反馈。说明卡 / 教程段 / helper 长段禁止入单 —— 必须删除。
+# 新增条目必须给出类别与一句话理由；评审时按类别复核。
+
+dc46cec81082d08ae794bf5666fbdf5c1e6a9a40484df1a29307a7cd36b17be3  # 授权引导：Shizuku 授权卡（功能页公共组件）（feature/appmgr/src/main/kotlin/com/abyss/tools/feature/appmgr/AppManagerShared.kt:108）
+f08d00424f3662ad03765b6150e1ed6efc214c1cafa22ebf945a1d6f5a4229c8  # 授权引导：Shizuku 授权卡（功能页公共组件）（feature/appmgr/src/main/kotlin/com/abyss/tools/feature/appmgr/AppManagerShared.kt:109）
+e5bfe608956d5d349ad4b1507e2837f88b36d9c684d966991608b83d042a54ac  # 授权引导：Shizuku 授权卡（隔离空间页）（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:673）
+0d1a799d0b957c4e9b8815a87f4471cdfa528a4481d956f10ea9917496fa0a21  # 授权引导：Shizuku 授权卡（功能页公共组件）（feature/appmgr/src/main/kotlin/com/abyss/tools/feature/appmgr/AppManagerShared.kt:113）
+cef51c512a96082f1df9f59e401fb033381a1f0682b9f28ff163b9989f443223  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:106）
+784461ce344fa46511c5bd2f10ab0d83ce9f045c3ef37c4d116228c95844835a  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:116）
+ac9bb99b74b824ce1f089a664783f124efc1f7ed3890416399eb5edcbc56fed5  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:127）
+3478b754cee3c9edf53d48ae2851e42de9e2cfa6eaba1011cc4b8b8848d7556b  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:131）
+daeae8ea982826ed05919f208806e4e78fd60985373beef9b38d8f297581ecf4  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:426）
+e2f3fe8ea8ecd25955b6cb60786d49bcf612073c72d1dc7eebb790ff0dc55a1f  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:148）
+58e03260b877af623f26b1e6ea8707d6bb541515e99e6af8e9de6b2370413250  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:243）
+e528e02a47c8d5ca87e3c5cd5b5dd94f8b55927f7526c3bd9718d2474eba21ca  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:266）
+22fbb9c11deed691a62816c5725eb8189a78d188461928393f7703866d1996fe  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:268）
+7f4cd42d5a6637be8a5426c219f2dde61ba4722dea77fb17a60a87cb2e3a40b2  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:287）
+e2c4074572a3eb5a7ece01493d2a073b6c01319a3560b357126d08e9fe133a20  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:304）
+7748ef604db2f9fb3b2881ac9d6944808ae5af9253dceb19105717042f7a48df  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:332）
+735b9c88f1b624533bc2751095707547b2c4661cdee2cf3ef061efce347b16ed  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:355）
+025f29f6966f176d1cc7e08024fc5d9728d7a6515504be646844d609159c4e26  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:357）
+51ffa122c55cbafef2c510622ed27401773b06d704ccfb4dafe61149231e6982  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:359）
+6a2cb38877d42c4877d5fba97bc940f70ce2541176577c7aa1de62fc6e90a9f1  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:374）
+5fa5c3e5a869c8b51712e46274f299818dea39e00e026de9d5c74a59f6dde0e7  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:388）
+5a0678997455afa3198945d85947ed0070bbc05505dd950ab1ca3a20137a0bd8  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:415）
+9ce0f406ea00ef5d0bdedec49e949aa8e6ece8a81355961daf16ec49d7a99bd3  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:418）
+d199453f4f06a70ef024e23b52b65d0e65996a9f95518ca119d27f8e16094c81  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:423）
+b9763beb04accc4167dbb5dda098d6df8542f1edc5729cd33dcb0a479ba02442  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:430）
+5df4d2539e13451ba975d350b0587e03670e8f1ba9b8b29aa79ab3c4d9126456  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:434）
+e808ba780203082d4a56e4247e1a9eb459110b0489c402774b743afe2e146479  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:437）
+ffc8727dfad608c458929eb10747229c13570c2acaff5038893837d51676dacd  # 错误：fail-closed 拒绝 / 中止语义（人话错误是本仓纪律）（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupEngine.kt:475）
+55f8355ca769ca758f6e20eac52dd1742938dfd6527cc4f2eb1861bb8286f2e2  # 授权引导：存储权限说明（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupScreen.kt:209）
+b73bfb1d5c2b2fb81357574113a65994fe221efc663236a8bc19b51e9444240b  # 错误：导出 / 恢复 / 打开失败引导（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupScreen.kt:240）
+fb0bacd2139278d78f38d9504b4752653eb5a252a7d4dbc9452a9f536f221f06  # 错误：导出 / 恢复 / 打开失败引导（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupScreen.kt:937）
+557b79d51576da9956f0c980b16c0c2f510b689ed60a6ce5f2f4e82e757cbe36  # 错误：导出 / 恢复 / 打开失败引导（feature/backup/src/main/kotlin/com/abyss/tools/feature/backup/BackupScreen.kt:1194）
+a5cf2c1e81d97aaa0f3991d49080262d1d8901a180465c06870e5f68628de14f  # 错误：蓝图清单校验拒绝（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintModels.kt:124）
+94f8df30f3268c57ccabd9655f4cffb9bf7c4921cd77bcb609c3cd6681fc8f49  # 错误：蓝图清单校验拒绝（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintModels.kt:127）
+d9de94440696ff17864703638aa1ea28f0a667a71773e204b7310a7282780e3d  # 授权引导：SHELL 步骤需就绪 Shizuku（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintScreen.kt:488）
+70d944d508a39278c6f3bf64e7681c189b985a0318dbefa3979407d47218cd99  # 错误：蓝图库读取失败（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintScreen.kt:546）
+d30aa01570344cbf28748d21c32d90e4692518d3f47a3f1158d6b36bee7f6d68  # 授权引导：Shizuku 授权卡（蓝图公共组件）（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintShared.kt:96）
+1f970ecf5660ab10c7c82b9016a99676f901c7527733f160f0886303b9b42d1c  # 授权引导：Shizuku 授权卡（蓝图公共组件）（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintShared.kt:97）
+f2b8e8c94f27b1870ea83356c1aefd01e98ead16640dbdc1e29cd9750951515b  # 授权引导：Shizuku 授权卡（蓝图公共组件）（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintShared.kt:98）
+0ccadc5d8fcfcaf1171dfa2015ea6f3dbed3e93c70b52c7b616bd4dd8892fd8b  # 授权引导：Shizuku 授权卡（蓝图公共组件）（feature/blueprint/src/main/kotlin/com/abyss/tools/feature/blueprint/BlueprintShared.kt:101）
+8f955cd12cd124f9d98fc24b9588c74c78d3f4249bf389af7993c39a1467529d  # 授权引导：Shizuku 授权卡（伪装公共组件）（feature/disguise/src/main/kotlin/com/abyss/tools/feature/disguise/DisguiseShared.kt:81）
+6de347f081184152eebb8802dc396c3a8068ccb559b5180900bd12e3454af3e0  # 授权引导：Shizuku 授权卡（伪装公共组件）（feature/disguise/src/main/kotlin/com/abyss/tools/feature/disguise/DisguiseShared.kt:82）
+d9ff545c7a01dca0ae4a068a8d4bb92f0ae8c3187990e04b9906cd14c02c950b  # 授权引导：Shizuku 授权卡（伪装公共组件）（feature/disguise/src/main/kotlin/com/abyss/tools/feature/disguise/DisguiseShared.kt:84）
+ebee37e13ea28fdbf83ced22ba39dac15a51ee054be24a03506b30cc15ff97ca  # 授权引导：模拟位置资格前置提示（feature/disguise/src/main/kotlin/com/abyss/tools/feature/disguise/LocationSpoofService.kt:102）
+fe8b97d891f0b6fbe350a168b31bd1dbd0929d1a4c0e169eba9841ef7bdb73d8  # 错误：悬浮窗权限缺失（前台服务兜底）（feature/disguise/src/main/kotlin/com/abyss/tools/feature/disguise/SignalOverlayService.kt:70）
+e52848702c8b63b565c63870f9720b4579fecf71490b881ddb9f0c33c12755ac  # 错误：音轨编码不支持封装（feature/media/src/main/kotlin/com/abyss/tools/feature/media/MediaMux.kt:147）
+b6cccd6a09b4012b371a98a0973cd5c9c05704c45cba320d0658005a623fd3f9  # 免责声明：UGRL 许可摘要（首启必读）（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:311）
+32e07185c4ebbbe45dbc97216a5e4387b448811fe27de54907c8f357907d496e  # 免责声明：UGRL 许可摘要（首启必读）（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:312）
+7a01db9b761275a084cd70eb531b59ffb6e298e33516cd96cd2b0d5249202575  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:339）
+8b601ac0b4ff13f70cc7bd151bbb5407305b94a61e359033e00765c46859e568  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:340）
+f78cca452d4edd8007db19220efe54ea50fd39122f8c5fc438a0c0f876d43a96  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:376）
+bd785d5197e6fa6a5dfac17043aa5b0e2fb16b8ddb2ac1e10cef4827599b3271  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:401）
+b665b3c2ac3a0758b2304ebec154d905d3b0efb7b2556f3af7bae2996eb1c498  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:450）
+616fe66b0c2042a24a73184f2e799e4230f131e2da8e6c2d5e97dbab55f1beaa  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:451）
+7cd9bdfb1938d362e013abe86a4230aeed298fc8a0f1d9a3712501f656221e23  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:471）
+54c47c99992a39699df1444a4cb9af4c1caa758cd2b99ad095cd19df780abdaa  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:472）
+1aa17ba0112e1ab451ececea2b52e6cd81841a81e233c306b55dc80991912229  # 授权引导：Shizuku / 安装未知应用 / 可选权限引导（feature/onboarding/src/main/kotlin/com/abyss/tools/feature/onboarding/OnboardingScreen.kt:506）
+3c52c981f2d7fe97a676930a20fa22ae72549ec1e742b3aa46b8ec875e9a24a2  # 错误：下架残留 / 校验失败（fail-closed）（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:531）
+a8fd1a520c854c17e043457a357a32be2cea952bcc31d994e541e03bc1ef7581  # 错误：下架残留 / 校验失败（fail-closed）（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:712）
+0b89b0ee7357b5346fe7dbc356e5e2c9c5581935d27caaf8bc00b178d17fa241  # 授权引导：独立 APK 插件 Shizuku 单独授权说明（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:936）
+0e2c7bb3f3ddfb26517e935145a759a3aec98e5b1dde714305b615dc466da373  # 授权引导：独立 APK 插件 Shizuku 单独授权说明（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:937）
+bf4d0912d12c454c294d0d47b7ab43585a0ffc49ef3843947c103c9909d0ae3a  # 授权引导：独立 APK 插件 Shizuku 单独授权说明（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:939）
+59e713b740c63d768babe31e0aeaa59ca391f78f4db640c0ca54a90f52ba1754  # 高危确认：卸载删除登记与数据目录（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:1010）
+8f6618d8207db1faeee8d91f37607403597dcae8bd4339b5765c55e61e42ada3  # 高危确认：卸载删除登记与数据目录（feature/plugins/src/main/kotlin/com/abyss/tools/feature/plugins/PluginScreens.kt:1011）
+051fd8c60a0e50993517a383602b284ffb600e0434d5ab20f7abaae7edfc4cda  # 错误：二维码识别失败（feature/qrcraft/src/main/kotlin/com/abyss/tools/feature/qrcraft/QrCodec.kt:105）
+71811f9c35226b7357ed07125391104055557418b0997c55593a33d83f7ad990  # 高危确认：清空历史不可恢复确认（feature/qrcraft/src/main/kotlin/com/abyss/tools/feature/qrcraft/QrCraftScreen.kt:398）
+d4bec8e2f6fb77b10acf9c710ccb2a16b76ee1c3e02d924fcbfc71f42ea80e7c  # 错误：图片解码失败（feature/qrcraft/src/main/kotlin/com/abyss/tools/feature/qrcraft/QrImageIo.kt:54）
+bcf443487a2cc1b109b8797dde5444168b63f1ade1c07376753bcf89fc759045  # 错误：拒绝移除 Owner（系统主体保护）（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxCommands.kt:72）
+ef467808840e3c740e2b1ca9329df9a7a974b29554510ddfa4ff7b09af802925  # 错误：多用户操作失败 / 状态不可用（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:351）
+0ce82f34c010932448614fd1493c49ea42ca2f4b239cb3fde9c04aaadca85e9c  # 结果反馈：空间动作异步回执（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:367）
+de72346aa534bb3b40fb24ebf86df056b3d7aad28fd1b853048a44b558015c96  # 结果反馈：空间动作异步回执（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:391）
+38696d7512d2ba0a0380c1d6b5e375fcca707bf77ba32ce0c8f15b2b233bb191  # 结果反馈：空间动作异步回执（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:409）
+e6cef2334cf487d16fa7e92b9548ff921ac930bee89d3ccc2d1c9b70fb515694  # 错误：多用户操作失败 / 状态不可用（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:433）
+84ba933e1e9989bd90475237cb882f60592ad7980460db6e3555ab1ae3f3674c  # 错误：多用户操作失败 / 状态不可用（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:474）
+60a7931cf678bd8f16206c458efb15909aadddf3564ee53dc0d240b4a7512c6d  # 错误：多用户操作失败 / 状态不可用（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:514）
+394a597d9666c6f6542bbe8f9b71ca3c118d9a817b1123543dbda83a843a4ade  # 结果反馈：空间动作异步回执（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:531）
+49b77f9988e1734c57e9c88410af33f875b3068233bd419c23e16cfe6bb26fd2  # 结果反馈：空间动作异步回执（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:571）
+af52dd5cc623f2b45634a1ae4197f2f933e13bc3c1ee544e6524c01bbcc48c81  # 授权引导：Shizuku 授权卡（隔离空间页）（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:669）
+33fa8eb7e091540ded6354715c8089335eed457f23e715a7785aea4da48a8a82  # 授权引导：Shizuku 授权卡（工具箱公共组件）（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/ShizukuKitShared.kt:119）
+9e9ad3f43603d57409918ac7d9f8d48f70130598a074e703b62c9f0ac9ca504e  # 授权引导：Shizuku 授权卡（隔离空间页）（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:694）
+edbc88fce71925ac8e2bc466760346f989fe4b2a0c1eb36d4197e5aabdbc54f0  # 高危确认：销毁空间数据不可恢复确认（feature/sandbox/src/main/kotlin/com/abyss/tools/feature/sandbox/SandboxScreen.kt:1197）
+37736a58ce86b74bdc0f3db22a7f103b6647f8bf6ecf927ac308e61e09c31176  # 高危确认：覆盖 / 载入前破坏性确认对话框（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabScreen.kt:382）
+bd1cca00d1cbae35a5e1df405c169a98eb72e46301bd5c21202f2e08af68b5e4  # 高危确认：覆盖 / 载入前破坏性确认对话框（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabScreen.kt:383）
+a2e894c03b5ff579ab6b94b31296c77d15b3c0ea972b5788715dd4523bdde2f0  # 高危确认：覆盖 / 载入前破坏性确认对话框（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabScreen.kt:398）
+1f4f59b3808970d829df500f45f643b642a58c572015a72060c5dd8161c25013  # 结果反馈：命令超时语义（feature/terminal/src/main/kotlin/com/abyss/tools/feature/terminal/TerminalScreen.kt:112）
+7bbbde6946a094d423f66f9aa5fa10700236300f53518ad1b18e4eeb09e58af5  # 授权引导：Shizuku 授权卡（脚本页错误文案区）（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabScreen.kt:581）
+1f2abd910183317c8a94eb89c06888c27479517caac25a4923e66a97c9bb641c  # 授权引导：Shizuku 授权卡（脚本页错误文案区）（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabScreen.kt:582）
+81ec7ae7d004217b219cd5da34f06cfa6c6af5b6cd7ce26020dd73c2141c25d1  # 授权引导：Shizuku 授权卡（脚本页错误文案区）（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabScreen.kt:584）
+27e83166ddd01feec72848eddfd700e53d0a4425bee9a9db93a75e1a79896777  # 错误：脚本体超限 / 非法字符拒绝（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabShared.kt:152）
+40ba2694363df1c15f30712c2b92d71e12a8d082e4ced3227dbd18ffaf84c48c  # 错误：脚本体超限 / 非法字符拒绝（feature/scriptlab/src/main/kotlin/com/abyss/tools/feature/scriptlab/ScriptLabShared.kt:155）
+f5478a846bebd5c4ebb8800c66793bee63ae3317311dbe4b1cb2378e4c1ff114  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:139）
+b6209d9387e7eb4ffbfd0b55049c7bf4d57c3eb7d0d494a78b28a36ef229b41c  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:142）
+2a3eeaf95b322535bfef0340ef889f6ce52811e7a453b10c2655d81b98fc7966  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:145）
+c3a2c5c3f30ef16fd90fe00ba70c12d1feb3f76a43ceae32a54dd17b9c25e9bf  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:149）
+671ea30311c4af7c9894f805f3ccc1a9b35bf6734a626f56fa9f149353c2c786  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:152）
+f10e224399aa16d83c50df5df66f39b9bd2698805a03e277731c60db4f3da64a  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:155）
+ef28e1a097bf8835ab25b1803df67c66481bdb0c554a8e42f7cb9e263149df29  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:157）
+0a6544dccbd7e5e104d3a2e6cd920dbfbd72be2ab7a3e24a443535541804dc7e  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:159）
+f2c1e20d47cf9bf9e5c934cd00988b5d613312bc2f5553438e9d67013c89ec46  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:161）
+53a250495af19c7757571bffdf2e328112db512c55ecfb960aa85f5412f9b177  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:163）
+ccae54c0493bd70555a0f9c5e1de1b36ef79caf6d63410adaf9d6bab7875ccf4  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:166）
+c428ab86743b7399da9d581b17af8b8c187388e92d4e995117df23a2912c4864  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:170）
+9d07aca8747b9bd257c9a5fed455799451edc6bac640eb5d3922abee85b4ccb8  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:172）
+53148d1240a8536c5724f4904d46f69f1355e154157852aa682837c053678525  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:175）
+ce264f7dca331d8203687f45a02e13769136ba459686533767d9b335656e28f5  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:177）
+0d01a78a3133e4207ec8a8abaf2cfe6a9253253ec5ef9f9b828f80e558f3a6e2  # 错误：更新失败分类人话引导（UPD 通道）（feature/settings/src/main/kotlin/com/abyss/tools/feature/settings/UpdateFailureSheet.kt:179）
+733d91a95e0f6f485f08cf3ac4566b287c89b763dc2ffa81ee489cb4036f5161  # 高危确认：清空执行记录不可恢复确认（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/HistoryPanel.kt:100）
+bc1a2e091a90424ac41d13e85c93f122aedda00ffbe72d3802c04c0492ae00e3  # 错误：白名单外命令 fail-closed 拒绝（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/KitCommands.kt:186）
+3024a97eed722315d826e3f5d7c44e6c1e6a96ff732839b94ebbef63f5a0748c  # 错误：白名单外命令 fail-closed 拒绝（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/KitCommands.kt:246）
+a45c6a97783305d478474399c2b98e211e79221fd11c4ee91314b37b8bf4b4b4  # 高危确认：系统设置写入二次确认（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/SettingsPanel.kt:200）
+25a6e4cfc812333d8a23a00ef2a0bee0056c32dd1a5071ff404d543a43329ea1  # 授权引导：Shizuku 授权卡（工具箱公共组件）（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/ShizukuKitShared.kt:118）
+58d9dd2e9c2097b8db3646d80dc7790599259e0282d0ce5991b7ec2c025aa6a2  # 授权引导：Shizuku 授权卡（工具箱公共组件）（feature/shizukukit/src/main/kotlin/com/abyss/tools/feature/shizukukit/ShizukuKitShared.kt:126）
+cac53070643171528b50c605df90de909acb0120c8adfc44054bbaea81238484  # 授权引导：Shizuku 授权卡（系统控制中心）（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/AuthorizationPanel.kt:254）
+b24ab93c66b8915de0eee5a2b6dd938ca0a95b65b7bc05c2a4a4d565fae2e7b2  # 授权引导：Shizuku 授权卡（系统控制中心）（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/AuthorizationPanel.kt:256）
+d2832e2f9161842a22785e4484dd7a2ae8b201a5e38885c220ee5154f6859c75  # 错误：读取失败 fail-closed 报错（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/PrivacyPanels.kt:278）
+bd9b098e374dacadd7899ded427a1d37bf1be39fae775b43f3d338dc7d0181da  # 错误：读取失败 fail-closed 报错（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/PrivacyPanels.kt:285）
+39c40f630ac8b85f45787de243294ebfcdd864b65e60d48461f87b648e8f6026  # 错误：读取失败 fail-closed 报错（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/PrivacyPanels.kt:433）
+a337d6c3cb0772278f1c16827245e5f003a938ec7b2ce85abc7db0cc371b05e9  # 错误：读取失败 fail-closed 报错（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/PrivacyPanels.kt:580）
+bdcade078dbc16665d6c59b22507408d33729b6df6934a36c2801a5dff9dc04a  # 错误：读取失败 fail-closed 报错（feature/syspower/src/main/kotlin/com/abyss/tools/feature/syspower/PrivacyPanels.kt:819）
+ceee7d9293d9f3cc6fdfd16228b60d565cfeb67da8d7919360435f742567a9b4  # 授权引导：Shizuku 授权卡（终端页错误文案区）（feature/terminal/src/main/kotlin/com/abyss/tools/feature/terminal/TerminalScreen.kt:354）
+b9ece96d2f3e7596b2b245668601dc42586bf437e34ffbdfffddd0720636b4f6  # 授权引导：Shizuku 授权卡（终端页错误文案区）（feature/terminal/src/main/kotlin/com/abyss/tools/feature/terminal/TerminalScreen.kt:387）
+eb5539697809e34c2699218998025e98a47cc5879b889d5c69b90495e86d4d09  # 授权引导：Shizuku 授权卡（终端页错误文案区）（feature/terminal/src/main/kotlin/com/abyss/tools/feature/terminal/TerminalScreen.kt:388）
+2e56cfb63ed120012ecfed010ccc093bb1345789ab2c3b9f5edaeb3a0a848d75  # 授权引导：Shizuku 授权卡（终端页错误文案区）（feature/terminal/src/main/kotlin/com/abyss/tools/feature/terminal/TerminalScreen.kt:390）
+779de6cfb0f14762c598bc8361ab14382d27cbdeb7c401f297f13650c300e522  # 错误：CompositionLocal 缺失异常消息（core/designsystem/src/main/kotlin/com/abyss/tools/core/designsystem/glass/GlassPalette.kt:72）
+
+# N-EXP-006 插件权限透明化面板（legacyPermissionFromId 词典）：
+# 安装前权限审阅的人话说明 —— 授权引导类，规格强制要求逐条展示。
+80da2c6b7589a04ce34a7cff7faf7bf95c1c09b7dccfaf427a7da7dbcb9b7242  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1373）
+89f50c12479555a195117f8e49360f6ff83fc846274341891423f03efc3c22ff  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1380）
+73f7b2257bb42c5790b542483818d3c31b3273fe2d7db68b9a1f37475448eed2  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1387）
+0a99bfa1ce9f65e3b1f56f6eb63525cb4ff72bc861e88d9465f9d0050c02f0a4  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1394）
+9ef094eecfee578ec7fe5d42b9ce0b0908d611d4d4f968c04f604b55eeed3959  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1401）
+661a3c7f14920bcabba3873cc9956b73653561ab0f57fc537e1d0e5115409029  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1408）
+26ab4fb9f01d1fda8f128505fe991d0b91ae9a121d3ef17f130b631aa0bb0c2f  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1415）
+2e165c4d7786a65e6fe61732783bea34734644f882d66916c420dc4bf05af692  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1425）
+eecb350544c56ee0fa495e9b0d1496ed3d78d17fa9c2f0d6e380fc509db19658  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1433）
+ee7a0255aa05dd1b7710848b1d795fcc05d02d50a44ef135efc61f1b3fcfb9e6  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1440）
+155697b7d4535ba5a7b20c85bc3a14e40930b0d58cba972e4c1363f3fb11512a  # 授权引导：N-EXP-006 权限人话说明（PluginScreens.kt:1447）

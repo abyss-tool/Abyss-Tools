@@ -156,7 +156,7 @@ class BlueprintStore(private val dir: File) {
             BlueprintManifest(
                 id = "battery-reset",
                 name = "电池状态复位",
-                description = "撤销伪装四件套的电池伪装，恢复系统真实电量读数（dumpsys battery reset）。",
+                description = "撤销电池伪装，恢复系统真实电量读数（dumpsys battery reset）",
                 steps = listOf(
                     BlueprintStep(type = StepType.SHELL, content = "dumpsys battery reset"),
                 ),
@@ -164,7 +164,7 @@ class BlueprintStore(private val dir: File) {
             BlueprintManifest(
                 id = "airplane-on",
                 name = "一键开启飞行模式",
-                description = "cmd connectivity airplane-mode enable —— 系统官方通道，比直接改 settings 更稳。",
+                description = "cmd connectivity airplane-mode enable（官方通道，比改 settings 更稳）",
                 steps = listOf(
                     BlueprintStep(type = StepType.SHELL, content = "cmd connectivity airplane-mode enable"),
                 ),
@@ -172,7 +172,7 @@ class BlueprintStore(private val dir: File) {
             BlueprintManifest(
                 id = "airplane-off",
                 name = "一键关闭飞行模式",
-                description = "cmd connectivity airplane-mode disable —— 与「一键开启」互逆，可自由编排。",
+                description = "cmd connectivity airplane-mode disable（与「一键开启」互逆）",
                 steps = listOf(
                     BlueprintStep(type = StepType.SHELL, content = "cmd connectivity airplane-mode disable"),
                 ),
@@ -180,7 +180,7 @@ class BlueprintStore(private val dir: File) {
             BlueprintManifest(
                 id = "network-off",
                 name = "一键断网",
-                description = "svc data disable && svc wifi disable —— 移动数据与 Wi-Fi 一起关闭（信号盲区模拟）。",
+                description = "svc data disable && svc wifi disable（移动数据与 Wi-Fi 一起关闭）",
                 steps = listOf(
                     BlueprintStep(type = StepType.SHELL, content = "svc data disable && svc wifi disable"),
                 ),
@@ -188,7 +188,7 @@ class BlueprintStore(private val dir: File) {
             BlueprintManifest(
                 id = "network-on",
                 name = "一键恢复网络",
-                description = "svc wifi enable && svc data enable —— 与「一键断网」互逆，双通道一起恢复。",
+                description = "svc wifi enable && svc data enable（与「一键断网」互逆）",
                 steps = listOf(
                     BlueprintStep(type = StepType.SHELL, content = "svc wifi enable && svc data enable"),
                 ),

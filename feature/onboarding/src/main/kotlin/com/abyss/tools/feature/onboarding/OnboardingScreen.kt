@@ -305,16 +305,16 @@ private fun WelcomeStep(disclaimerAccepted: Boolean, onDisclaimerChange: (Boolea
         fontWeight = FontWeight.Bold,
     )
     Text(
-        text = "面向极客的系统级超级工具箱 —— 免 Root，Shizuku + 沙箱 + 脚本引擎。",
+        text = "系统级超级工具箱（免 Root · Shizuku + 沙箱 + 脚本引擎）",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     PermissionCard(
         title = "你将获得",
         rows = listOf(
-            "🕳" to "大内置化：二十余项系统级工具全部主壳内置 —— 应用管理 / 终端 / 脚本 / 沙箱 / 备份 / 系统控制…",
+            "🕳" to "大内置化：二十余项工具主壳内置（应用管理 / 终端 / 脚本 / 沙箱 / 备份 / 系统控制）",
             "🛡" to "免 Root 提权：全部系统级能力经 Shizuku 兼容通道执行（无需解锁 Bootloader）",
-            "🧩" to "引擎级插件：应用构建器 / 病毒拦截 / 虚拟机 —— 按需安装，独立更新",
+            "🧩" to "引擎级插件：应用构建器 / 病毒拦截 / 虚拟机（按需安装，独立更新）",
             "🩹" to "补丁热更新：主壳与插件全走增量补丁通道，小版本免重装",
         ),
     )
@@ -551,28 +551,22 @@ private fun FeatureTourStep() {
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )
-    Text(
-        text = "主界面分四个 tab：仪表盘看状态、功能页进全部工具、插件管引擎级插件、设置管更新与权限。" +
-            "功能页里你能找到这些分类 ——",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
     PermissionCard(
         title = "功能分类一览（${ToolCatalog.tools.size} 项工具 · ${ToolCatalog.categories.size} 个分类）",
         rows = ToolCatalog.categories
             .map { category ->
-                category.title to "${category.description}（${ToolCatalog.toolsOf(category).size} 项）"
+                category.title to "${ToolCatalog.toolsOf(category).size} 项工具"
             },
     )
     PermissionCard(
         title = "插件（独立 tab）",
         rows = listOf(
-            "插件中心" to "应用构建器 / 病毒拦截 / 虚拟机 —— 三个引擎级大插件按需安装",
+            "插件中心" to "应用构建器 / 病毒拦截 / 虚拟机，按需安装",
         ),
         tone = ChipTone.INFO,
     )
     Text(
-        text = "小技巧：在 设置 → 权限与新手引导 里可随时重跑本引导。",
+        text = "小技巧：在 设置 → 权限与新手引导 里可随时重跑本引导",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -593,7 +587,7 @@ private fun ReadyStep(shizukuStatus: ShizukuStatus) {
         fontWeight = FontWeight.Bold,
     )
     Text(
-        text = "深渊工具主界面见 —— 仪表盘会实时显示 Shizuku 通道与插件状态。",
+        text = "深渊工具主界面见：仪表盘实时显示 Shizuku 通道与插件状态",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -603,8 +597,8 @@ private fun ReadyStep(shizukuStatus: ShizukuStatus) {
             "免责声明" to "已同意 ✓",
             "Shizuku 通道" to when {
                 running?.authorized == true -> "已就绪 ✅（全部系统级功能可用）"
-                running != null -> "运行中但未授权 —— 需要时在功能页内一键授权"
-                else -> "暂未启动 —— 用到时各功能页会再次引导"
+                running != null -> "运行中但未授权（需要时在功能页内一键授权）"
+                else -> "暂未启动（用到时各功能页会再次引导）"
             },
         ),
         tone = if (running?.authorized == true) ChipTone.OK else ChipTone.NEUTRAL,

@@ -336,7 +336,6 @@ fun SysControlScreen(
                     item {
                         SectionHeader(
                             title = "显示与外观",
-                            subtitle = "深色模式 / 亮度 / 动画速度 / 熄屏 —— 官方设置项，即时生效",
                         )
                     }
                     item {
@@ -359,7 +358,6 @@ fun SysControlScreen(
                     item {
                         SectionHeader(
                             title = "显示进阶（危险区）",
-                            subtitle = "wm 分辨率 / DPI 覆写 —— 误设可致 UI 错乱，reset 可救",
                         )
                     }
                     item {
@@ -387,7 +385,6 @@ fun SysControlScreen(
                     item {
                         SectionHeader(
                             title = "电源与性能",
-                            subtitle = "充电常亮 / 强制 Doze / 省电模式 —— dumpsys 与官方设置项",
                         )
                     }
                     item {
@@ -407,7 +404,6 @@ fun SysControlScreen(
                     item {
                         SectionHeader(
                             title = "授权总管（AppOps + 运行时权限）",
-                            subtitle = "对任意应用的敏感授权直改 —— adb 官方通道，免 Root",
                         )
                     }
                     item {
@@ -422,7 +418,6 @@ fun SysControlScreen(
                     item {
                         SectionHeader(
                             title = "隐私与管控",
-                            subtitle = "Shizuku 深度利用：权限审计 / 敏感操作记录 / Doze 白名单 / 流量策略",
                         )
                     }
                     item {
@@ -451,7 +446,6 @@ fun SysControlScreen(
             item {
                 SectionHeader(
                     title = "会话日志",
-                    subtitle = "本页已应用动作（时间序）—— 携带逆动作的可逐条撤销",
                 )
             }
             item {
@@ -676,8 +670,8 @@ private fun DisplayDangerCard(
         ) { Text("应用自定义 DPI") }
         Spacer(Modifier.size(8.dp))
         Text(
-            text = "诚实边界：重启或对应「恢复默认」可还原；部分 ROM 立即生效，部分需重启。" +
-                "Override 值即当前活跃覆写（解析已优先取它）。",
+            text = "重启或「恢复默认」可还原（部分 ROM 需重启生效）" +
+                "Override 值即当前活跃覆写",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
         )
@@ -707,7 +701,7 @@ private fun PowerCard(
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
         ListItem(
             headlineContent = { Text("强制 Doze（深睡压测）") },
-            supportingContent = { Text("跳过空闲等待直入 Doze —— 排障 / 省电压测通道，退出即归还系统调度") },
+            supportingContent = { Text("跳过空闲等待直入 Doze（排障 / 省电压测通道，退出即归还）") },
             trailingContent = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = onForceDoze, enabled = !busy) { Text("强制") }
@@ -748,7 +742,7 @@ private fun JournalCard(
         }
         if (rows.isEmpty()) {
             Text(
-                text = "暂无动作 —— 应用任意控制后此处记录原始命令，携带逆动作的可撤销。",
+                text = "暂无动作（控制后此处记录原始命令，可逐条撤销）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

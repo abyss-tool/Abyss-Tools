@@ -583,25 +583,12 @@ private fun AutomationTab(
                     }
                 }
 
-                item(key = "automation-explainer") {
-                    BlueprintCard {
-                        Text(
-                            text = "调度原理",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(Modifier.size(4.dp))
-                        Text(
-                            text = "保存开启调度的蓝图时排入精确闹钟（setExactAndAllowWhileIdle，" +
-                                "省电模式下也会触发）；到期在后台执行，执行结果与手动运行一样写入" +
-                                "「历史」；设备重启后由开机接收器自动重排，调度不丢。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (!shizukuAuthorized) {
-                            Spacer(Modifier.size(6.dp))
+                // UI-001：调度原理说明卡删除 —— 仅未授权时保留 Shizuku 告警
+                if (!shizukuAuthorized) {
+                    item(key = "automation-explainer") {
+                        BlueprintCard {
                             Text(
-                                text = "注意：Shizuku 当前未就绪 —— 到期执行 SHELL 步骤会失败，历史里会如实记录。",
+                                text = "注意：Shizuku 未就绪，到期执行 SHELL 步骤会失败",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = ChipTone.WARN.content,
                             )
@@ -618,9 +605,8 @@ private fun AutomationTab(
                         ) {
                             EmptyState(
                                 title = "暂无调度中的蓝图",
-                                message = "在蓝图编辑页打开「定时调度」并选间隔或每日模式即可；内置蓝图需先" +
-                                    "「复制为用户版」再开启（间隔最小 " +
-                                    "${BlueprintParser.MIN_INTERVAL_MINUTES} 分钟）。",
+                                // keep-text: 空态一句（调度入口指路）
+                                message = "在蓝图编辑页打开「定时调度」即可（内置蓝图需先「复制为用户版」）",
                             )
                             OutlinedButton(onClick = onCreate) { Text("新建蓝图") }
                         }
@@ -704,7 +690,7 @@ private fun HistoryTab(
             item(key = "runs-empty") {
                 EmptyState(
                     title = "暂无执行记录",
-                    message = "手动运行或定时调度的蓝图，每次执行（含每个步骤的结果）都会记录在这里。",
+                    message = "每次执行（含每个步骤结果）都记录在这里",
                 )
             }
         } else {

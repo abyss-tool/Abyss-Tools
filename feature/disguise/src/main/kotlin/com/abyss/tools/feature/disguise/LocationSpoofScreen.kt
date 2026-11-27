@@ -243,7 +243,6 @@ fun LocationSpoofScreen(
             item {
                 SectionHeader(
                     title = "伪装坐标",
-                    subtitle = "支持粘贴「纬度, 经度」（如 39.9042, 116.4074）",
                 )
                 Column(
                     modifier = Modifier
@@ -364,7 +363,6 @@ fun LocationSpoofScreen(
                 item {
                     SectionHeader(
                         title = "坐标收藏夹（${settings.savedSpots.size}）",
-                        subtitle = "点击带入坐标 · 星标旁的删除图标移除",
                     )
                     Column(
                         modifier = Modifier
@@ -445,7 +443,6 @@ fun LocationSpoofScreen(
             item {
                 SectionHeader(
                     title = "移动模式",
-                    subtitle = "轨迹 + 速度 + 航向 + 精度自然化 —— 对抗轨迹风控",
                 )
                 Column(
                     modifier = Modifier
@@ -472,8 +469,7 @@ fun LocationSpoofScreen(
                     Spacer(Modifier.size(8.dp))
                     when (settings.movementMode) {
                         MovementMode.STATIC -> Text(
-                            text = "固定坐标注入（speed=0）。适合打卡类场景；" +
-                                "长时间完全静止可能被「位置无抖动」类检测识别。",
+                            text = "固定坐标注入（speed=0，适合打卡）",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -494,18 +490,10 @@ fun LocationSpoofScreen(
                                 }
                             }
                             Spacer(Modifier.size(6.dp))
-                            Text(
-                                text = "坐标在半径内随机游走，带微速度与随机航向 ——" +
-                                    "形态最接近真实手机静止放置的 GPS 读数。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            // UI-001：随机游走说明段删除 —— 幅度 chips 即语义
                         }
                         MovementMode.WALK, MovementMode.RIDE, MovementMode.DRIVE -> Text(
-                            text = "以 ${settings.movementMode.speedMps} m/s 沿缓慢变化的航向持续移动，" +
-                                "speed / bearing / accuracy 按出行方式自然化 ——" +
-                                "轨迹形态贴近真实行程，对抗网约车 / 打卡的轨迹风控。" +
-                                "注意：坐标会持续前进，停止后从停点继续。",
+                            text = "以 ${settings.movementMode.speedMps} m/s 持续前进（停止后从停点继续）",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -603,18 +591,7 @@ fun LocationSpoofScreen(
                 }
             }
 
-            item {
-                SectionHeader(title = "原理与边界", subtitle = null)
-                InfoCard(
-                    title = "Fake GPS 同款官方通道（免 Root）",
-                    body = "① Shizuku 以 adb shell 身份把本 App 设为合法模拟位置源" +
-                        "（appops mock_location，等价于开发者选项里的「选择模拟位置信息应用」）；" +
-                        "② 前台服务经 LocationManager.addTestProvider 接管 gps / network / " +
-                        "fused 三个位置源 —— 全系统所有 App 读到的都是注入坐标。" +
-                        "停止后测试源自动归还，重启手机后 appop 仍在（可随时「撤销资格」回收）。" +
-                        "注意：部分金融/出行类 App 会检测 mock 位置标记，属正常对抗。",
-                )
-            }
+            // UI-001：原理与边界说明卡删除（FEAT-029 规格承载边界语义）
         }
     }
 }

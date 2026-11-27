@@ -377,7 +377,7 @@ internal fun AuthorizationPanel(
         Spacer(Modifier.size(4.dp))
         Text(
             text = "系统授权的深度利用：对任意应用的敏感 AppOps 与运行时权限做 " +
-                "allow / ignore / default 直改 —— adb 官方通道，免 Root。先选择目标应用。",
+                "allow / ignore / default 直改（adb 官方通道，免 Root），先选择目标应用",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -601,8 +601,8 @@ internal fun AppAuthorizationSheet(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "allow = 显式放行；ignore = 显式拒绝（比撤销运行时权限更狠）；" +
-                    "default = 归还系统默认。改动即时生效、重启不丢失。",
+                text = "allow = 显式放行，ignore = 显式拒绝，" +
+                    "default = 归还系统默认（改动即时生效，重启不丢失）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -630,7 +630,7 @@ internal fun AppAuthorizationSheet(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "只列 manifest 声明的危险权限；授予 / 回收即写即生效（重启保持）。",
+                text = "只列 manifest 声明的危险权限（授予 / 回收即写即生效）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

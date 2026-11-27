@@ -164,7 +164,7 @@ fun QrCraftScreen(onBack: () -> Unit) {
         if (granted) {
             action?.invoke()
         } else {
-            feedback("未获存储写入权限 —— Android 9 及以下写系统相册需要它", isError = true)
+            feedback("未获存储写入权限 —— Android 9 及以下写系统相册需要它", isError = true)  // keep-text: 授权引导（低版本写公共目录的权限前置说明）
         }
     }
 
@@ -430,7 +430,7 @@ private val EC_OPTIONS = listOf(
     EcOption(ErrorCorrectionLevel.L, "L", "容错 7% —— 图案最紧凑"),
     EcOption(ErrorCorrectionLevel.M, "M", "容错 15% —— 推荐默认"),
     EcOption(ErrorCorrectionLevel.Q, "Q", "容错 25% —— 适合户外张贴"),
-    EcOption(ErrorCorrectionLevel.H, "H", "容错 30% —— 抗损最强，可叠 logo"),
+    EcOption(ErrorCorrectionLevel.H, "H", "容错 30%（抗损最强，可叠 logo）"),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -461,7 +461,7 @@ private fun GeneratePane(
             supportingText = {
                 Text(
                     text = if (content.isEmpty()) {
-                        "支持中英文文本 / 链接 —— 内容越长图案越密"
+                        "支持中英文文本 / 链接（内容越长图案越密）"
                     } else {
                         "当前 ${content.length} 字符（编码前自动去除首尾空白）"
                     },
@@ -470,7 +470,7 @@ private fun GeneratePane(
             },
         )
 
-        SectionHeader(title = "纠错级别", subtitle = "当前 ${ecOption.label} · ${ecOption.description}")
+        SectionHeader(title = "纠错级别")
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             EC_OPTIONS.forEachIndexed { index, option ->
                 SegmentedButton(
@@ -483,7 +483,7 @@ private fun GeneratePane(
             }
         }
 
-        SectionHeader(title = "导出尺寸", subtitle = "$sizePx × $sizePx px（PNG）")
+        SectionHeader(title = "导出尺寸")
         Slider(
             value = sizePx.toFloat(),
             onValueChange = { raw ->
@@ -494,7 +494,7 @@ private fun GeneratePane(
             steps = 12,
         )
 
-        SectionHeader(title = "配色", subtitle = QrPalette.presets[paletteIndex].name)
+        SectionHeader(title = "配色")
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -510,7 +510,7 @@ private fun GeneratePane(
             }
         }
 
-        SectionHeader(title = "实时预览", subtitle = "所见即导出（含静区）")
+        SectionHeader(title = "实时预览")
         PreviewCard(matrix = matrix, preset = QrPalette.presets[paletteIndex])
 
         Row(
@@ -635,7 +635,6 @@ private fun ScanPane(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader(
             title = "相册识别",
-            subtitle = "系统照片选择器 —— 无需存储权限",
         )
         Button(onClick = onPickImage, enabled = !decoding) {
             if (decoding) {
@@ -657,7 +656,7 @@ private fun ScanPane(
 
             failure != null -> EmptyState(
                 title = "未识别出码",
-                message = failure + "\n建议：确认图片里有二维码 / 条形码，避免过暗或过糊，或裁出码区再试。",
+                message = failure + "\n建议：确认图片里有码，避免过暗过糊，或裁出码区再试",
             )
 
             else -> EmptyState(
@@ -718,7 +717,6 @@ private fun HistorySection(
     Column {
         SectionHeader(
             title = "历史",
-            subtitle = "最近 ${QrHistoryCodec.MAX_ITEMS} 条 · 仅存本机",
             trailing = {
                 if (items.isNotEmpty()) {
                     TextButton(onClick = onClear) { Text("清空") }
@@ -731,7 +729,7 @@ private fun HistorySection(
         }
         if (items.isEmpty()) {
             Text(
-                text = "还没有记录 —— 生成或扫描后会出现在这里。",
+                text = "还没有记录（生成或扫描后出现在这里）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

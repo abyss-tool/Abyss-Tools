@@ -135,7 +135,6 @@ fun WidgetStudioScreen(
             item {
                 SectionHeader(
                     title = "黑洞动态时钟",
-                    subtitle = "事件视界 + 吸积盘 + 星场逐帧绘制 · 与桌面组件同源引擎",
                     trailing = {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             FilterChip(
@@ -171,17 +170,11 @@ fun WidgetStudioScreen(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "预览按帧动画；桌面组件整分重绘 —— 吸积盘每小时旋转一圈，" +
-                        "分钟粒度下肉眼可见气流的缓慢行进。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             // ── 吸积盘色系（全局主题：四组件共用）────────────────────────
             item {
-                SectionHeader(title = "吸积盘色系", subtitle = "全局主题：黑洞时钟与引力家族共用，切换后下一分钟生效（或点「立即刷新」）")
+                SectionHeader(title = "吸积盘色系")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BlackHoleTheme.entries.forEach { t ->
                         FilterChip(
@@ -206,13 +199,6 @@ fun WidgetStudioScreen(
             item {
                 ListItem(
                     headlineContent = { Text("整分重绘（推荐）") },
-                    supportingContent = {
-                        Text(
-                            "AlarmManager 精确闹钟链：四个组件（时钟 / 电池 / 日历 / 引力仪）" +
-                                "每整分重绘位图（targetSdk 28 免授权）。关闭后全家统一回到系统 " +
-                                "30 分钟兜底节奏，仅整分跳变消失。",
-                        )
-                    },
                     trailingContent = {
                         Switch(
                             checked = minuteTick,
@@ -235,7 +221,7 @@ fun WidgetStudioScreen(
 
             // ── 黑洞时钟 · 添加到桌面 ──────────────────────────────────
             item {
-                SectionHeader(title = "添加黑洞时钟", subtitle = "系统 requestPinAppWidget 官方通道（Android 8+）")
+                SectionHeader(title = "添加黑洞时钟")
                 PinFeedbackText(pinFeedbackClock)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
@@ -249,24 +235,13 @@ fun WidgetStudioScreen(
                         },
                     ) { Text("添加 2×2 方版") }
                 }
-                Text(
-                    text = "若你的启动器不支持快捷固定：长按桌面空白处 → 小组件 → 深渊工具 → 黑洞时钟。" +
-                        "（Android 不允许应用未经用户确认直接添加桌面组件 —— 这是系统边界）",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             // ── 引力家族（v0.9.0 三位新成员 · 组件银河）─────────────────
             item {
-                SectionHeader(
-                    title = "引力家族",
-                    subtitle = "组件银河 · 三位新成员与黑洞时钟同源深空引擎、共用同一主题与整分节奏",
-                )
+                SectionHeader(title = "引力家族")
                 GravityFamilyCard(
                     title = "引力电池",
-                    summary = "吸积环即电量刻度：环带随电量扫过，≥50% 主题色 / 20..49% 泛琥珀 / " +
-                        "低于 20% 泛红；充电时黑洞两极喷流缓慢脉动。",
                     pinFeedback = pinFeedbackBattery,
                     onPin = {
                         pinFeedbackBattery = requestPin(context, GravityBatteryWidget::class.java)
@@ -276,8 +251,6 @@ fun WidgetStudioScreen(
                 Spacer(Modifier.height(12.dp))
                 GravityFamilyCard(
                     title = "星轨日历",
-                    summary = "行星沿椭圆轨道绕黑洞公转一年：年积日折算轨道角，亮星标记今日，" +
-                        "十二枚月刻度逐一点亮。",
                     pinFeedback = pinFeedbackCalendar,
                     onPin = {
                         pinFeedbackCalendar = requestPin(context, StellarCalendarWidget::class.java)
@@ -287,8 +260,6 @@ fun WidgetStudioScreen(
                 Spacer(Modifier.height(12.dp))
                 GravityFamilyCard(
                     title = "深渊引力仪",
-                    summary = "双引力环实时读数：外环为内存占用、内环为存储占用，" +
-                        "引力尘埃沿扫过的弧段散布，读数行等宽字体对齐。",
                     pinFeedback = pinFeedbackGauge,
                     onPin = {
                         pinFeedbackGauge = requestPin(context, AbyssGaugeWidget::class.java)
@@ -299,7 +270,7 @@ fun WidgetStudioScreen(
 
             // ── 桌面美化家族 ──────────────────────────────────────────
             item {
-                SectionHeader(title = "桌面美化家族", subtitle = "同一能力域的其他成员")
+                SectionHeader(title = "桌面美化家族")
                 ListItem(
                     headlineContent = { Text("灵动岛与悬浮球") },
                     supportingContent = { Text("WindowManager 悬浮件：拖拽 / 吸附 / 状态岛动画") },
@@ -322,13 +293,13 @@ fun WidgetStudioScreen(
 // ── 引力家族卡片 ────────────────────────────────────────────────────
 
 /**
- * 引力家族卡片：动画预览（1:1 圆角裁切）+ 一行摘要 + 「添加到桌面」+
+ * 引力家族卡片：动画预览（1:1 圆角裁切）+ 单行标题 + 「添加到桌面」+
  * 固定反馈文案。预览内容由调用方注入（三种数据源各取所需）。
+ * UI-001：summary 摘要行删除 —— 预览即说明。
  */
 @Composable
 private fun GravityFamilyCard(
     title: String,
-    summary: String,
     pinFeedback: String?,
     onPin: () -> Unit,
     preview: @Composable () -> Unit,
@@ -342,18 +313,11 @@ private fun GravityFamilyCard(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         preview()
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
         FilledTonalButton(onClick = onPin) { Text("添加到桌面") }
         PinFeedbackText(pinFeedback)
     }
@@ -480,11 +444,11 @@ private fun requestPin(context: Context, provider: Class<out AppWidgetProvider>)
             manager.requestPinAppWidget(component, null, null)
         }.getOrDefault(false)
         if (ok) {
-            "已请求固定到桌面 —— 在系统确认框里点「添加」。"
+            "已请求固定到桌面，请在系统确认框点「添加」"
         } else {
-            "固定请求未发出（启动器拒绝）—— 请改用长按桌面 → 小组件手动添加。"
+            "固定请求未发出（启动器拒绝），请改用长按桌面 → 小组件手动添加"
         }
     } else {
-        "此启动器不支持快捷固定 —— 请改用长按桌面 → 小组件手动添加。"
+        "此启动器不支持快捷固定，请改用长按桌面 → 小组件手动添加"
     }
 }

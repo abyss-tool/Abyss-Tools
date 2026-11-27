@@ -391,7 +391,7 @@ fun BackupScreen(onBack: () -> Unit) {
             item(key = "intro") { HonestIntroCard() }
 
             item(key = "inventory-header") {
-                SectionHeader(title = "资产盘点", subtitle = "主壳视角的本机资产面 —— 诚实计数，不猜")
+                SectionHeader(title = "资产盘点")
             }
             item(key = "inventory") {
                 StatCardsRow(
@@ -404,7 +404,6 @@ fun BackupScreen(onBack: () -> Unit) {
             item(key = "apk-header") {
                 SectionHeader(
                     title = "APK 资料库",
-                    subtitle = "提取已装应用的安装包副本到 Download/$BACKUP_DIR_NAME —— 只复制，不动原应用",
                 )
             }
             item(key = "apk-library") {
@@ -441,7 +440,6 @@ fun BackupScreen(onBack: () -> Unit) {
             item(key = "config-header") {
                 SectionHeader(
                     title = "配置与插件备份",
-                    subtitle = "插件目录 + 蓝图目录 + 主壳设置 → 单个 zip 清单包（含 manifest.json）",
                 )
             }
             item(key = "config-backup") {
@@ -466,7 +464,6 @@ fun BackupScreen(onBack: () -> Unit) {
             item(key = "restore-header") {
                 SectionHeader(
                     title = "恢复",
-                    subtitle = "先校验（条目名 / 体量 / 根目录三道闸）再合并 —— 同名覆盖、绝不删除本机文件",
                 )
             }
             item(key = "restore") {
@@ -574,15 +571,10 @@ private fun ErrorChipRow(message: String) {
 private fun HonestIntroCard() {
     BackupCard {
         Text(
-            text = "内置级备份：应用 APK 资料库（提取安装包归档）/ 主壳配置与插件清单包（zip）/ 恢复（带回滚安全防护）。",
+            text = "内置级备份：APK 资料库 / 配置与插件清单包 / 恢复",
             style = MaterialTheme.typography.bodyMedium,
         )
-        Spacer(Modifier.size(6.dp))
-        Text(
-            text = "应用私有数据（/data/data/<pkg>）的完整抽取与跨设备迁移属插件能力 —— 无 Root 不可达，这是系统边界而非工程取舍。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // UI-001：插件级边界说明段删除（能力边界走 FEAT-018 规格）
     }
 }
 
@@ -866,12 +858,7 @@ private fun ConfigBackupCard(
 ) {
     val context = LocalContext.current
     BackupCard {
-        Text(
-            text = "打包范围：插件目录（plugin.json 清单 + 已装数据）/ 蓝图目录 / 主壳设置 abyss_settings.xml。" +
-                "不含应用私有数据库 —— 那需要插件能力（见顶部边界说明）。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // UI-001：打包范围说明段删除 —— manifest 内含全部条目语义
         Spacer(Modifier.size(10.dp))
         FilledTonalButton(onClick = onBuild, enabled = !busy) {
             Text(if (busy) "正在生成…" else "生成备份包 (.zip)")
@@ -956,7 +943,8 @@ private fun RestoreCard(
             }
             is UiState.Data -> RestorePreviewCard(preview = state.value, busy = busy, onConfirm = onConfirm)
             null -> Text(
-                text = "选择 .zip 备份包后先校验再恢复：路径穿越 / zip 炸弹 / 未知根目录一律整包拒绝。",
+                // keep-text: 空态一句（校验失败会整包拒绝的 fail-closed 提示）
+                text = "选择 .zip 备份包，先校验再恢复",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1023,15 +1011,15 @@ private fun RestoreConfirmDialog(
         title = { Text("确认恢复？") },
         text = {
             Text(
-                text = "将把备份包里的插件与蓝图合并进本机：同名文件覆盖，" +
-                    "本机现有文件一律保留（不删除任何未知文件）。" +
+                // keep-text: 高危确认（恢复合并语义，同名覆盖不删本机文件）
+                text = "合并插件与蓝图：同名文件覆盖，本机现有文件一律保留" +
                     (
                         if (preview.manifest.settingsIncluded) {
-                            "包含设置文件：将写入 shared_prefs/abyss_settings.xml，重启 App 后生效。"
+                            "；含设置文件（写入 abyss_settings.xml，重启生效）"
                         } else {
-                            "不含设置文件，现有设置不动。"
+                            ""
                         }
-                        ) + "来源版本 v${preview.manifest.appVersion}，共 ${preview.fileCount} 个文件。",
+                        ) + "。来源 v${preview.manifest.appVersion}，共 ${preview.fileCount} 个文件",
             )
         },
         confirmButton = {
