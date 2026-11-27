@@ -9,12 +9,21 @@ package com.abyss.tools.core.common.virus
  *  - UNKNOWN：管线无有效信号（如云查询不可达且本地规则无命中），**绝不静默放行**。
  *
  * 短路策略：MALICIOUS 命中后立即停止后续检查。
+ *
+ * **注意：严重度比较必须用 [severityWeight]，禁止用 ordinal/`<` 比较** ——
+ * 枚举实现 Comparable 后，成员 compareTo（按声明序）优先级高于任何扩展运算符，
+ * 早期版本曾在伴生对象声明 private 扩展 operator compareTo 试图覆盖声明序，
+ * 实际被成员遮蔽静默失效（B-FIX）：声明序 CLEAN<SUSPICIOUS<MALICIOUS<UNKNOWN
+ * 会把 UNKNOWN 排在 SUSPICIOUS/MALICIOUS 之上，导致「云不可达」覆盖本地可疑结论。
  */
-enum class Verdict {
-    CLEAN,
-    SUSPICIOUS,
-    MALICIOUS,
-    UNKNOWN,
+enum class Verdict(
+    /** 严重度权重（升序）：CLEAN=0 < UNKNOWN=1 < SUSPICIOUS=2 < MALICIOUS=3。判定聚合只比这个。 */
+    val severityWeight: Int,
+) {
+    CLEAN(0),
+    UNKNOWN(1),
+    SUSPICIOUS(2),
+    MALICIOUS(3),
 }
 
 /**

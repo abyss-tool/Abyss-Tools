@@ -57,8 +57,10 @@ class VerdictPipeline(
                         shortCircuited = true // 黑名单/MALICIOUS 立即短路
                         break
                     }
-                    Verdict.SUSPICIOUS -> if (top < Verdict.SUSPICIOUS) top = Verdict.SUSPICIOUS
-                    Verdict.UNKNOWN -> if (top < Verdict.UNKNOWN) top = Verdict.UNKNOWN
+                    // 严重度聚合只比 severityWeight（枚举 ordinal 声序 ≠ 严重度，
+                    // 且成员 compareTo 会遮蔽任何扩展 operator —— 详见 Verdict KDoc）
+                    Verdict.SUSPICIOUS -> if (top.severityWeight < hit.severity.severityWeight) top = Verdict.SUSPICIOUS
+                    Verdict.UNKNOWN -> if (top.severityWeight < hit.severity.severityWeight) top = Verdict.UNKNOWN
                     Verdict.CLEAN -> {
                         // 白名单命中（source=allowlist）：直接 CLEAN 短路
                         if (hit.source == "allowlist") {
@@ -89,16 +91,4 @@ class VerdictPipeline(
         )
     }
 
-    companion object {
-        /** Verdicts 的严重度升序比较（CLEAN<UNKNOWN<SUSPICIOUS<MALICIOUS）。 */
-        private operator fun Verdict.compareTo(other: Verdict): Int =
-            this.severityWeight() - other.severityWeight()
-
-        private fun Verdict.severityWeight(): Int = when (this) {
-            Verdict.CLEAN -> 0
-            Verdict.UNKNOWN -> 1
-            Verdict.SUSPICIOUS -> 2
-            Verdict.MALICIOUS -> 3
-        }
-    }
 }

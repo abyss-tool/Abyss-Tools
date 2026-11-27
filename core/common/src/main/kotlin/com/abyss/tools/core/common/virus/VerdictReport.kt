@@ -26,15 +26,8 @@ data class VerdictReport(
     /** 是否有云查询失败记录（UNKNOWN 下用于提示用户"云查询不可用"）。 */
     fun cloudFailed(): Boolean = reasons.any { it.source == "cloud:unavailable" }
 
-    /** 最高严重度原因（用于弹窗标题）。 */
-    fun topReason(): VerdictReason? = reasons.maxByOrNull { it.severity.ordinal }
+    /** 最高严重度原因（用于弹窗标题）。必须比 severityWeight：枚举成员 ordinal 是
+     *  内置属性，同样会遮蔽同名扩展 —— 早期版本 private 扩展 val ordinal 从未生效。
+     */
+    fun topReason(): VerdictReason? = reasons.maxByOrNull { it.severity.severityWeight }
 }
-
-/** Verdict 严重度排序序号：CLEAN=0 < UNKNOWN=1 < SUSPICIOUS=2 < MALICIOUS=3。 */
-private val Verdict.ordinal: Int
-    get() = when (this) {
-        Verdict.CLEAN -> 0
-        Verdict.UNKNOWN -> 1
-        Verdict.SUSPICIOUS -> 2
-        Verdict.MALICIOUS -> 3
-    }

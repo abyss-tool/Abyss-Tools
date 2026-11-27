@@ -100,4 +100,28 @@ class VerdictPipelineTest {
         // 异常 checker 应被捕获并产生一条 UNKNOWN 理由
         assertTrue(r.reasons.any { it.source == "checker-error:throwing" })
     }
+
+    /**
+     * 回归用例（严重度聚合遮蔽 bug）：Verdict 枚举实现了 Comparable，其成员
+     * compareTo（按声明序）优先级高于任何扩展 operator —— 曾导致 UNKNOWN(ordinal 3)
+     * 覆盖 SUSPICIOUS(ordinal 1)。聚合后任何数量的 UNKNOWN 理由都不得压过
+     * SUSPICIOUS / MALICIOUS 结论。
+     */
+    @Test fun `UNKNOWN reasons never downgrade SUSPICIOUS or MALICIOUS aggregation`() {
+        // SUSPICIOUS（本地规则）+ UNKNOWN（云不可达）→ 仍为 SUSPICIOUS
+        val suspicious = pipeline.scan(subject(shaUnsignedApk, pkg = "", signer = "", path = "/tmp/x.apk"))
+        assertEquals(Verdict.SUSPICIOUS, suspicious.verdict)
+        // 悬浮聚合：topReason 必须取 severityWeight 最大者（SUSPICIOUS 规则），而非声明序
+        val top = suspicious.topReason()
+        assertNotNull(top)
+        assertEquals(Verdict.SUSPICIOUS, top!!.severity)
+        assertTrue(top.source.startsWith("local-rule:"))
+    }
+
+    /** 回归用例：severityWeight 全序 —— CLEAN < UNKNOWN < SUSPICIOUS < MALICIOUS。 */
+    @Test fun `severityWeight ordering is CLEAN lt UNKNOWN lt SUSPICIOUS lt MALICIOUS`() {
+        val w = listOf(Verdict.CLEAN, Verdict.UNKNOWN, Verdict.SUSPICIOUS, Verdict.MALICIOUS)
+        assertEquals(listOf(0, 1, 2, 3), w.map { it.severityWeight })
+        assertEquals(w, w.sortedBy { it.severityWeight })
+    }
 }
