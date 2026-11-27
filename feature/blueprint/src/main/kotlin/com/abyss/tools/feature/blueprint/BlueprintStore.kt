@@ -91,12 +91,18 @@ class BlueprintStore(private val dir: File) {
 
     /** 追加一条执行记录并裁剪到最近 [MAX_RUNS] 条（最新在前）。 */
     fun appendRun(run: BlueprintRun): Result<List<BlueprintRun>> = runCatching {
-        val current = loadRuns().getOrElse { e ->
-            throw IllegalStateException("执行历史写入中止：${e.message}", e)
+        // NB-17：读-改-写必须互斥 —— 定时闹钟（ScheduleAlarmReceiver 每
+        // 个闹钟独立 goAsync 协程）与手动运行并发落盘时，双方基于同一
+        // 基线各自 prepend，后写者覆盖先写者 → 另一条执行记录静默丢失。
+        // 原子改名只防撕裂文件，防不了丢更新；store 为进程内单例，锁足够。
+        synchronized(APPEND_LOCK) {
+            val current = loadRuns().getOrElse { e ->
+                throw IllegalStateException("执行历史写入中止：${e.message}", e)
+            }
+            val updated = (listOf(capOutput(run)) + current).take(MAX_RUNS)
+            writeAtomically(runsFile(), runsJson.encodeToString(runsSerializer, updated))
+            updated
         }
-        val updated = (listOf(capOutput(run)) + current).take(MAX_RUNS)
-        writeAtomically(runsFile(), runsJson.encodeToString(runsSerializer, updated))
-        updated
     }
 
     // ── 文件布局 ──────────────────────────────────────────────────────────
@@ -130,6 +136,9 @@ class BlueprintStore(private val dir: File) {
 
         /** 执行历史上限（runs.json 最近 20 条）。 */
         const val MAX_RUNS = 20
+
+        /** appendRun 互斥锁（NB-17：进程级，跨实例共用）。 */
+        private val APPEND_LOCK = Any()
 
         private const val RUNS_FILE_NAME = "runs.json"
         private const val RUNS_STEM = "runs"

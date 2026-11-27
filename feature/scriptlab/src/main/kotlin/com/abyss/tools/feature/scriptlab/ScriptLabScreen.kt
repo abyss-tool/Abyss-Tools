@@ -214,9 +214,13 @@ fun ScriptLabScreen(
         busy = true
         val snapshotName = scriptName
         val snapshotLang = lang
+        // NB-21：编辑器在 busy 期间仍可输入 —— body 必须与名字/语言同在点击
+        // 时刻快照，否则 IO 线程读到的可能是点击后新敲的字符（保存内容与
+        // 用户按下「保存」时所见不一致）。
+        val snapshotBody = scriptBody
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                store.save(SavedScript(snapshotName, snapshotLang, scriptBody, modifiedAt = 0L))
+                store.save(SavedScript(snapshotName, snapshotLang, snapshotBody, modifiedAt = 0L))
                     .map { store.list() }
             }
             outcome

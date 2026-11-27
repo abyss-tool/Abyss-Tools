@@ -35,14 +35,23 @@ class ConsoleBuffer(private val maxLines: Int = 400) {
 
     private val backing = ArrayDeque<ConsoleLine>()
 
+    // NB-18：单调递增的 append 代数 —— 窗口裁剪到恒定后 lines.size 不再
+    // 变化，UI 自动滚动若以 size 为 key 会永久停摆（新输出静默滚出屏）；
+    // 代数恒变，滚动触发不依赖窗口形状。
+    private var appendGeneration: Long = 0L
+
     /** 追加一行；超限即从最旧端裁掉（保窗口大小恒定）。 */
     fun append(line: ConsoleLine) {
         backing.addLast(line)
+        appendGeneration += 1
         while (backing.size > maxLines) backing.removeFirst()
     }
 
     /** 当前窗口快照（新 List，调用方持有不随后续 append 变化）。 */
     fun lines(): List<ConsoleLine> = backing.toList()
+
+    /** append 代数（单调递增；供 UI 以「有新内容」为 key 触发自动滚动）。 */
+    fun generation(): Long = appendGeneration
 
     /** 清空全部行（「清屏」动作），之后可继续 append。 */
     fun clear() {

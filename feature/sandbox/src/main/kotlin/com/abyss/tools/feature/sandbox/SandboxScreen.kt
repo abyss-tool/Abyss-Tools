@@ -494,7 +494,11 @@ fun SandboxScreen(
                 CreateSpaceCard(
                     name = newUserName,
                     onNameChange = { value ->
-                        if (value.length <= MAX_NAME_LENGTH) newUserName = value
+                        // NB-16：singleLine 只是视觉约束，粘贴的换行仍会进状态；
+                        // createUser 的 require 若在点击处抛 = 未捕获异常闪退。
+                        // 入口就地滤除（与 TerminalShared 历史记录同款双保险）。
+                        val sanitized = value.filter { it != '\n' && it != '\r' }
+                        if (sanitized.length <= MAX_NAME_LENGTH) newUserName = sanitized
                     },
                     busy = busy,
                     authorized = shizukuAuthorized,
