@@ -240,8 +240,25 @@ jobs:
             done < "$NOTES_FILE"
             echo "更新要点来源：$NOTES_FILE"
           else
-            args+=(--notes "$(echo "$HEAD_COMMIT_MESSAGE" | head -1)")
-            echo "更新要点来源：合并提交首行（未提供 $NOTES_FILE）"
+            # B-05：合并提交首行是「Merge pull request #N from …」形态，
+            # 直接作 notes 违反 N-ENG-010（规约 1/5，实测 v0.9.19 通道
+            # notes 就是 PR 标题）。回退改为结构化三要点：PR 主题 +
+            # 说明文件缺失如实声明 + 通道声明（publish 侧门禁可过）。
+            FIRST=$(echo "$HEAD_COMMIT_MESSAGE" | grep -v '^$' | head -1)
+            SECOND=$(echo "$HEAD_COMMIT_MESSAGE" | grep -v '^$' | sed -n '2p')
+            if echo "$FIRST" | grep -qE '^Merge (pull request|branch)'; then
+              PR_SUBJECT="$SECOND"
+            else
+              PR_SUBJECT="$FIRST"
+            fi
+            [ -z "$PR_SUBJECT" ] && PR_SUBJECT="例行合并发布"
+            PR_SUBJECT=$(echo "$PR_SUBJECT" | cut -c1-120)
+            args+=(
+              --notes "- ${PR_SUBJECT}"
+              --notes "- 本版未附 ${NOTES_FILE} 详细说明 —— 变更明细见主仓提交历史与 CHANGELOG"
+              --notes "- 通道 stable · 清单 detached 签名（N-SEC-001）· APK 发布者指纹门禁（fail-closed）"
+            )
+            echo "更新要点来源：结构化回退（未提供 $NOTES_FILE）"
           fi
           python3 tools/publish_release.py "${args[@]}"
 

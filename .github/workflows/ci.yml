@@ -128,13 +128,20 @@ jobs:
       - name: Spec-Lint (N-ENG-008)
         run: python3 tools/spec_lint.py
 
-      # ── N-ENG-010 发布说明质量门禁（主仓不直接持有 version.json，但
-      # 若本仓带 release-notes/*.md 则一并校验；发布仓 CI 也跑同款脚本）
-      - name: Release-Notes Lint (N-ENG-010)
+      # ── N-ENG-010 发布说明质量门禁（B-05 收口：主仓 docs/release-notes/
+      #    v*.md 逐文件强制校验 —— 原实现只在 latest.md 存在时才跑，
+      #    而 latest.md 从未存在过 = 恒跳过；发布仓侧由 validate-manifests
+      #    接入同款脚本 + publish_release.py 发布前置 fail-closed）
+      - name: Release-Notes Lint (N-ENG-010, all v*.md)
         run: |
-          if [ -f docs/release-notes/latest.md ]; then
-            python3 tools/validate_release_notes.py \
-              <(python3 -c "import json,sys; print(json.dumps({'versionName':'0.0.0','notes':open('docs/release-notes/latest.md').read()}))")
-          else
-            echo "（主仓无 latest release notes 文件，跳过；发布仓 CI 将强制执行）"
+          shopt -s nullglob
+          files=(docs/release-notes/v*.md)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::主仓没有任何 docs/release-notes/v*.md —— N-ENG-010 要求每版本附说明"
+            exit 1
           fi
+          for f in "${files[@]}"; do
+            echo "校验 $f"
+            python3 tools/validate_release_notes.py --markdown "$f"
+          done
+          echo "✓ ${#files[@]} 份发布说明全部通过质量门禁"

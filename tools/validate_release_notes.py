@@ -19,6 +19,14 @@ N-ENG-010 发布说明质量门禁（M1, P0）。
 使用：
   python3 tools/validate_release_notes.py Abyss-Tools-Release/version.json
   python3 tools/validate_release_notes.py Abyss-Tools-Release/changelog.json --entry-latest
+  python3 tools/validate_release_notes.py --markdown docs/release-notes/v0.9.18.md
+
+B-05 收口（2026-11-27）：
+  - changelog.json 的 notes 允许结构化数组（join 换行后校验）；
+  - --markdown 模式：主仓 docs/release-notes/v*.md 逐文件校验
+    （版本号从文件名提取），CI 不再因缺 latest.md 双跳过；
+  - 校验逻辑抽到 notes_gate.py 与 publish_release.py 共用同一入口
+    （发布侧 fail-closed：notes 不合格 → 拒绝发布，而非发布后补审）。
 """
 
 from __future__ import annotations
@@ -37,7 +45,10 @@ PR_TITLE_PATTERNS = [
     re.compile(r"^bump v?\d", re.IGNORECASE),
 ]
 
-BREAKING_KEYWORDS = ("BREAKING", "不兼容", "⚠", "升级注意", "breaking change")
+# B-05 精确化：只识别「声明形态」—— 原列表含裸 "不兼容"/"⚠"，
+# 描述性句子（如「防止静默拉到不兼容清单」「权限面板标注 ⚠ 会上传数据」）
+# 会误触发首条要点强制，实测 v0.9.10/v0.9.16 双双假阳性。
+BREAKING_KEYWORDS = ("BREAKING", "breaking change", "破坏性变更", "升级注意")
 BULLET_PREFIX = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+")
 
 
@@ -46,7 +57,7 @@ def fail(msg: str) -> None:
     sys.exit(1)
 
 
-def load_notes_from_version_json(path: Path) -> str:
+def load_notes_from_version_json(path: Path) -> tuple[str, str]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
@@ -67,7 +78,9 @@ def load_latest_from_changelog(path: Path) -> tuple[str, str]:
     if not history:
         fail("changelog history 为空")
     latest = history[0] if isinstance(history, list) else next(iter(history.values()))
-    notes = latest.get("notes") or ""
+    raw_notes = latest.get("notes") or ""
+    # B-05：changelog notes 允许结构化数组（逐行要点）—— join 换行后校验
+    notes = "\n".join(raw_notes) if isinstance(raw_notes, list) else raw_notes
     version = latest.get("versionName") or latest.get("tag") or "?"
     return notes, version
 
@@ -133,10 +146,29 @@ def validate(notes: str, version: str) -> None:
     print(f"✅ v{version} 发布说明质量门禁通过：{len(n)} 字符 / {bullets} 条要点")
 
 
+def load_notes_from_markdown(path: Path) -> tuple[str, str]:
+    """B-05：主仓 docs/release-notes/v*.md 模式 —— 全文作 notes，
+    版本号从文件名提取（v0.9.18.md → 0.9.18）。"""
+    m = re.match(r"^v(\d+\.\d+\.\d+)\.md$", path.name)
+    if not m:
+        fail(f"文件名形态非法（需 vX.Y.Z.md）: {path.name}")
+    return path.read_text(encoding="utf-8"), m.group(1)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
         print(__doc__)
         return 2
+    if "--markdown" in argv:
+        idx = argv.index("--markdown")
+        if idx + 1 >= len(argv):
+            fail("--markdown 需要一个文件参数")
+        path = Path(argv[idx + 1])
+        if not path.exists():
+            fail(f"文件不存在: {path}")
+        notes, version = load_notes_from_markdown(path)
+        validate(notes, version)
+        return 0
     path = Path(argv[1])
     if not path.exists():
         fail(f"文件不存在: {path}")

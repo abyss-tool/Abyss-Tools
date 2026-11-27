@@ -35,6 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import minisign_py  # noqa: E402  (N-SEC-001 清单签名)
+import validate_release_notes as notes_gate  # noqa: E402  (N-ENG-010 共用同一门禁，B-05)
 
 API = "https://api.github.com"
 RELEASE_REPO = os.environ.get("ABYSS_RELEASE_REPO", "abyss-tool/Abyss-Tools-Release")
@@ -302,6 +303,17 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
         if existing_version.get("tag") == args.tag:
             die(f"tag {args.tag} 已在通道中发布过 —— 同 tag 重发需先人工清理")
 
+    # ── N-ENG-010 发布说明质量门禁（B-05：与 validate_release_notes.py
+    #    共用同一入口，发布侧 fail-closed —— notes 不合格 → 任何网络写
+    #    发生之前拒绝，杜绝「先发布后补审」）
+    notes_text = "\n".join(args.notes) if args.notes else ""
+    try:
+        notes_gate.validate(notes_text, args.tag.lstrip("v"))
+    except SystemExit as e:
+        # validate() 失败走 sys.exit(1) —— 统一转 die 语义并保留退出码
+        if e.code:
+            die(f"N-ENG-010 发布说明门禁未过（exit {e.code}）—— 拒绝发布")
+
     # ── 1. 发布仓创建 Release + 上传 APK（幂等，双仓复用）─────────────
     release_id = ensure_release_with_apk(
         repo=RELEASE_REPO,
@@ -347,7 +359,9 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
         "tag": args.tag,
         "publishedAt": published_at,
         "channel": args.channel,
-        "notes": "；".join(args.notes) if args.notes else None,
+        # B-05：notes 保留逐行结构（旧 "；" 单行压缩让逐行要点识别恒为 0，
+        # 门禁形同虚设）。客户端 notes 为 String，多行文本直接展示。
+        "notes": "\n".join(args.notes) if args.notes else None,
         "download": {
             "url": download_url,
             "sizeBytes": apk_size,
