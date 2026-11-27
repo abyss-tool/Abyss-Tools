@@ -82,8 +82,13 @@ jobs:
           # version.json 已含同 tag + 同 versionCode，说明 auto-release 已
           # 完成发布，此处优雅跳过（绝不重复构建 / 覆盖资产：SDK 依赖块
           # 非确定性会导致同源码构建出不同字节，覆盖即制造资产↔清单不一致）。
+          # NB-24：改走 GitHub Contents API（强一致）—— raw CDN 有分钟级
+          # 缓存，合并后紧跟着打 tag 的正常节奏恰落在缓存窗内，旧值让
+          # skip 恒漏判 → 重复发布尝试被单调门禁打红（v0.10.0 实证）。
           CHANNEL_JSON=$(curl -fsSL --max-time 30 \
-            "https://raw.githubusercontent.com/abyss-tool/Abyss-Tools-Release/main/version.json" || echo '')
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github.raw+json" \
+            "https://api.github.com/repos/abyss-tool/Abyss-Tools-Release/contents/version.json" || echo '')
           if [ -n "$CHANNEL_JSON" ]; then
             CHANNEL_TAG=$(echo "$CHANNEL_JSON" | jq -r '.tag // empty')
             CHANNEL_CODE=$(echo "$CHANNEL_JSON" | jq -r '.versionCode // 0')

@@ -295,12 +295,32 @@ def _main_publish(args, version_name: str, asset_name: str, apk_sha: str, apk_si
         except Exception:
             die("version.json 现存内容损坏 —— 拒绝覆盖（先人工排查发布仓）")
         existing_code = existing_version.get("versionCode", 0)
+        existing_tag = existing_version.get("tag")
+        # NB-24（tag / auto-release 双通道幂等）：合并触发 auto-release 完成
+        # 发布后，owner 再按 README 流程补打同版本 tag 时，通道里已是同一
+        # tag + 同一 versionCode 的发布成品 —— 这是「同一发布的重复触发」
+        # 而非版本回退：摘要一致即优雅跳过（绝不重写通道 / 覆盖资产：
+        # 同源码重构建的 APK 字节可能因 SDK 依赖块非确定性而不同，覆盖
+        # 即制造资产↔清单不一致）。
+        if existing_tag == args.tag and existing_code == args.version_code:
+            existing_sha = (existing_version.get("download") or {}).get("sha256")
+            if existing_sha and existing_sha != apk_sha:
+                die(
+                    f"同 tag 同 code 但通道 APK 摘要不一致"
+                    f"（通道 {existing_sha} vs 本次 {apk_sha}）—— 同 tag 重发需人工清理"
+                )
+            print(
+                f"[publish] ✓ v{version_name} (code {args.version_code}) 已在通道中发布"
+                f"{'（APK 摘要一致）' if existing_sha else '（通道未登记摘要）'}"
+                "—— 幂等跳过本次写通道（auto-release / tag 双通道收敛）"
+            )
+            return
         if args.version_code <= existing_code:
             die(
                 f"versionCode 必须严格递增：通道现值 {existing_code}，"
                 f"本次 {args.version_code} —— 防误发旧版本把 latest 拉回去"
             )
-        if existing_version.get("tag") == args.tag:
+        if existing_tag == args.tag:
             die(f"tag {args.tag} 已在通道中发布过 —— 同 tag 重发需先人工清理")
 
     # ── N-ENG-010 发布说明质量门禁（B-05：与 validate_release_notes.py
