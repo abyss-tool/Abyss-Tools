@@ -36,7 +36,9 @@
 
 - Conventional commits + 中文描述：`feat(core:update): 补丁引擎 …`。
 - **完成一部分就写入仓库**：小步提交，每个提交自洽可读。
-- CI 红灯不合并；本仓不做本地编译，全部以 GitHub Actions 为准。
+- CI 红灯不合并；合并判决唯一事实源是 GitHub Actions。N-ENG-001 起提供
+  `tools/local_gate.sh` 本地等价复现（CI `manifests` 任务直接调用该脚本
+  `--jvm` 模式，两侧共用同一入口），但本地绿灯不构成合并依据。
 
 ## 工具链（勿单独升降）
 

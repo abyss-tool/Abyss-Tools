@@ -26,7 +26,7 @@
 - **M3 全面落地**：十五级字阶 + 形状阶梯 + 动态取色（Material You，Android 12+）+ SearchBar / TimePicker / PullToRefresh / InputChip / Tooltip / SegmentedButton / ModalBottomSheet / ListItem / Badge 组件体系真实应用；
 - **更新体系**采用双仓库模式：开发仓（本仓库）→ 发布仓（[Abyss-Tools-Release](https://github.com/abyss-tool/Abyss-Tools-Release)，`version.json` / `patches.json` / `changelog.json`）→ 客户端增量补丁。
 
-> 当前版本 **v0.9.10 / versionCode 33**（`AppInfo.kt` 单一事实源）：v0.9.0「引力场」（组件银河 / 隐私与管控 / 每日定时调度 / M3 组件补全）→ v0.9.6 **规格说明书全集落库**（207 份规格入 `docs/abyss-specs/`）→ v0.9.7 白色液态玻璃导航栏 → v0.9.9 **N-SEC-001 客户端清单验签接线 + N-EXP-003 诊断日志 + 工程门禁**（spec-lint / 发布说明门禁入 CI）→ v0.9.10 **N-EXP-006 插件权限透明化面板**。M1（v0.10）进行中：通道清单 detached 签名闭环（发布侧）+ RELEASE_TOKEN 最小权限 + 三插件首个可用切片 —— 见 [SPEC-INDEX](docs/abyss-specs/SPEC-INDEX.md) 与 `docs/abyss-specs/深渊工具_整体增强方案.md`。
+> 当前版本 **v0.10.0 / versionCode 46**（`AppInfo.kt` 单一事实源）：v0.9.0「引力场」→ v0.9.6 规格全集落库 → v0.9.9 清单验签 + 诊断 + 工程门禁 → v0.9.16 更新链可观测 → v0.9.18 病毒拦截三件套 → v0.9.22 UI-001 文案精简 + 深挖缺陷批 → **v0.10.0 M1 里程碑收官**：通道清单 detached 签名闭环 / RELEASE_TOKEN 最小权限 / 三插件首个可用切片 / 诊断中心 / 发布说明门禁 / N-ENG-001 本地可复现门禁 / N-ENG-009 归档仓漂移治理 —— M1 全部交付判据达成，见 [SPEC-INDEX](docs/abyss-specs/SPEC-INDEX.md) 与 `docs/abyss-specs/深渊工具_整体增强方案.md`。
 
 ## 主界面框架
 
@@ -80,18 +80,21 @@
 
 > v0.2 内置化重构：`abyss-plugin-{app-manager, shizuku-kit, automation, island, wallpaper, qr-craft}` 六仓已归档；v0.3 伪装内置化：`abyss-plugin-disguise` 亦归档；**v0.8.0 大内置化：`abyss-plugin-{terminal, python-lab, sandbox, media-lab, network-guard, backup}` 六仓全部归档** —— 终端 / 脚本 / 隔离空间 / 媒体 / 流量审计 / 备份迁移以真实功能页并入主壳（Shizuku / 多用户 / MediaMuxer / netstats / zip 引擎），插件位次让给真正的引擎级能力（病毒拦截 / 虚拟机）。
 
-## 构建（不在本地编译）
+## 构建（本地可复现门禁 N-ENG-001）
 
-本仓库**不做本地编译验证**：全部构建走 GitHub Actions（`ubuntu-latest` 自带 Android SDK，Gradle 8.14 wrapper 自动拉取）。
+本仓**合并判决只以 GitHub Actions 为准**（CI 绿才合并）；同时提供本地等价门禁脚本，让贡献者在本地一条命令跑出与 CI 相同的结果（杜绝「CI 绿本地红」）：
 
 ```bash
 git clone https://github.com/abyss-tool/Abyss-Tools.git
-# 本地跑只需 JDK 17 + Android SDK（Android Studio 自带）：
-./gradlew assembleDebug
+cd Abyss-Tools
+bash tools/local_gate.sh          # 全量：assembleDebug + assembleRelease + test + 全部 Python 门禁
+bash tools/local_gate.sh --jvm    # 轻量：仅 Python 门禁（无需 JDK / Android SDK）
 ```
 
+环境要求（版本钉死，与 AGENTS.md 工具链整组对齐）：JDK 17 + Android SDK（compileSdk 36）+ Gradle 8.14 wrapper（自动拉取）。签名材料可选（`ABYSS_KEYSTORE_FILE` 等环境变量或 `local.properties`）—— 缺失时 release 自动降级未签名产物，编译门禁照常。
+
 CI 内容（[.github/workflows/ci.yml](.github/workflows/ci.yml)）：
-`assembleDebug` + `assembleRelease`（签名材料经 secrets 注入，指纹恒定 + apksigner 实测校验 —— CI 绿即代表可发布）→ `test`（纯 JVM 单测）→ `validate_manifests.py`（通道清单 schema / 版本单一事实源 / 脚本语法门禁）→ 双 APK artifact。
+`assembleDebug` + `assembleRelease`（签名材料经 secrets 注入，指纹恒定 + apksigner 实测校验 —— CI 绿即代表可发布）→ `test`（纯 JVM 单测）→ `tools/local_gate.sh --jvm`（通道清单 schema / 版本单一事实源 / spec-lint / UI 文案预算 / 发布说明门禁，与本地同一脚本）→ `tools/audit_archived_repos.py`（归档仓漂移审计）→ 双 APK artifact。
 
 ## 发布与更新通道（全自动）
 
@@ -123,6 +126,7 @@ tag v* ──→ release.yml ──→ assembleRelease（secrets 注入签名材
 - [x] **信号显示伪装 + 发布信任链 P0 治理**（v0.6.0）：状态栏覆盖层（5G-A / 5G / 4G + 信号格 1-4 + Wi-Fi 图标伪造，无卡可用，Shizuku 一键授权，停止即恢复真实显示）；签名材料出库入 secrets + 发布者指纹硬校验 + versionCode 单调门禁；更新链 fail-closed（摘要强制 + GitHub 四域白名单）+ 插件索引运行时白名单（ChannelPolicy）+ 补丁引擎 zip bomb 防线；Shizuku 网关并发读管道 + 1MB 上限 + 30s 真超时；版本单一事实源（AppInfo）；返回栈持久化
 - [x] **大内置化 + M3 全面进化**（v0.8.1「黑洞」）：六重型插件内置化（终端 / 脚本实验室 / 隔离空间 / 媒体实验室 / 流量审计 / 备份迁移，全部真实功能页）；插件中心收缩为三大引擎级插件（构建器 / 病毒拦截 / 虚拟机）；**系统控制中心**（授权总管 AppOps + pm grant/revoke + 显示 / 电源 / Doze）；**组件工坊**（黑洞动态时钟桌面组件 2×2 / 4×2 + 整分自续期重绘 + Compose 实时预览）；M3 完整规范（十五级字阶 / 形状阶梯 / 动态取色 Material You）
 - [x] **组件银河 + 隐私与管控 + M3 补全**（v0.9.0「引力场」）：组件工坊扩为四成员银河（黑洞时钟 + **引力电池**（吸积环电量刻度 + 充电喷流）+ **星轨日历**（行星公转一年）+ **深渊引力仪**（内存·存储双环），AbyssWidgetFamily 家族注册表一跳喂饱全部）；系统控制中心新增**隐私与管控**四面板（权限审计批量回收 / appops query-op 敏感操作记录 / Doze 白名单 / netpolicy 流量策略）+ 标签化四页签；任务蓝图**双模式调度**（每日定时 M3 TimePicker + SchedulePlanner 纯排程）；M3 组件真实落地（SearchBar / PullToRefreshBox / InputChip / TooltipBox / SnackbarHost）
+- [x] **M1 信任链 + 脚手架 + 诊断收官**（v0.10.0）：通道清单 detached 签名闭环（N-SEC-001）+ RELEASE_TOKEN 最小权限与轮换演练（N-SEC-002）+ 三插件首个可用切片（app-builder 瘦客户端 / virus-guard 判定管线 / linux 底座探测）+ 诊断中心（N-EXP-003）+ 发布说明质量门禁（N-ENG-010）+ Spec 驱动流程（N-ENG-008）+ 本地可复现门禁（N-ENG-001 · `tools/local_gate.sh`，CI 同源）+ 归档仓漂移治理（N-ENG-009 · HUB-014 台账 + `tools/audit_archived_repos.py` 审计入 CI）
 - [ ] **Phase 1b 终端深化**：伪终端渲染内核（VT/ANSI）+ 本地 bootstrap
 - [ ] **Phase 2 任务系统与插件内核**：任务蓝图调用链 + DexClassLoader 插件加载
 - [ ] **Phase 3 硬核功能接入**：沙箱 Hook 层（机型档案消费方）/ Python 完整引擎
