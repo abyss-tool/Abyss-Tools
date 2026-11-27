@@ -41,6 +41,10 @@ object KitCommands {
         val token = raw.trim()
         require(token.isNotEmpty()) { "$what 不能为空" }
         require(token.none { it.isWhitespace() }) { "$what 不能包含空白字符" }
+        // 工具箱令牌语境（包名 / appops op / 设置键）没有以 - 开头的合法形态：
+        // 白名单字符类含 -（设置键 key-with-dash 合法），但首字符为 - 即
+        // 选项形态（--help 会被 appops 当选项解析），拒绝。
+        require(!token.startsWith("-")) { "$what 不能以 - 开头（选项形态，fail-closed）" }
         return ShizukuCommands.requireSafeToken(token, what)
     }
 
