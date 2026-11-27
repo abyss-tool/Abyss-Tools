@@ -276,12 +276,15 @@ class ShizukuShellGateway(
             result = if (pfd == null) {
                 CappedText("", false)
             } else {
-                // ParcelFileDescriptor 实现了 Closeable，用 use 确保确定性关闭
-                // 原实现只在 runCatching 里 close，异常路径可能泄漏文件描述符
+                // NB-6（描述符恰好归还一次）：FileInputStream.close() 会关闭底层
+                // fd —— 与外层 pfd.use 的 close 叠加即对同一 OS 描述符双重关闭，
+                // 第二次 close 的归宿依赖平台吞异常行为（Android 对同
+                // FileDescriptor 对象幂等，但这是实现细节而非契约）。改用
+                // closeStream=false：FIS 只作读取视图，fd 由 pfd.use 唯一归还。
                 pfd.use {
                     runCatching {
-                        FileInputStream(it.fileDescriptor).use { input ->
-                            StreamGuards.readTextCapped(input, maxStreamBytes)
+                        FileInputStream(it.fileDescriptor).let { input ->
+                            StreamGuards.readTextCapped(input, maxStreamBytes, closeStream = false)
                         }
                     }.getOrDefault(CappedText("", false))
                 }

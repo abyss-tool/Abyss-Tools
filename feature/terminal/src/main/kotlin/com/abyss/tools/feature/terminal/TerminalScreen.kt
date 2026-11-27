@@ -142,6 +142,9 @@ fun TerminalScreen(
     val history = remember { CommandHistory(PrefsHistoryStore(prefs)) }
 
     var consoleLines by remember { mutableStateOf(buffer.lines()) }
+    // NB-18：与 consoleLines 同步镜像的 append 代数 —— 窗口满后 size 恒定，
+    // 自动滚动改以代数为 key（每批新输出必触发）。
+    var consoleGeneration by remember { mutableStateOf(buffer.generation()) }
     var historyLines by remember { mutableStateOf(history.all()) }
     var input by remember { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
@@ -159,6 +162,7 @@ fun TerminalScreen(
     fun appendBatch(newLines: List<ConsoleLine>) {
         newLines.forEach(buffer::append)
         consoleLines = buffer.lines()
+        consoleGeneration = buffer.generation()
     }
 
     /** 结果如实分色：stdout→输出色 / stderr→错误色 / 截断→系统提示 / 末行 exit 码。 */
@@ -233,6 +237,7 @@ fun TerminalScreen(
 
         ConsoleArea(
             lines = consoleLines,
+            scrollKey = consoleGeneration,
             fontSize = FONT_SIZES[fontSizeIndex],
             onClear = {
                 buffer.clear()
@@ -416,19 +421,22 @@ private fun ShizukuGateCard(
 
 /**
  * 控制台区：有界滚动窗口 + 清屏 FAB（锚在控制台右下角 —— 锚全屏右下会压住
- * 输入行，控制台内锚定最顺手）。自动滚动按「行数变化」触发：滚到当前窗口
- * 末行即可（缓冲裁剪后窗口恒定，索引不跳变）。
+ * 输入行，控制台内锚定最顺手）。自动滚动按「append 代数变化」触发（窗口
+ * 裁满后行数恒定，代数恒变）：滚到当前窗口末行即可（索引不跳变）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConsoleArea(
     lines: List<ConsoleLine>,
+    scrollKey: Long,
     fontSize: TextUnit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(lines.size) {
+    // NB-18：以 append 代数为 key —— 窗口裁满后 lines.size 恒定，
+    // 若仍以 size 为 key，后续新输出永不触发滚动（静默滚出屏）。
+    LaunchedEffect(scrollKey) {
         if (lines.isNotEmpty()) listState.scrollToItem(lines.lastIndex)
     }
     Box(

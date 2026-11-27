@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,7 +87,11 @@ fun OnboardingScreen(
 ) {
     val context = LocalContext.current
 
-    var step by remember { mutableStateOf(0) }
+    // NB-20：旋转 / 进程重建丢步 —— 引导是七步门，用户在第 5 步转个屏
+    // 就被扔回第 0 步并要求重新勾免责声明，属于流内状态丢失（门标志
+    // 本身在磁盘，不构成门绕过）。step 存 saveable；免责声明保持
+    // 非持久（重建后必须重新接受 —— 保守取向）。
+    var step by rememberSaveable { mutableStateOf(0) }
     var disclaimerAccepted by remember { mutableStateOf(false) }
 
     // 步 3：安装未知应用（进入该步时重查真值）

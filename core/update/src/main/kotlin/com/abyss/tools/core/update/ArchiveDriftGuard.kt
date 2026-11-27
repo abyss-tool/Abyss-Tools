@@ -31,6 +31,17 @@ object ArchiveDriftGuard {
         val seenProtocol: Int?
     ) : Exception("manifest drift: $field - $reason (protocol=$seenProtocol)")
 
+
+    // NB-11：类型混淆字段（如 "schema": {} / "versionName": []）会让
+    // jsonPrimitive 访问器抛裸 IllegalArgumentException，逃逸出本类契约
+    // 承诺的 ManifestDriftException（人话错误 + 诊断日志）。提取一律
+    // runCatching 兜底，失败视为「字段缺失」走漂移路径。
+    private fun JsonObject.fieldText(key: String): String? =
+        runCatching { this[key]?.jsonPrimitive?.contentOrNull }.getOrNull()
+
+    private fun JsonObject.fieldInt(key: String): Int? =
+        runCatching { this[key]?.jsonPrimitive?.intOrNull }.getOrNull()
+
     fun validateVersionJson(raw: String, mirrorId: String) {
         val obj = try {
             json.parseToJsonElement(raw) as? JsonObject
@@ -42,7 +53,7 @@ object ArchiveDriftGuard {
             throw ManifestDriftException("root", "root is not a JSON object", null)
         }
 
-        val schema = obj["schema"]?.jsonPrimitive?.contentOrNull
+        val schema = obj.fieldText("schema")
         val protocol = when (schema) {
             "abyss-version-v1" -> 1
             "abyss-version-v2" -> 2
@@ -57,23 +68,23 @@ object ArchiveDriftGuard {
             throw ManifestDriftException("schema", "protocol $protocol not supported", protocol)
         }
 
-        val versionName = obj["versionName"]?.jsonPrimitive?.contentOrNull
+        val versionName = obj.fieldText("versionName")
         if (versionName.isNullOrBlank()) {
             DiagnosticsLog.warn(kind, TAG, "drift: versionName missing mirror=$mirrorId protocol=$protocol")
             throw ManifestDriftException("versionName", "required field missing", protocol)
         }
-        val versionCode = obj["versionCode"]?.jsonPrimitive?.intOrNull
+        val versionCode = obj.fieldInt("versionCode")
         if (versionCode == null || versionCode <= 0) {
             DiagnosticsLog.warn(kind, TAG, "drift: versionCode invalid mirror=$mirrorId")
             throw ManifestDriftException("versionCode", "invalid versionCode", protocol)
         }
         val download = obj["download"] as? JsonObject
-        val url = download?.get("url")?.jsonPrimitive?.contentOrNull
+        val url = download?.fieldText("url")
         if (url.isNullOrBlank()) {
             DiagnosticsLog.warn(kind, TAG, "drift: download.url missing mirror=$mirrorId")
             throw ManifestDriftException("download.url", "required field missing", protocol)
         }
-        val sha256 = download?.get("sha256")?.jsonPrimitive?.contentOrNull
+        val sha256 = download?.fieldText("sha256")
         if (!sha256.isNullOrBlank()) {
             if (sha256.length != 64 || !sha256.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
                 DiagnosticsLog.warn(kind, TAG, "drift: sha256 malformed len=${sha256.length} mirror=$mirrorId")

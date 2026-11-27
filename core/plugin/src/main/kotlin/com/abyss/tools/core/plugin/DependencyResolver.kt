@@ -161,8 +161,14 @@ class DependencyResolver(
                 "请升级深渊工具主壳：${entry.name} 需要 HOST_API ≥ ${entry.minHost}（当前 $hostApiVersion）",
             )
         }
+        // NB-5（fail-closed 收口）：minApp 解析失败必须拒绝 —— 静默跳过门槛
+        // 等于坏值（如带 v 前缀）反而「永过低门槛」，违反 PLG-001 FR-001。
         val minApp = SemVer.parse(entry.minApp)
-        if (minApp != null && hostAppVersion < minApp) {
+            ?: return reject(
+                "E_BAD_MIN_APP",
+                "插件 ${entry.name} 的 minApp 版本号非法（${entry.minApp}）—— 通道索引被污染，已拒绝解析",
+            )
+        if (hostAppVersion < minApp) {
             return reject(
                 "E_HOST_API_TOO_LOW",
                 "请升级深渊工具到 ${entry.minApp} 以上：${entry.name} 依赖新版宿主能力",

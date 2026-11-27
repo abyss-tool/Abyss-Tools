@@ -81,6 +81,14 @@ class SignalOverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // NB-14：START_STICKY 进程重建拉起时 intent == null，companion 的
+        // 进程级 spec 已随旧进程死亡丢失 —— 若不恢复，覆盖层会静默回落
+        // 默认「5G·4/4 格」（用户从未选过的规格）。DisguiseSettings 是磁盘
+        // 真相源（applySpecChange 写入），重建时读回。
+        if (intent == null) {
+            runCatching { spec = DisguiseSettings(this).signalSpec }
+                .onFailure { lastError = "信号规格恢复失败：${it.message ?: it.javaClass.simpleName}" }
+        }
         attachOverlay()
         return START_STICKY
     }

@@ -52,7 +52,12 @@ class BatteryGuardService : Service() {
             lastError = null
             loopThread = thread(isDaemon = true, name = "abyss-battery-guard") {
                 while (loopRunning) {
-                    reassertOnce()
+                    // NB-13：reassertOnce 必须与 sleep 同受保护 —— onDestroy 的
+                    // interrupt 会命中 runBlocking 内部并抛 InterruptedException，
+                    // 原实现只保 sleep 不保 exec → 停守护时守护线程未捕获异常
+                    // → CrashGuard 链到默认处理器 → 进程死亡。
+                    runCatching { reassertOnce() }
+                        .onFailure { loopRunning = false }
                     runCatching { Thread.sleep(REASSERT_INTERVAL_MS) }
                         .onFailure { loopRunning = false }
                 }
@@ -64,6 +69,11 @@ class BatteryGuardService : Service() {
     override fun onDestroy() {
         loopRunning = false
         loopThread?.interrupt()
+        // NB-13：有界同步停止 —— sleep 被打断后线程即时退出（常态路径），
+        // 「先停后 reset」的竞窗从「整轮三连」收窄到「至多一条在途 Binder 调用」；
+        // exec 在 Binder waitFor 上不可中断的窄窗口由 1s 上限兜底，宁放弃
+        // 等待也不长时间阻塞主线程。
+        runCatching { loopThread?.join(1_000) }
         isGuarding = false
         super.onDestroy()
     }
@@ -83,6 +93,8 @@ class BatteryGuardService : Service() {
         var failed = 0
         var lastMessage = ""
         for (command in commands) {
+            // 停止后不再发起新命令（NB-13）：把停止竞窗收窄到单条在途调用
+            if (!loopRunning) return
             val result = kotlinx.coroutines.runBlocking { gateway.exec(command) }
             result
                 .onSuccess { r ->

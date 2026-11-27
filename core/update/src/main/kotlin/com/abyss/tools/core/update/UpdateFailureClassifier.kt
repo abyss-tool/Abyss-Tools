@@ -87,6 +87,9 @@ object UpdateFailureClassifier {
                 || msg.contains("digest mismatch", ignoreCase = true) ->
                 UpdateFailure(UpdateFailureReason.CHECKSUM_MISMATCH, msg)
             msg.contains("dns", ignoreCase = true)
+                || cls.contains("UnknownHost") // NB-10：类名才是可靠信号 —— 真实
+                // UnknownHostException 的 message 形如「Unable to resolve host
+                // "raw..."」不含 UnknownHost/dns 字样，此前恒漏分到 UNKNOWN。
                 || msg.contains("UnknownHost", ignoreCase = true) ->
                 UpdateFailure(UpdateFailureReason.DNS_LOOKUP_FAILED, msg)
             msg.contains("SSL", ignoreCase = true)

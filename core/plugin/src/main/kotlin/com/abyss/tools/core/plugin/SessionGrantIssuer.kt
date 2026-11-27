@@ -67,11 +67,16 @@ class SessionGrantIssuer(
     @Volatile
     private var generation: Long = 1L
 
-    /** 已消耗的 nonce（重放检测；会话撤销时按 sessionId 收缩）。 */
-    private val usedNonces = mutableMapOf<String, String>() // nonce → sessionId
+    /** 已消耗的 nonce（重放检测；会话撤销时按 sessionId 收缩）。
+     * NB-12：issue/verify/revoke/invalidateAll 将跑在 Binder 池线程 +
+     * DeathRecipient 线程（AIDL 桥落地后的真实并发面）—— 线性表在并发
+     * 修改下会丢登记（重放检测穿透）/ CME / 表损坏；nonce 消费必须与
+     * 重放判定原子，改用 ConcurrentHashMap（null 值本就不进表，语义不变）。
+     */
+    private val usedNonces = java.util.concurrent.ConcurrentHashMap<String, String>() // nonce → sessionId
 
     /** 有效会话的授权登记（sessionId → grant；撤销 / 死亡回收用）。 */
-    private val activeGrants = mutableMapOf<String, SessionGrant>()
+    private val activeGrants = java.util.concurrent.ConcurrentHashMap<String, SessionGrant>()
 
     /**
      * 签发（四重校验通过后调用 —— [CapabilityBinder]）：
