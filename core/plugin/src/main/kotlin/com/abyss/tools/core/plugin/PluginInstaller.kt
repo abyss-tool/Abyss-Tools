@@ -7,6 +7,7 @@ import com.abyss.tools.core.update.HttpTransport
 import com.abyss.tools.core.update.PatchApplier
 import com.abyss.tools.core.update.PatchRejectedException
 import com.abyss.tools.core.update.PatchReport
+import com.abyss.tools.core.update.ResumePlanner
 import com.abyss.tools.core.update.ZipPatchApplier
 import com.abyss.tools.plugin.api.PluginContract
 import com.abyss.tools.plugin.api.PluginManifest
@@ -98,7 +99,12 @@ class PluginInstaller(
         val version = SemVer.parse(entry.version)
             ?: return Result.failure(IllegalArgumentException("插件版本号非法：${entry.version}"))
         val minApp = SemVer.parse(entry.minApp)
-        if (minApp != null && minApp > AppInfo.version) {
+            // NB-5（fail-closed 收口）：minApp 解析失败必须拒绝 —— 此前静默
+            // 跳过宿主版本门槛，坏值（如带 v 前缀）反而变成「永过低门槛」
+            ?: return Result.failure(
+                IllegalArgumentException("插件 minApp 版本号非法：${entry.minApp}（需 x.y.z 形态）")
+            )
+        if (minApp > AppInfo.version) {
             return Result.failure(
                 IllegalStateException("宿主版本过低：需 ≥ v${entry.minApp}，当前 v${AppInfo.VERSION_NAME}")
             )
@@ -215,6 +221,11 @@ class PluginInstaller(
         val file = downloadApk(entry, onProgress).getOrThrow()
         onPhase(ApkPipelinePhase.VERIFYING)
         if (!verifyApk(entry, file)) {
+            // NB-9：坏 APK 就地删除（含 .part 残留）—— 与 UpdateManager 对主壳
+            // 更新的语义对齐；此前坏文件占着缓存位（可达数十 MB）且
+            // cachedApkFile() 会继续把它喂给 UI 层解析。
+            runCatching { file.delete() }
+            runCatching { ResumePlanner.partFileOf(file).delete() }
             return Result.failure(
                 IllegalStateException("SHA-256 校验失败 —— 拒绝安装（fail-closed）：${entry.id}")
             )
