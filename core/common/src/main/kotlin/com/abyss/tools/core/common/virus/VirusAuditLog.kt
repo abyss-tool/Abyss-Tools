@@ -129,10 +129,12 @@ object VirusAuditLog {
     private fun logFile(): File? = logDir?.let { File(it, "abyss-virus-audit.log") }
     private fun rotatedFile(): File? = logDir?.let { File(it, "abyss-virus-audit.log.1") }
 
-    private fun rotate(f: File) = runCatching {
-        val rot = rotatedFile() ?: return
-        if (rot.exists()) rot.delete()
-        f.renameTo(rot)
+    private fun rotate(f: File) {
+        runCatching {
+            val rot = rotatedFile() ?: return@runCatching
+            if (rot.exists()) rot.delete()
+            f.renameTo(rot)
+        }
     }
 
     private fun Entry.toLine(maskSha: Boolean): String {
