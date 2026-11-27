@@ -80,7 +80,7 @@ object VirusAuditLog {
         // NB-3a：offer/poll + 独立计数器非原子 —— 并发下计数与队列漂移
         // （poll 空时仍递减 → 越界丢弃/越界保留）。改以队列自身水位为准。
         buffer.offer(ev)
-        while (buffer.size() > MAX_MEMORY) buffer.poll()
+        while (buffer.size > MAX_MEMORY) buffer.poll()
         appendToFile(ev)
     }
 
