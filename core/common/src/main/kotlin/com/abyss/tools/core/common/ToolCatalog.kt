@@ -1,5 +1,7 @@
 package com.abyss.tools.core.common
 
+import com.abyss.tools.core.common.privilege.Capability
+
 /**
  * 工具目录（导航页的数据底座）。
  *
@@ -30,7 +32,7 @@ package com.abyss.tools.core.common
  *
  * UI-001（功能文案精简）：ToolCategory.description 与 ToolDef.summary
  * 装饰字段删除 —— 目录数据只保留 id / title / status / pluginId /
- * iconKey；状态语义经 [ToolStatus.label] 供无障碍朗读。
+ * iconKey / requiredCapabilities；状态语义经 [ToolStatus.label] 供无障碍朗读。
  */
 enum class ToolCategory(
     val id: String,
@@ -64,6 +66,8 @@ data class ToolDef(
     val pluginId: String? = null,
     /** designsystem 侧图标键（AbyssIcons.icon(key) 映射）。 */
     val iconKey: String,
+    /** 启用该工具所需的最低能力集合，用于权限门禁与档位显示 */
+    val requiredCapabilities: Set<Capability> = emptySet(),
 )
 
 object ToolCatalog {
@@ -97,7 +101,7 @@ object ToolCatalog {
     val categories: List<ToolCategory> = ToolCategory.entries.toList()
 
     val tools: List<ToolDef> = listOf(
-        // ── 开发与构建（引擎级插件：构建底座）──────────────────────────
+        // ── 开发与构建（引擎级插件：构建底座，Abyss-Max档位）────────────
         ToolDef(
             id = "app-builder",
             title = "应用构建器",
@@ -105,6 +109,7 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-app-builder",
             iconKey = "construction",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY, Capability.INSTALL_UNKNOWN_APPS),
         ),
         ToolDef(
             id = "linux-runtime",
@@ -113,6 +118,23 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-linux",
             iconKey = "terminal",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
+        ),
+        ToolDef(
+            id = "virtual-machine",
+            title = "虚拟机",
+            category = ToolCategory.DEV,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "computer",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
+        ),
+        ToolDef(
+            id = "code-editor",
+            title = "代码编辑器",
+            category = ToolCategory.TERMINAL,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "edit",
+            requiredCapabilities = emptySet(), // 普通用户可用
         ),
 
         // ── 系统工具 ───────────────────────────────────────────────────
@@ -122,6 +144,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "apps",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_SYS_CONTROL,
@@ -129,6 +152,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "tune",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_SHIZUKU_KIT,
@@ -136,6 +160,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "security",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = "battery-doctor",
@@ -143,6 +168,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.FRAMEWORK,
             iconKey = "bolt",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = "virus-guard",
@@ -151,15 +177,25 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-virus-guard",
             iconKey = "bug_report",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY, Capability.INSTALL_UNKNOWN_APPS),
+        ),
+        ToolDef(
+            id = "time-shift",
+            title = "临时时间修改",
+            category = ToolCategory.SYSTEM,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "schedule",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.WRITE_SECURE_SETTINGS),
         ),
 
-        // ── 终端与脚本（v0.8.0 内置化：Shizuku Shell 真实执行）──────────
+        // ── 终端与脚本（v0.8.0 内置化：Shizuku Shell 真实执行，高级用户）──
         ToolDef(
             id = ID_TERMINAL,
             title = "内置终端",
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "terminal",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_SCRIPT_LAB,
@@ -167,13 +203,7 @@ object ToolCatalog {
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "code",
-        ),
-        ToolDef(
-            id = "code-editor",
-            title = "代码编辑器",
-            category = ToolCategory.TERMINAL,
-            status = ToolStatus.FRAMEWORK,
-            iconKey = "edit",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_TASK_BLUEPRINT,
@@ -181,15 +211,17 @@ object ToolCatalog {
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "account_tree",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
         ),
 
-        // ── 沙箱与多开（v0.8.0 内置化：多用户隔离引擎）──────────────────
+        // ── 沙箱与多开（v0.8.0 内置化：多用户隔离引擎，高级用户）──────────
         ToolDef(
             id = ID_SANDBOX_SPACE,
             title = "隔离空间",
             category = ToolCategory.SANDBOX,
             status = ToolStatus.BUILT_IN,
             iconKey = "layers",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_DUAL_OPEN,
@@ -197,19 +229,25 @@ object ToolCatalog {
             category = ToolCategory.SANDBOX,
             status = ToolStatus.BUILT_IN,
             iconKey = "copy",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
-        // ── 虚拟机（已收编 · HUB-014 归档纪律）────────────────────────
-        // ADR-100 D-4：abyss-plugin-virtual-machine 归档，QEMU 整机能力由
-        // Linux 插件的 QEMU_VM 执行域承接（见 DEV 分类的「Linux 运行环境」）。
-        // 归档能力不得复活为插件（SRS-004 FR-005）—— 此条目仅作历史索引。
+        ToolDef(
+            id = "cloak-workspace",
+            title = "隐身工作区",
+            category = ToolCategory.SANDBOX,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "visibility_off",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
+        ),
 
-        // ── 伪装与隐私（v0.3：四件套内置，Shizuku 免 Root）────────────
+        // ── 伪装与隐私（v0.3：四件套内置，Shizuku 免 Root，高级用户）────
         ToolDef(
             id = ID_BATTERY_DISGUISE,
             title = "电量伪装",
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "battery",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_LOCATION_DISGUISE,
@@ -217,6 +255,7 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "location",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
         ),
         ToolDef(
             id = ID_SIGNAL_DISGUISE,
@@ -224,6 +263,7 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "signal",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = ID_MODEL_DISGUISE,
@@ -231,22 +271,25 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "smartphone",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
         ToolDef(
             id = "privacy-guard",
             title = "隐私守卫",
             category = ToolCategory.DISGUISE,
             status = ToolStatus.FRAMEWORK,
-            iconKey = "visibility_off",
+            iconKey = "shield",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
         ),
 
-        // ── 媒体工具（v0.8.0 内置化：MediaMuxer 无重编码引擎）──────────
+        // ── 媒体工具（普通用户可用基础功能，部分高级功能需权限）──────────
         ToolDef(
             id = ID_MEDIA_LAB,
             title = "媒体实验室",
             category = ToolCategory.MEDIA,
             status = ToolStatus.BUILT_IN,
             iconKey = "movie",
+            requiredCapabilities = emptySet(), // 基础功能普通用户可用
         ),
         ToolDef(
             id = ID_QR_CRAFT,
@@ -254,24 +297,35 @@ object ToolCatalog {
             category = ToolCategory.MEDIA,
             status = ToolStatus.BUILT_IN,
             iconKey = "qr",
+            requiredCapabilities = emptySet(), // 普通用户可用
         ),
 
-        // ── 自动化 ────────────────────────────────────────────────────
+        // ── 自动化（需要无障碍服务，进阶用户及以上可用）───────────────
         ToolDef(
             id = ID_AUTOMATION,
             title = "自动化编排",
             category = ToolCategory.AUTOMATION,
             status = ToolStatus.BUILT_IN,
             iconKey = "bolt",
+            requiredCapabilities = setOf(Capability.ACCESSIBILITY),
+        ),
+        ToolDef(
+            id = "smart-click",
+            title = "智能点击",
+            category = ToolCategory.AUTOMATION,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "touch_app",
+            requiredCapabilities = setOf(Capability.ACCESSIBILITY),
         ),
 
-        // ── 桌面美化（v0.9.0 引力场：组件银河四成员）───────────────
+        // ── 桌面美化 ────────────────────────────────────────────────
         ToolDef(
             id = ID_WIDGET_STUDIO,
             title = "组件工坊",
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "widgets",
+            requiredCapabilities = emptySet(), // 普通用户可用
         ),
         ToolDef(
             id = ID_DYNAMIC_ISLAND,
@@ -279,6 +333,7 @@ object ToolCatalog {
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "swap",
+            requiredCapabilities = emptySet(), // 普通用户可用，悬浮窗权限单独申请
         ),
         ToolDef(
             id = ID_LIVE_WALLPAPER,
@@ -286,33 +341,51 @@ object ToolCatalog {
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "wallpaper",
+            requiredCapabilities = emptySet(), // 普通用户可用
+        ),
+        ToolDef(
+            id = "ultra-default-launcher",
+            title = "默认桌面接管",
+            category = ToolCategory.DESKTOP,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "home",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.DHIZUKU_ACTIVE, Capability.DEVICE_ADMIN_ACTIVE),
         ),
 
-        // ── 网络守护（v0.8.0 内置化：netstats 流量审计）────────────────
+        // ── 网络守护（v0.8.0 内置化：netstats 流量审计，高级用户）──────
         ToolDef(
             id = ID_NET_AUDIT,
             title = "流量审计",
             category = ToolCategory.NETWORK,
             status = ToolStatus.BUILT_IN,
             iconKey = "lan",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
+        ),
+        ToolDef(
+            id = "net-firewall",
+            title = "网络防火墙",
+            category = ToolCategory.NETWORK,
+            status = ToolStatus.FRAMEWORK,
+            iconKey = "security",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
         ),
 
-        // ── 数据与备份（v0.8.0 内置化：APK 库 + zip 引擎）──────────────
+        // ── 数据与备份（v0.8.0 内置化：APK 库 + zip 引擎，高级用户）────
         ToolDef(
             id = ID_BACKUP,
             title = "备份迁移",
             category = ToolCategory.DATA,
             status = ToolStatus.BUILT_IN,
             iconKey = "backup",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL),
         ),
-
-        // ── 系统工具：临时时间修改（保留占位）──────────────────────────
         ToolDef(
-            id = "time-shift",
-            title = "临时时间修改",
-            category = ToolCategory.SYSTEM,
+            id = "ultra-deep-profile",
+            title = "深度用户画像",
+            category = ToolCategory.DATA,
             status = ToolStatus.FRAMEWORK,
-            iconKey = "schedule",
+            iconKey = "person",
+            requiredCapabilities = setOf(Capability.SHIZUKU_SHELL, Capability.DHIZUKU_ACTIVE, Capability.DEVICE_ADMIN_ACTIVE),
         ),
     )
 

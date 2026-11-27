@@ -1,6 +1,11 @@
 package com.abyss.tools.ui
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -32,10 +37,13 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.ServiceRegistry
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.ToolCatalog
+import com.abyss.tools.core.common.privilege.PrivilegeProbe
+import com.abyss.tools.core.common.privilege.PrivilegeSnapshot
 import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
 import com.abyss.tools.core.designsystem.component.rememberReducedMotion
@@ -54,7 +62,6 @@ import com.abyss.tools.feature.backup.BackupScreen
 import com.abyss.tools.feature.blueprint.BlueprintScreen
 import com.abyss.tools.feature.blueprint.BlueprintTab
 import com.abyss.tools.feature.dashboard.DashboardScreen
-import com.abyss.tools.feature.dashboard.ShizukuUi
 import com.abyss.tools.feature.disguise.BatterySpoofScreen
 import com.abyss.tools.feature.disguise.LocationSpoofScreen
 import com.abyss.tools.feature.disguise.ModelSpoofScreen
@@ -77,6 +84,9 @@ import com.abyss.tools.feature.syspower.SysControlScreen
 import com.abyss.tools.feature.terminal.TerminalScreen
 import com.abyss.tools.feature.wallpaper.WallpaperScreen
 import com.abyss.tools.feature.widgets.WidgetStudioScreen
+import com.abyss.tools.privilege.AbyssAccessibilityService
+import com.abyss.tools.privilege.AbyssDeviceAdminReceiver
+import com.abyss.tools.privilege.PrivilegeProbe
 import com.kyant.backdrop.backdrops.LayerBackdrop
 
 /**
@@ -269,6 +279,7 @@ fun AbyssRoot(
     glassEnabled: Boolean = true,
     lensEnabled: Boolean = true,
 ) {
+    val context = LocalContext.current
     val registry = ServiceRegistry
     // v0.9.6：glassEnabled 保留参数位用于 API 能力降级；单次会话内 runCatching
     // 单项降级（blur/lens/renderEffect 各自守卫），不再由跨会话断路器控制。
@@ -282,6 +293,12 @@ fun AbyssRoot(
         ),
     ) { AbyssBackStack(listOf(Screen.Dashboard)) }
     val settings = registry.settings
+
+    // 权限快照：初始化时探测，后续在resume时刷新（处理用户在设置页授权后返回的场景）
+    var privilegeSnapshot by remember { mutableStateOf(PrivilegeSnapshot(emptySet())) }
+    LaunchedEffect(Unit, shizukuStatus) {
+        privilegeSnapshot = PrivilegeProbe.snapshot(context)
+    }
 
     // 恢复出的待重挂应用详情（一次性消费）
     LaunchedEffect(backStack.pendingAppDetailPackage) {
@@ -315,6 +332,24 @@ fun AbyssRoot(
     // 系统移除动画（无障碍）→ 屏幕转场直切；卡片入场 / 按压反馈由
     // Motion.kt 同款开关各自把关。
     val reducedMotion = rememberReducedMotion()
+
+    // 权限设置页跳转回调
+    val openAccessibilitySettings: () -> Unit = {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+    val openDeviceAdminSettings: () -> Unit = {
+        val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(
+                android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                ComponentName(context, AbyssDeviceAdminReceiver::class.java)
+            )
+            putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "激活设备管理员以解锁Abyss-Ultra终极权限")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
 
     CompositionLocalProvider(
         LocalGlassIntensity provides settings.glassIntensity,
@@ -373,13 +408,16 @@ fun AbyssRoot(
                                 bottomClearance = bottomClearance,
                                 installedPluginCount = installedPluginCount,
                                 autoCheckUpdates = settings.checkOnLaunch,
-                                shizukuUi = shizukuStatus.toShizukuUi(),
-                                installPermGranted = registry.installPermGranted(),
+                                privilegeSnapshot = privilegeSnapshot,
+                                onOpenAccessibilitySettings = openAccessibilitySettings,
+                                onOpenShizukuSettings = onOpenShizuku,
+                                onOpenDeviceAdminSettings = openDeviceAdminSettings,
                             )
 
                             Screen.NavHub -> NavHubScreen(
                                 bottomClearance = bottomClearance,
                                 onOpenTool = { backStack.push(Screen.Tool(it)) },
+                                privilegeSnapshot = privilegeSnapshot,
                             )
 
                             Screen.Settings -> SettingsScreen(
@@ -592,6 +630,7 @@ fun AbyssRoot(
                                         }
                                     },
                                     onBack = { backStack.pop() },
+                                    privilegeSnapshot = privilegeSnapshot,
                                 )
                             }
                         }
@@ -617,11 +656,4 @@ fun AbyssRoot(
             }
         }
     }
-}
-
-/** core:shell 状态 → 仪表盘徽章语义。 */
-private fun ShizukuStatus.toShizukuUi(): ShizukuUi = when (val s = this) {
-    ShizukuStatus.NotRunning -> ShizukuUi.NotRunning
-    is ShizukuStatus.Running ->
-        if (s.authorized) ShizukuUi.Authorized else ShizukuUi.RunningUnauthorized
 }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 框架期即需要：更新通道 / 插件索引拉取 -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -30,6 +31,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- 权限分级所需：设备管理员、无障碍服务绑定权限 -->
+    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
+    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_ADMINS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Shizuku 兼容变体可见性（targetSdk 28 暂不受限，预留给未来升 target）：
          官方包名同时也是 Shevery / Shizuku-Next 等 fork 服务端 stub 的共用
          包名（替换安装关系）；Shevery / Shizuku+ 另有独立管理器 App。 -->
@@ -38,6 +47,9 @@
         <package android:name="com.hamondev.shevery" />
         <package android:name="af.shizuku.plus.api" />
         <package android:name="rikka.sui" />
+        <package android:name="moe.hamon.dhizuku" />
+        <package android:name="io.github.vova7865.shevery" />
+        <package android:name="io.github.vova7865.shizukuplus" />
     </queries>
 
     <!-- allowBackup=false：伪装配置 / 指令历史 / 蓝图脚本不进云备份域
@@ -114,6 +126,32 @@
         <service
             android:name="com.abyss.tools.feature.disguise.SignalOverlayService"
             android:exported="false" />
+
+        <!-- 权限分级：无障碍服务（进阶用户档位） -->
+        <service
+            android:name=".privilege.AbyssAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- 权限分级：设备管理员接收器（ultra档位必需） -->
+        <receiver
+            android:name=".privilege.AbyssDeviceAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_receiver" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
 
         <!-- 统一 FileProvider：应用管理器（提取 APK 分享）与二维码工坊
              （PNG 分享）共用，路径映射见 res/xml/file_paths.xml -->

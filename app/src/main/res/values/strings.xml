@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">深渊工具</string>
     <string name="app_name_en">Abyss Tools</string>
+    <string name="accessibility_service_description">深渊工具无障碍服务：用于提供界面自动化、智能点击、任务编排等进阶功能，启用后进入进阶用户档位。服务不会收集您的任何个人信息。</string>
 </resources>

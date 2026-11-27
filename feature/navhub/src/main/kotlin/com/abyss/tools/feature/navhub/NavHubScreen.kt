@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.common.ToolDef
 import com.abyss.tools.core.common.ToolStatus
+import com.abyss.tools.core.common.privilege.PrivilegeSnapshot
+import com.abyss.tools.core.common.privilege.TierCalculator
 import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.ListRowCard
@@ -51,6 +53,7 @@ import com.abyss.tools.core.designsystem.component.StatusChip
 fun NavHubScreen(
     bottomClearance: Dp,
     onOpenTool: (String) -> Unit,
+    privilegeSnapshot: PrivilegeSnapshot,
 ) {
     Column(
         modifier = Modifier
@@ -92,12 +95,21 @@ fun NavHubScreen(
                     key = { index -> "tool-${ToolCatalog.toolsOf(category)[index].id}" },
                 ) { index ->
                     val tool = ToolCatalog.toolsOf(category)[index]
+                    val toolAvailable = TierCalculator.satisfies(tool.requiredCapabilities, privilegeSnapshot)
+                    val requiredTier = TierCalculator.compute(PrivilegeSnapshot(tool.requiredCapabilities))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .entranceStagger(catIndex * ENTRIES_PER_CATEGORY + index + 1),
                     ) {
-                        ToolRow(tool = tool, onClick = { onOpenTool(tool.id) })
+                        ToolRow(
+                            tool = tool,
+                            available = toolAvailable,
+                            requiredTierLabel = requiredTier.label,
+                            onClick = {
+                                if (toolAvailable) onOpenTool(tool.id)
+                            }
+                        )
                     }
                 }
             }
@@ -106,12 +118,18 @@ fun NavHubScreen(
 }
 
 @Composable
-private fun ToolRow(tool: ToolDef, onClick: () -> Unit) {
+private fun ToolRow(tool: ToolDef, available: Boolean, requiredTierLabel: String, onClick: () -> Unit) {
     ListRowCard(
         icon = AbyssIcons.icon(tool.iconKey),
         title = tool.title,
         onClick = onClick,
-        badge = { StatusChip(text = tool.status.label, tone = tool.status.tone()) },
+        badge = {
+            if (available) {
+                StatusChip(text = tool.status.label, tone = tool.status.tone())
+            } else {
+                StatusChip(text = "需${requiredTierLabel}", tone = ChipTone.WARN)
+            }
+        },
     )
 }
 
@@ -128,6 +146,7 @@ fun ToolScreen(
     toolId: String,
     onOpenPlugin: (String) -> Unit,
     onBack: () -> Unit,
+    privilegeSnapshot: PrivilegeSnapshot,
 ) {
     val tool = ToolCatalog.byId(toolId)
     Column(
@@ -149,6 +168,8 @@ fun ToolScreen(
                 item { Text("未知工具：$toolId", color = MaterialTheme.colorScheme.error) }
                 return@LazyColumn
             }
+            val toolAvailable = TierCalculator.satisfies(tool.requiredCapabilities, privilegeSnapshot)
+            val requiredTier = TierCalculator.compute(PrivilegeSnapshot(tool.requiredCapabilities))
             item {
                 Column(Modifier.fillMaxWidth()) {
                     Box(
@@ -173,7 +194,11 @@ fun ToolScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.size(8.dp))
-                        StatusChip(text = tool.status.label, tone = tool.status.tone())
+                        if (toolAvailable) {
+                            StatusChip(text = tool.status.label, tone = tool.status.tone())
+                        } else {
+                            StatusChip(text = "需${requiredTier.label}", tone = ChipTone.WARN)
+                        }
                     }
                 }
             }
@@ -183,17 +208,17 @@ fun ToolScreen(
             when (tool.status) {
                 ToolStatus.PLUGIN -> {
                     item {
-                        PluginCarrierCard(pluginId = tool.pluginId ?: "", onOpenPlugin = onOpenPlugin)
+                        PluginCarrierCard(pluginId = tool.pluginId ?: "", onOpenPlugin = onOpenPlugin, enabled = toolAvailable)
                     }
                 }
                 ToolStatus.BUILT_IN -> {
-                    item { BuiltInFeatureCard() }
+                    item { BuiltInFeatureCard(available = toolAvailable, requiredTier = requiredTier.label) }
                 }
                 ToolStatus.FRAMEWORK -> {
-                    item { FrameworkPlaceholderCard() }
+                    item { FrameworkPlaceholderCard(available = toolAvailable, requiredTier = requiredTier.label) }
                 }
                 ToolStatus.READY -> {
-                    item { ReadyPlaceholderCard() }
+                    item { ReadyPlaceholderCard(available = toolAvailable, requiredTier = requiredTier.label) }
                 }
             }
         }
@@ -224,7 +249,7 @@ internal fun DetailHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) {
+private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit, enabled: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -233,13 +258,15 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
             .padding(16.dp),
     ) {
         Text(
-            text = "该工具由插件承载",
+            text = if (enabled) "该工具由插件承载" else "该工具需要更高权限才能使用",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.size(10.dp))
-        androidx.compose.material3.Button(onClick = { onOpenPlugin(pluginId) }) {
-            Text(if (pluginId.isBlank()) "前往插件中心" else "查看插件 · $pluginId")
+        if (enabled) {
+            Spacer(Modifier.size(10.dp))
+            androidx.compose.material3.Button(onClick = { onOpenPlugin(pluginId) }, enabled = enabled) {
+                Text(if (pluginId.isBlank()) "前往插件中心" else "查看插件 · $pluginId")
+            }
         }
     }
 }
@@ -250,7 +277,7 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
  */
 
 @Composable
-private fun BuiltInFeatureCard() {
+private fun BuiltInFeatureCard(available: Boolean, requiredTier: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -259,7 +286,7 @@ private fun BuiltInFeatureCard() {
             .padding(16.dp),
     ) {
         Text(
-            text = "主壳内置 · 无需安装插件",
+            text = if (available) "主壳内置 · 无需安装插件" else "需要${requiredTier}权限才能使用",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
@@ -267,7 +294,7 @@ private fun BuiltInFeatureCard() {
 }
 
 @Composable
-private fun FrameworkPlaceholderCard() {
+private fun FrameworkPlaceholderCard(available: Boolean, requiredTier: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -276,7 +303,7 @@ private fun FrameworkPlaceholderCard() {
             .padding(16.dp),
     ) {
         Text(
-            text = "路线图中 · 框架占位",
+            text = if (available) "路线图中 · 框架占位" else "路线图中 · 需要${requiredTier}权限",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
@@ -284,7 +311,7 @@ private fun FrameworkPlaceholderCard() {
 }
 
 @Composable
-private fun ReadyPlaceholderCard() {
+private fun ReadyPlaceholderCard(available: Boolean, requiredTier: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -293,7 +320,7 @@ private fun ReadyPlaceholderCard() {
             .padding(16.dp),
     ) {
         Text(
-            text = "壳内可用",
+            text = if (available) "壳内可用" else "需要${requiredTier}权限才能使用",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
