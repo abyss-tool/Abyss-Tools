@@ -238,7 +238,6 @@ fun ModelSpoofScreen(
             item {
                 SectionHeader(
                     title = "伪装程度",
-                    subtitle = "决定应用到系统的深度 —— 档位越高，对抗的指纹读取越全",
                 )
                 Column(
                     modifier = Modifier
@@ -307,7 +306,6 @@ fun ModelSpoofScreen(
             item {
                 SectionHeader(
                     title = "机型档案库（${DeviceProfiles.presets.size} 款）",
-                    subtitle = "选中档案 → 按伪装程度一键应用（沙箱 Hook 层消费导出档案）",
                 )
                 Column(
                     modifier = Modifier
@@ -423,31 +421,7 @@ fun ModelSpoofScreen(
             }
 
             // ── 能力边界 ───────────────────────────────────────────────
-            item {
-                SectionHeader(title = "能力矩阵（诚实边界）", subtitle = null)
-                InfoCard(
-                    title = "✅ L1 即刻生效 · 系统设备名",
-                    body = "经 Shizuku 写入全局设置项 DEVICE_NAME：快速分享、" +
-                        "无线投送、部分 ROM 的关于手机界面会真实显示新名字。",
-                )
-                InfoCard(
-                    title = "✅ L2 档案层 · 沙箱 Hook 消费",
-                    body = "预置 ${DeviceProfiles.presets.size} 款旗舰档案 + 自定义字段，导出 JSON 由沙箱双开插件" +
-                        "（VirtualApp 血统虚拟空间）的 Hook 层读取：虚拟空间内的目标 App" +
-                        "读到全新 Build.MODEL / BRAND / FINGERPRINT —— 应用级伪装的正路。",
-                )
-                InfoCard(
-                    title = "✅ L3 深度 · 全字段指纹 + 蓝牙名",
-                    body = "档案扩展 BOOTLOADER / HARDWARE / BOARD / RADIO / ID / TAGS / " +
-                        "VERSION.INCREMENTAL / SUPPORTED_ABIS 全量字段（对抗多字段风控指纹 SDK），" +
-                        "同时改写蓝牙显示名（Settings.Secure.BLUETOOTH_NAME —— 部分 ROM 需重启蓝牙生效）。",
-                )
-                InfoCard(
-                    title = "⛔ 硬边界 · 全局 Build 伪装",
-                    body = "无 Root 无法改 ro.product.*（系统属性只读，Android 硬边界）。" +
-                        "宣称「免 Root 全局改机型」的工具都做不到系统级 —— 别被骗。",
-                )
-            }
+            // UI-001：能力矩阵说明卡删除 —— 档位语义由「应用伪装（Ln）」按钮承载
         }
     }
 }

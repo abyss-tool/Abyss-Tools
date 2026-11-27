@@ -143,7 +143,7 @@ internal fun ShizukuGateCard(
 
         else -> {
             title = "Shizuku 已就绪"
-            body = "appops / settings / dumpsys 均为系统官方通道，指令即时生效。"
+            body = "appops / settings / dumpsys 均为官方通道，指令即时生效"
             tone = ChipTone.OK
             badge = "adb shell 通道就绪"
         }

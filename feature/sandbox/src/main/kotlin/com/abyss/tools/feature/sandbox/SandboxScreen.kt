@@ -357,13 +357,12 @@ fun SandboxScreen(
             }
 
             // ── 诚实说明卡 ─────────────────────────────────────────────
-            item { IntroCard() }
+            // UI-001：「这是什么」说明卡移除
 
             // ── 用户空间区 ─────────────────────────────────────────────
             item {
                 SectionHeader(
                     title = "用户空间",
-                    subtitle = "Android 原生多用户 · 各空间数据天然隔离（/data/user/<id>）",
                     trailing = {
                         IconButton(onClick = { if (!busy) refresh() }, enabled = !busy) {
                             Icon(
@@ -534,7 +533,6 @@ fun SandboxScreen(
             item {
                 SectionHeader(
                     title = "应用双开",
-                    subtitle = "注册本机已装应用进隔离空间 —— 第二份独立数据",
                 )
             }
             item {
@@ -596,7 +594,6 @@ fun SandboxScreen(
             item {
                 SectionHeader(
                     title = "本次会话动作日志",
-                    subtitle = "仅内存留存 · 退出页面即清空（不落盘不夸大持久性）",
                 )
             }
             item { SessionLogCard(entries = sessionLog) }
@@ -751,27 +748,6 @@ private fun NotAuthorizedHintCard() {
     }
 }
 
-/** 诚实说明卡（引擎是什么 · 边界在哪 —— 文案与产品口径一字不差）。 */
-@Composable
-private fun IntroCard() {
-    SandboxCard {
-        Text(
-            text = "这是什么",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "基于 Android 原生多用户的隔离引擎（Shizuku 免 Root）：创建独立用户空间即得" +
-                "「第二套系统」，应用注册进空间即双开 —— 数据天然隔离（各自的 /data/user/<id>）。" +
-                "诚实边界：部分 ROM（厂商阉割）禁用多用户，createUser 会直接失败并如实展示错误；" +
-                "VirtualApp 级免安装运行与 Hook 层属沙箱插件（路线图）。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
 /**
  * 用户行：headline = 名字、supporting = id + 角色、trailing = 运行态 Badge +
  * 「当前」StatusChip +（非当前用户的）动作区。
@@ -910,12 +886,6 @@ private fun CreateSpaceCard(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "创建即得一套独立「第二系统」（新用户 + 独立数据目录），稍后在「应用双开」区把应用注册进去。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Spacer(Modifier.size(10.dp))
         OutlinedTextField(
             value = name,
@@ -967,16 +937,10 @@ private fun TwinAppCard(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "选择接收双开应用的隔离空间（非当前、非系统侧；应用清单为本地读取）。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Spacer(Modifier.size(8.dp))
         if (eligibleTargets.isEmpty()) {
             Text(
-                text = "暂无可注册的隔离空间 —— 先在上方创建一个隔离空间。",
+                text = "暂无可注册的隔离空间（先在上方创建一个）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1045,7 +1009,7 @@ private fun TwinAppCard(
                 if (visible.isEmpty()) {
                     EmptyState(
                         title = "没有匹配的第三方应用",
-                        message = "换个关键词（应用名 / 包名均可，中英文不限）。",
+                        message = "换个关键词（应用名 / 包名均可，中英文不限）",
                     )
                 } else {
                     LazyColumn(
@@ -1066,11 +1030,6 @@ private fun TwinAppCard(
             }
         }
         Spacer(Modifier.size(6.dp))
-        Text(
-            text = "「双开」= 注册本机已装应用进目标空间（免重装 APK、免传输）；系统侧应用不在候选内。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         feedback?.let { fb ->
             Spacer(Modifier.size(8.dp))
             FeedbackContent(
@@ -1078,7 +1037,7 @@ private fun TwinAppCard(
                 successNote = if (fb.isError) {
                     null
                 } else {
-                    "应用首次在空间内启动需初始化数据目录。"
+                    "应用首次在空间内启动需初始化数据目录"
                 },
             )
         }
@@ -1226,7 +1185,7 @@ private fun SessionLogCard(entries: List<SessionLogEntry>) {
     SandboxCard {
         if (entries.isEmpty()) {
             Text(
-                text = "暂无动作 —— 创建 / 拉起 / 切换 / 双开等动作会如实记录在这里（含成败）。",
+                text = "暂无动作（创建 / 拉起 / 切换 / 双开动作会记录在这里）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

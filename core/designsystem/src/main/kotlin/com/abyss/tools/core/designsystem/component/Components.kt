@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -26,19 +26,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * 通用组件库：章节头 / 状态徽章 / 三态占位（Loading/Error/Empty）/
+ * 通用组件库：章节头 / 状态圆点 / 三态占位（Loading/Error/Empty）/
  * 信息行。全部从 AbyssTheme 派生颜色，业务页不手写色彩。
+ *
+ * UI-001（功能文案精简）：章节头副标题、行卡摘要、状态徽章文字
+ * 全部退位 —— 功能卡 = 图标 + 单行标题 + 状态圆点；被删文字语义
+ * 经 contentDescription 保留给无障碍朗读。
  */
 
 @Composable
 fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
-    subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
@@ -47,25 +52,17 @@ fun SectionHeader(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
         trailing?.invoke()
     }
 }
 
-/** 语气化状态徽章：PLUGIN(青) / READY(蓝) / FRAMEWORK(灰) / ERROR(红)。 */
+/** 语气化状态色：PLUGIN(青) / READY(蓝) / FRAMEWORK(灰) / ERROR(红)。 */
 enum class ChipTone(val container: Color, val content: Color) {
     INFO(Color(0xFF0F454F), Color(0xFFB4EBF7)),
     OK(Color(0xFF0E425F), Color(0xFFCBE5FF)),
@@ -74,20 +71,20 @@ enum class ChipTone(val container: Color, val content: Color) {
     ERROR(Color(0xFF93000A), Color(0xFFFFDAD6)),
 }
 
+/**
+ * 状态圆点（UI-001）：不再渲染徽章文字，仅画 8dp 圆点 —— [text] 保留
+ * 在签名里作为无障碍 contentDescription（TalkBack 仍可朗读状态语义），
+ * 全部既有调用点零改动编译。
+ */
 @Composable
 fun StatusChip(text: String, tone: ChipTone = ChipTone.NEUTRAL, modifier: Modifier = Modifier) {
-    Surface(
-        color = tone.container,
-        contentColor = tone.content,
-        shape = MaterialTheme.shapes.small,
-        modifier = modifier,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-        )
-    }
+    Box(
+        modifier = modifier
+            .semantics { contentDescription = text }
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(tone.content),
+    )
 }
 
 @Composable
@@ -181,18 +178,19 @@ fun InfoRow(label: String, value: String, modifier: Modifier = Modifier, trailin
     }
 }
 
-/** 图标 + 标题 + 摘要 + 徽章 的行卡（导航页工具行 / 插件行通用骨架）。 */
+/** 图标 + 单行标题 + 徽章 的行卡（导航页工具行 / 插件行通用骨架）。 */
 @Composable
 fun ListRowCard(
     icon: ImageVector,
     title: String,
-    summary: String,
     modifier: Modifier = Modifier,
     badge: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     // 按压反馈（v0.7.6）：interactionSource 自持并同步喂给 clickable +
     // pressScale —— 按下整卡「按进液体」缩放，spring 回弹。
+    // UI-001：summary 摘要行删除；可点击卡片挂 contentDescription = title，
+    // 摘要语义由 badge 内 StatusChip 圆点的 contentDescription 承接。
     val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
@@ -202,11 +200,13 @@ fun ListRowCard(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = interaction,
-                        indication = null, // 涟漪让位给果冻缩放（与底栏同款纪律）
-                        onClick = onClick,
-                    )
+                    Modifier
+                        .semantics { contentDescription = title }
+                        .clickable(
+                            interactionSource = interaction,
+                            indication = null, // 涟漪让位给果冻缩放（与底栏同款纪律）
+                            onClick = onClick,
+                        )
                 } else {
                     Modifier
                 }
@@ -228,16 +228,11 @@ fun ListRowCard(
             )
         }
         Spacer(Modifier.size(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.size(2.dp))
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f),
+        )
         badge?.invoke()
     }
 }

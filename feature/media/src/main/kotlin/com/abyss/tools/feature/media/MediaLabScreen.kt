@@ -138,7 +138,7 @@ fun MediaLabScreen(onBack: () -> Unit) {
         if (granted) {
             action?.invoke()
         } else {
-            feedback = Feedback("未获存储写入权限 —— Android 9 及以下保存到公共媒体目录需要它", isError = true)
+            feedback = Feedback("未获存储写入权限 —— Android 9 及以下保存到公共媒体目录需要它", isError = true)  // keep-text: 授权引导（低版本写公共目录的权限前置说明）
         }
     }
 
@@ -284,7 +284,7 @@ fun MediaLabScreen(onBack: () -> Unit) {
         return when {
             selectedUri == null -> "请先选择视频"
             probeState == null || probeState is UiState.Loading -> "等待源信息探测完成"
-            probeState is UiState.Error -> "源信息探测失败 —— 请重试探测或重选视频"
+            probeState is UiState.Error -> "源信息探测失败 —— 请重试探测或重选视频"  // keep-text: 错误（探测/裁剪前置失败人话提示）
             busy -> "上一任务处理中（单任务串行模型，多任务流水线属插件路线）"
             op == MediaOp.TRIM && (probe?.durationMs ?: 0L) <= 0L -> "源时长未知，无法裁剪"
             op == MediaOp.TRIM && trimEndMs <= trimStartMs -> "裁剪区间无效（终点须大于起点）"
@@ -305,7 +305,7 @@ fun MediaLabScreen(onBack: () -> Unit) {
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { IntroCard() }
+            // UI-001：IntroCard 说明卡移除（item 保留占位防 key 漂移）
 
             item {
                 PickCard(
@@ -357,14 +357,13 @@ fun MediaLabScreen(onBack: () -> Unit) {
             item {
                 SectionHeader(
                     title = "任务队列",
-                    subtitle = "内存态 · ${jobs.size} 项（退出页面即清空，无持久化）",
                 )
             }
             if (jobs.isEmpty()) {
                 item {
                     EmptyState(
                         title = "还没有任务",
-                        message = "选择视频、确认源信息后，处理任务与进度会出现在这里。",
+                        message = "选择视频并确认源信息后，任务与进度出现在这里",
                     )
                 }
             } else {
@@ -416,30 +415,7 @@ private fun MediaLabHeader(onBack: () -> Unit) {
     }
 }
 
-// ── 诚实能力声明卡 ───────────────────────────────────────────────────────
-
-@Composable
-private fun IntroCard() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-            .padding(16.dp),
-    ) {
-        Text(
-            text = "能力边界（诚实声明）",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "基于 Android 原生 MediaExtractor / MediaMuxer 的无重编码处理：音频提取（AAC→M4A）/ 去除音轨 / 关键帧对齐裁剪。全程零转码零质量损失；FFmpeg 级转码 / 批量流水线属插件能力（路线图）。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
+// ── 诚实能力声明卡（UI-001：说明卡删除）────────────────────────────
 
 // ── 选源卡 ───────────────────────────────────────────────────────────────
 
@@ -616,14 +592,14 @@ private fun OpChooserCard(
                 )
                 Spacer(Modifier.size(4.dp))
                 Text(
-                    text = "关键帧对齐：实际起点会回退到前一关键帧（无重编码裁剪的固有代价，导出片段可能比所选区间略长）。",
+                    text = "关键帧对齐：实际起点回退到前一关键帧（导出片段可能略长）",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Spacer(Modifier.size(8.dp))
                 Text(
-                    text = "源时长未知 —— 裁剪需要有效时长，请重选视频",
+                    text = "源时长未知 —— 裁剪需要有效时长，请重选视频",  // keep-text: 错误（探测/裁剪前置失败人话提示）
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -810,9 +786,9 @@ private fun statusText(job: MediaJob): String = when (job.status) {
 
 /** 各操作的诚实边界注脚（能力声明卡的按需复述）。 */
 private fun honestOpNote(op: MediaOp): String = when (op) {
-    MediaOp.EXTRACT_AUDIO -> "仅 AAC 音轨可直封 M4A；MP3 / Opus 等其他编码属 FFmpeg 级插件能力（路线图）。"
-    MediaOp.STRIP_AUDIO -> "输出与源同画质同参数，仅丢弃音轨；多视频轨源只保留首条。"
-    MediaOp.TRIM -> "无重编码裁剪：样本与编码参数原样搬运，画质零损失。"
+    MediaOp.EXTRACT_AUDIO -> "仅 AAC 音轨可直封 M4A（MP3 / Opus 属插件能力）"
+    MediaOp.STRIP_AUDIO -> "输出与源同参数，仅丢弃音轨（多视频轨只保留首条）"
+    MediaOp.TRIM -> "无重编码裁剪，画质零损失"
 }
 
 private fun outputMime(op: MediaOp): String =

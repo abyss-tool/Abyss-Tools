@@ -235,15 +235,7 @@ internal fun AppOpsPanel(
         item { ExecResultCard(record) }
 
         // ── 说明卡 ──────────────────────────────────────────────────────
-        item {
-            KitExpanderCard(
-                title = "appops 是什么？",
-                body = "App Operations 是 Android 的免 Root 权限精细管控通道：比运行时权限更细粒度" +
-                    "（后台运行 / 悬浮窗 / 模拟位置 / 安装包 / 闲置回收……）。allow = 显式放行，" +
-                    "deny = 显式拒绝（比撤销权限更狠），default = 归还系统默认策略。" +
-                    "改动即时生效，重启不丢失。",
-            )
-        }
+        // UI-001：appops 科普说明卡删除（FEAT-020 规格承载语义）
     }
 
     if (pickerVisible) {

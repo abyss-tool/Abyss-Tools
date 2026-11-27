@@ -183,14 +183,7 @@ internal fun SettingsPanel(
         item { ExecResultCard(record) }
 
         // ── 说明卡 ──────────────────────────────────────────────────────
-        item {
-            KitExpanderCard(
-                title = "settings 通道说明",
-                body = "settings 命令直写系统设置数据库的三张表：global（全局）/ system（系统）/" +
-                    "secure（安全）。读取安全；写入会立即改变系统行为（部分项需广播或重启才生效），" +
-                    "错误键值可能导致系统异常 —— 本页写入强制二次确认。",
-            )
-        }
+        // UI-001：settings 通道说明卡删除（写入二次确认弹窗即边界）
     }
 
     // 写入确认弹窗（危险操作提示）

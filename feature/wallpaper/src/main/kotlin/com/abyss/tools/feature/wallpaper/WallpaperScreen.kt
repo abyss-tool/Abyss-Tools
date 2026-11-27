@@ -125,12 +125,12 @@ fun WallpaperScreen(onBack: () -> Unit) {
         ) {
             Spacer(Modifier.size(12.dp))
 
-            SectionHeader(title = "实时预览", subtitle = "所见即桌面 · 液态玻璃光斑实时漂移")
+            SectionHeader(title = "实时预览")
             WallpaperPreviewCard(theme = theme, speedFactor = speedFactor)
 
             Spacer(Modifier.size(18.dp))
 
-            SectionHeader(title = "主题", subtitle = "深色底 × 柔光光斑，四套预设")
+            SectionHeader(title = "主题")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -148,7 +148,7 @@ fun WallpaperScreen(onBack: () -> Unit) {
 
             Spacer(Modifier.size(18.dp))
 
-            SectionHeader(title = "漂移速度", subtitle = "0.5×–2.0×，叠加在主题内建节奏之上")
+            SectionHeader(title = "漂移速度")
             SpeedCard(
                 speedFactor = speedFactor,
                 onValueChange = { speedFactor = it },
@@ -172,7 +172,7 @@ fun WallpaperScreen(onBack: () -> Unit) {
 
             Spacer(Modifier.size(18.dp))
 
-            SectionHeader(title = "工作方式与功耗", subtitle = null)
+            SectionHeader(title = "工作方式与功耗")
             HowItWorksCard()
 
             Spacer(Modifier.size(32.dp))
@@ -493,10 +493,8 @@ private fun HowItWorksCard() {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        Bullet("动态壁纸由系统长驻托管：即使退出深渊工具，桌面上的光斑仍在缓慢漂移。")
-        Bullet("常驻渲染的功耗高于静态壁纸 —— 我们把帧率锁在 30 fps，且壁纸不可见（锁屏、全屏应用）时系统自动暂停绘制。")
-        Bullet("光斑随主页左右滑动产生轻微视差。")
-        Bullet("主题与速度保存后，回到桌面即生效。")
+        // UI-001：工作方式与功耗说明卡删除（30 fps 锁帧等参数见 FEAT-012 规格）
+        Bullet("主题与速度保存后，回到桌面即生效")
     }
 }
 

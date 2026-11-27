@@ -103,7 +103,6 @@ fun MirrorSection(
 
     SectionHeader(
         title = "下载镜像",
-        subtitle = "GitHub 直连不佳时走国内反代 · 自动择优或手动锁定",
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (probing) {

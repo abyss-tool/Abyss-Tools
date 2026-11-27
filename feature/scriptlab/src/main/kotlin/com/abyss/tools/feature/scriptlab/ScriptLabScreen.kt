@@ -284,7 +284,7 @@ fun ScriptLabScreen(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { IntroCard() }
+            // UI-001：能力边界说明卡移除
 
             // ── Shizuku 门禁（未授权置顶；下方仍可浏览 / 编辑 / 保存）─────
             if (!authorized) {
@@ -358,14 +358,13 @@ fun ScriptLabScreen(
             item {
                 SectionHeader(
                     title = "脚本库",
-                    subtitle = "${scripts.size} 个脚本 · filesDir/$SCRIPTS_DIR_NAME · 应用私有（卸载即清空）",
                 )
             }
             if (scripts.isEmpty()) {
                 item {
                     EmptyState(
                         title = "暂无已保存脚本",
-                        message = "在编辑器里写好脚本点「保存脚本」—— 文件落在应用私有目录，只在本页读写。",
+                        message = "写好脚本点「保存脚本」（文件落在应用私有目录）",
                     )
                 }
             } else {
@@ -559,20 +558,6 @@ private fun LabCard(
     }
 }
 
-/** 诚实能力说明卡（说不做什么比说能做什么更重要）。 */
-@Composable
-private fun IntroCard() {
-    LabCard(title = "脚本实验室 · 能力边界") {
-        Text(
-            text = "编辑 → 保存 → 经 Shizuku（adb shell 上下文）执行。Shell 逐行真实执行；" +
-                "Python 经运行时探测 —— 设备自带 CPython 时可用，否则诚实标注不可用" +
-                "（完整 Python 引擎随主壳内置化路线推进）。脚本文件保存在应用私有目录，卸载即清空。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
 /** Shizuku 门禁卡（未运行 / 未授权时置顶；下方内容仍可浏览与保存，运行被禁用）。 */
 @Composable
 private fun ShizukuGateCard(
@@ -623,10 +608,7 @@ private fun PythonRuntimeCard(
     canProbe: Boolean,
     onProbe: () -> Unit,
 ) {
-    LabCard(
-        title = "Python 运行时探测",
-        subtitle = "探测系统是否自带 CPython（python3 / python）—— 没有就如实说没有",
-    ) {
+    LabCard(title = "Python 运行时探测") {
         when {
             probing -> StatusChip(text = "探测中…", tone = ChipTone.NEUTRAL)
             probeBlocked -> StatusChip(text = "探测需要 Shizuku（当前未就绪）", tone = ChipTone.WARN)
@@ -635,8 +617,7 @@ private fun PythonRuntimeCard(
         }
         Spacer(Modifier.size(8.dp))
         Text(
-            text = "探测命令：${RunDetectors.PROBE_COMMAND}（经 Shizuku 以 adb shell 上下文执行）。" +
-                "完整 Python 引擎（Chaquopy）属主壳后续内置化路线 —— 当前只做只读探测，绝不伪造可用性。",
+            text = "探测命令：${RunDetectors.PROBE_COMMAND}（经 Shizuku 执行，只读探测）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -706,7 +687,7 @@ private fun EditorCard(
     saveMessage: String?,
     saveFailed: Boolean,
 ) {
-    LabCard(title = "脚本编辑器", subtitle = "当前语言 ${lang.title} —— 保存为 <脚本名>.${lang.ext}") {
+    LabCard(title = "脚本编辑器", subtitle = "当前语言 ${lang.title}，保存为 <脚本名>.${lang.ext}") {
         OutlinedTextField(
             value = name,
             onValueChange = onNameChange,
@@ -736,7 +717,7 @@ private fun EditorCard(
         )
         Spacer(Modifier.size(10.dp))
         Text(
-            text = "快速模板（点填不执行 —— 看清了再点运行）",
+            text = "快速模板（点填不执行，看清了再点运行）",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -801,13 +782,7 @@ private fun RunCard(
             Text(if (running) "执行中…" else "运行脚本")
         }
         Spacer(Modifier.size(8.dp))
-        Text(
-            text = "脚本体经 printf 单引号管道送入 sh / python3 —— 应用私有目录对 shell 用户不可读，" +
-                "故不走「写临时文件再执行」的假路子（诚实边界）。上限 16KB；单命令网关暂不支持中断，" +
-                "超时 30s 自动返回；单流输出 1MB 封顶。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // UI-001：执行通道说明段删除（16KB / 30s / 1MB 限额见 FEAT-014 规格）
     }
 }
 
@@ -843,7 +818,7 @@ private fun OutputCard(
             }
         } else if (report == null) {
             Text(
-                text = "尚未执行：编辑脚本后点「运行脚本」，或在脚本库菜单选「直接运行」。",
+                text = "尚未执行（编辑脚本后点「运行脚本」或脚本库菜单「直接运行」）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

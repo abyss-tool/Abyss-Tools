@@ -201,7 +201,7 @@ fun DashboardScreen(
             // ── 快捷工具 ──────────────────────────────────────────────
             item {
                 Box(Modifier.fillMaxWidth().entranceStagger(3)) {
-                    SectionHeader(title = "快捷工具", subtitle = "高频入口 · 点击进入工具页")
+                    SectionHeader(title = "快捷工具")
                 }
             }
             items(count = 4, key = { it }) { index ->
@@ -213,7 +213,6 @@ fun DashboardScreen(
                         com.abyss.tools.core.designsystem.component.ListRowCard(
                             icon = AbyssIcons.icon(tool.iconKey),
                             title = tool.title,
-                            summary = tool.summary,
                             onClick = { onOpenTool(tool.id) },
                             badge = { StatusChip(text = tool.status.label) },
                         )
@@ -240,7 +239,7 @@ fun DashboardScreen(
             // ── 路线图 ────────────────────────────────────────────────
             item {
                 Column {
-                    SectionHeader(title = "框架路线图", subtitle = "SRS §6 开发里程碑（对齐总体蓝图）")
+                    SectionHeader(title = "框架路线图")
                     Box(Modifier.fillMaxWidth().entranceStagger(9)) {
                         RoadmapCard()
                     }
@@ -352,7 +351,7 @@ private fun UpdateCard(
             val statusText = when (updateUi) {
                 UpdateUi.Idle -> "渠道：Abyss-Tools-Release · version.json（GitHub Raw）"
                 UpdateUi.Checking -> "正在读取发布仓清单…"
-                UpdateUi.UpToDate -> "当前 v${AppInfo.VERSION_NAME} 已是通道最新。"
+                UpdateUi.UpToDate -> "当前 v${AppInfo.VERSION_NAME} 已是通道最新"
                 is UpdateUi.Available -> buildString {
                     append("发现 v")
                     append(updateUi.version)
@@ -365,7 +364,7 @@ private fun UpdateCard(
                     )
                 }
 
-                is UpdateUi.Failed -> "更新通道不可达：${updateUi.message}（App 首个 APK 发布前，发布仓仅含清单骨架 —— 属预期状态）"
+                is UpdateUi.Failed -> "更新通道不可达：${updateUi.message}"
             }
             Text(
                 text = statusText,
@@ -406,12 +405,6 @@ private fun PluginEntryCard(
                 StatusChip("本机已装 $installedPluginCount", ChipTone.OK)
             }
         }
-        Spacer(Modifier.size(4.dp))
-        Text(
-            text = "应用构建器（旗舰）/ 病毒拦截（新）/ 虚拟机（新）—— 独立仓库、独立 CI、独立补丁通道。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-        )
         Spacer(Modifier.size(10.dp))
         Button(onClick = onOpen) { Text("进入插件中心") }
     }

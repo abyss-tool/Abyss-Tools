@@ -224,7 +224,7 @@ fun PluginHubScreen(
             is UiState.Loading -> LoadingState("正在拉取插件索引…", Modifier.fillMaxSize())
 
             is UiState.Error -> ErrorState(
-                message = "插件索引拉取失败：${state.message}\n（首个 APK 发布前，插件中心仓已建立索引骨架）",
+                message = "插件索引拉取失败：${state.message}",
                 modifier = Modifier.fillMaxSize(),
                 onRetry = { retryKey++ },
             )
@@ -282,7 +282,6 @@ fun PluginHubScreen(
                                 Box(Modifier.fillMaxWidth().entranceStagger(1)) {
                                     SectionHeader(
                                         title = "我的插件",
-                                        subtitle = "本机已装 ${installedPlugins.size} 个 · 数据层登记 + 补丁通道",
                                         trailing = {
                                             androidx.compose.material3.TextButton(
                                                 onClick = { checkUpdates(state.value) },
@@ -319,7 +318,7 @@ fun PluginHubScreen(
                                         is UiState.Data ->
                                             if (u.value.isEmpty()) {
                                                 Text(
-                                                    "已装插件均为通道可应用链的最新版本。",
+                                                    "已装插件均为通道可应用链最新版本",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
@@ -362,7 +361,7 @@ fun PluginHubScreen(
 
                         item {
                             Box(Modifier.fillMaxWidth().entranceStagger(3)) {
-                                SectionHeader(title = "插件生态", subtitle = "${entries.size} 个大插件仓库 · 独立 CI · 独立补丁通道")
+                                SectionHeader(title = "插件生态")
                             }
                         }
                         item {
@@ -503,13 +502,6 @@ private fun PluginCard(entry: PluginIndexEntry, installed: Boolean, onClick: () 
                 Spacer(Modifier.size(6.dp))
                 StatusChip("v${entry.version}", ChipTone.NEUTRAL)
             }
-            Spacer(Modifier.size(2.dp))
-            Text(
-                text = entry.summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (installed) StatusChip("已安装", ChipTone.OK) else StatusChip("未安装", ChipTone.WARN)
@@ -834,15 +826,8 @@ private fun PluginDetailContent(
             }
 
             // ── 描述 ─────────────────────────────────────────────────
-            item {
-                InfoCard(title = "描述") {
-                    Text(
-                        text = entry.summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            // UI-001：entry.summary 通道字段保留在 PluginIndexEntry（渠道
+            // 数据契约不动），但插件卡片不再渲染描述段。
 
             // ── 安装（AP：数据框架 + APK 双形态）───────────────────────
             item {
@@ -873,7 +858,7 @@ private fun PluginDetailContent(
                         InfoRow(label = "最低宿主", value = "v${entry.minApp}")
                         InfoRow(
                             label = "资产状态",
-                            value = if (entry.apk != null) "APK 已发布" else "APK 待发布（框架预览）",
+                            value = if (entry.apk != null) "APK 已发布" else "APK 待发布",
                         )
                         if (localManifest != null) {
                             InfoRow(label = "本机版本", value = "v${localManifest!!.version}")
@@ -889,7 +874,7 @@ private fun PluginDetailContent(
                     InfoCard(title = "已安装管理") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "移除本机安装登记与数据目录（补丁产物一并清除）。",
+                                text = "移除本机安装登记与数据目录（补丁产物一并清除）",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f),
@@ -919,11 +904,11 @@ private fun PluginDetailContent(
                                 }
                             }
                             Text(
-                                text = "APK 本体卸载：独立 APK 插件由系统安装器管理。" +
+                                text = "APK 本体卸载（系统安装器管理）：" +
                                     if (apkPackage != null) {
-                                        "已识别包名 $apkPackage —— 点击直达系统卸载确认页。"
+                                        "已识别包名 $apkPackage，点击直达系统卸载确认页"
                                     } else {
-                                        "本地缓存已清理，无法解析包名 —— 请到系统设置的「应用管理」中手动卸载。"
+                                        "本地缓存已清理，无法解析包名，请到系统应用管理手动卸载"
                                     },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -999,7 +984,6 @@ private fun PluginDetailContent(
             item {
                 SectionHeader(
                     title = "补丁更新",
-                    subtitle = "插件仓库 patches/index.json · abyss-patch-v1 数据补丁引擎（应用闭环已可用）",
                 )
                 when (val ch = channelState) {
                     is UiState.Loading -> LoadingState("读取补丁通道…")
@@ -1087,7 +1071,7 @@ private fun DataInstallUi(
     Column {
         Text(
             text = "数据层框架安装：索引项 manifest 经校验（id 形态 / SemVer / 宿主下限）后" +
-                "原子落盘为本机安装登记 —— 安装态、版本账本与补丁通道随即可用。",
+                "原子落盘为本机安装登记（版本账本与补丁通道随即可用）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1099,7 +1083,7 @@ private fun DataInstallUi(
                         StatusChip("已登记", ChipTone.OK)
                         Spacer(Modifier.size(8.dp))
                         Text(
-                            "数据层已安装 —— 可在下方应用补丁或升级版本。",
+                            "数据层已安装（可在下方应用补丁或升级版本）",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1116,7 +1100,7 @@ private fun DataInstallUi(
             }
 
             DataInstallPhase.DONE -> Text(
-                "数据层安装完成 —— 本机登记已建立。",
+                "数据层安装完成，本机登记已建立",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -1149,8 +1133,8 @@ private fun PatchChannelCard(
     InfoCard(title = "通道 · 最新 v${channel.latest}") {
         if (channel.patches.isEmpty()) {
             Text(
-                text = "补丁通道已建立，当前为首发版本 —— 后续更新将以数据补丁" +
-                    "（abyss-patch-v1）形式增量下发：下载 → SHA-256 校验 → 备份 → 应用 → 失败自动回滚。",
+                text = "补丁通道已建立（首发版本）" +
+                    "后续以 abyss-patch-v1 数据补丁增量下发（失败自动回滚）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1175,14 +1159,14 @@ private fun PatchChannelCard(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 } else if (localVersion == null) {
                     Text(
-                        text = "安装数据层框架后，此处将出现可应用的增量补丁。",
+                        text = "安装数据层框架后，此处将出现可应用的增量补丁",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.size(2.dp))
                 } else {
                     Text(
-                        text = "本机 v$localVersion 已是通道可应用链的最新（通道最新 v${channel.latest}）。",
+                        text = "本机 v$localVersion 已是通道可应用链最新（通道最新 v${channel.latest}）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1302,9 +1286,9 @@ private fun InstallFlowUi(
             InstallPhase.IDLE -> {
                 Text(
                     text = if (apkPublished) {
-                        "APK 层安装：下载 → SHA-256 校验 → 系统安装器（同签名门禁 + 未知来源确认页自动转发）。"
+                        "APK 层安装：下载 → SHA-256 校验 → 系统安装器（同签名门禁 + 未知来源确认）"
                     } else {
-                        "APK 层安装：插件仓库 APK 资产尚未发布 —— 流水线已就绪（下载 / 校验 / PackageInstaller 网关真实实现），资产发布后即全链路生效。"
+                        "APK 层安装：仓库 APK 资产尚未发布（流水线已就绪，资产发布后即全链路生效）"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1345,7 +1329,7 @@ private fun InstallFlowUi(
             }
 
             InstallPhase.DONE -> Text(
-                "安装完成 —— APK 已就位，本机版本登记已同步至通道版本。",
+                "安装完成（APK 已就位，版本登记同步至通道）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -1581,7 +1565,7 @@ internal fun PermissionAuditCard(
 
             if (permissions.isEmpty()) {
                 Text(
-                    text = "本插件未声明任何特殊权限，运行时仅使用插件沙箱内能力。",
+                    text = "本插件未声明任何特殊权限（仅使用插件沙箱内能力）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1612,7 +1596,7 @@ internal fun PermissionAuditCard(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "安装前请逐条审阅权限，确认后再安装。",
+                        text = "安装前请逐条审阅权限，确认后再安装",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
@@ -1726,7 +1710,7 @@ internal fun PermissionReviewDialog(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = "请逐条审阅本插件申请的权限；勾选确认后才可安装。",
+                    text = "请逐条审阅本插件申请的权限，勾选确认后才可安装",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2026,7 +2010,7 @@ private fun AgentPinnedCard(manager: AgentReleaseManager) {
                                     text = "来源：Ultra-Guru/Android-Guru-Agent（姊妹项目独立 APK，非插件）\n" +
                                         "变体：" + variantKey + " · " + agentBytesHuman(a.sizeBytes) + "\n" +
                                         "SHA-256：" + a.sha256 + "\n\n" +
-                                        "下载经多镜像加速并强校验摘要后交系统安装器。",
+                                        "下载经多镜像加速并强校验摘要后交系统安装器",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             },

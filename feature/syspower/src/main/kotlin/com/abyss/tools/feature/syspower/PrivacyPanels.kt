@@ -149,7 +149,7 @@ internal fun PermissionAuditPanel(
         Spacer(Modifier.size(4.dp))
         Text(
             text = "按应用盘点危险运行时权限的真实授予态（dumpsys package 系统真值），" +
-                "可逐项授予 / 回收，或一键回收全部已授予 —— 动作进同一会话日志，可撤销。",
+                "可逐项授予 / 回收，或一键回收全部（动作进会话日志，可撤销）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -280,7 +280,7 @@ private fun PermissionAuditSheet(
             Spacer(Modifier.size(8.dp))
             Text(
                 text = "数据来自 dumpsys package 原始输出（runtime permissions 段的系统真值），" +
-                    "只列白名单内的危险权限；授予态读不到就显示「未知」，不猜。",
+                    "只列白名单内的危险权限（读不到就显示「未知」，不猜）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -305,7 +305,7 @@ private fun PermissionAuditSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 rows.isEmpty() -> Text(
-                    text = "该应用未声明白名单内的危险运行时权限 —— 无可审计项。",
+                    text = "该应用未声明白名单内的危险运行时权限（无可审计项）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -424,8 +424,7 @@ internal fun SensitiveOpsPanel(runner: SysRunner) {
         )
         Spacer(Modifier.size(4.dp))
         Text(
-            text = "数据来自系统 AppOps 记账，仅在应用发生过该操作后有条目 —— 空结果即" +
-                "「近期无应用用过」。只读查询，无可撤销动作。",
+            text = "数据来自系统 AppOps 记账（只读查询，无可撤销动作）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -464,7 +463,7 @@ internal fun SensitiveOpsPanel(runner: SysRunner) {
                 )
                 else -> if (list.isEmpty()) {
                     Text(
-                        text = "近期无应用使用记录（appops 无该 op 条目）。",
+                        text = "近期无应用使用记录（appops 无该 op 条目）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -573,8 +572,7 @@ internal fun DeviceIdlePanel(
         )
         Spacer(Modifier.size(4.dp))
         Text(
-            text = "白名单内应用在 Doze 深睡期保留网络 / 同步豁免（收不到推送的应用可加进来" +
-                "救急）。系统内置条目（各类系统服务）由系统维护，移除会被拒绝并如实报错。",
+            text = "Doze 深睡期保留网络 / 同步豁免（系统内置条目由系统维护，移除会被拒绝）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -610,7 +608,7 @@ internal fun DeviceIdlePanel(
                 TextButton(onClick = { scope.launch { reload() } }) { Text("重试") }
             }
             entries.orEmpty().isEmpty() -> Text(
-                text = "白名单为空（读取成功，无任何条目）。",
+                text = "白名单为空（读取成功，无任何条目）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -786,7 +784,7 @@ internal fun NetPolicyPanel(
         )
         Spacer(Modifier.size(4.dp))
         Text(
-            text = "数据节省（restrict-background）与单应用后台流量管制 —— adb 官方通道，重启保持。",
+            text = "数据节省与单应用后台流量管制（adb 官方通道，重启保持）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -822,7 +820,7 @@ internal fun NetPolicyPanel(
         )
         Spacer(Modifier.size(4.dp))
         Text(
-            text = "先选应用：读取其 uid 与当前策略，再拒绝其后台流量或解除限制。",
+            text = "先选应用（读取 uid 与当前策略后再管制）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -883,8 +881,8 @@ internal fun NetPolicyPanel(
                 }
                 Spacer(Modifier.size(4.dp))
                 Text(
-                    text = "拒绝 = POLICY_REJECT_METERED_BACKGROUND（计量网络下后台数据一律拒绝）；" +
-                        "解除 = 清除该应用全部策略位回默认。",
+                    text = "拒绝 = POLICY_REJECT_METERED_BACKGROUND（计量网络后台数据一律拒绝），" +
+                        "解除 = 清除该应用全部策略位回默认",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -206,7 +206,6 @@ internal fun BlueprintEditor(
             // ── JSON 编辑区 ──────────────────────────────────────────
             SectionHeader(
                 title = "蓝图 JSON",
-                subtitle = "点「校验 JSON」或保存时解析；调度在下方单独设置",
             )
             OutlinedTextField(
                 value = json,
@@ -275,8 +274,6 @@ internal fun BlueprintEditor(
             // ── 调度区（v0.9.0 双模式：间隔循环 / 每日定时 TimePicker）──
             SectionHeader(
                 title = "定时调度",
-                subtitle = "AlarmManager 精确闹钟 · 重启自动恢复 · 间隔最小 " +
-                    "${BlueprintParser.MIN_INTERVAL_MINUTES} 分钟",
             )
             BlueprintCard {
                 Text(
@@ -304,7 +301,7 @@ internal fun BlueprintEditor(
                     ScheduleMode.OFF -> {
                         Spacer(Modifier.size(8.dp))
                         Text(
-                            text = "仅手动执行：保存后不排闹钟（已排的调度会被撤销）。",
+                            text = "仅手动执行（保存后不排闹钟，已排调度会被撤销）",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -325,7 +322,7 @@ internal fun BlueprintEditor(
                         )
                         Spacer(Modifier.size(4.dp))
                         Text(
-                            text = "省电纪律：系统级最小间隔 ${BlueprintParser.MIN_INTERVAL_MINUTES} 分钟。",
+                            text = "省电纪律：最小间隔 ${BlueprintParser.MIN_INTERVAL_MINUTES} 分钟",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

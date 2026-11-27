@@ -128,6 +128,11 @@ jobs:
       - name: Spec-Lint (N-ENG-008)
         run: python3 tools/spec_lint.py
 
+      # ── UI-001 功能文案精简门禁：feature / core:designsystem 装饰长
+      #    文案预算检查（keep-text 注释与哈希白名单见 tools/ 目录）──
+      - name: UI Text Budget (UI-001)
+        run: python3 tools/ui_text_budget.py
+
       # ── N-ENG-010 发布说明质量门禁（B-05 收口：主仓 docs/release-notes/
       #    v*.md 逐文件强制校验 —— 原实现只在 latest.md 存在时才跑，
       #    而 latest.md 从未存在过 = 恒跳过；发布仓侧由 validate-manifests

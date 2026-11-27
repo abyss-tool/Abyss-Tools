@@ -295,7 +295,7 @@ fun AppDetailScreen(
 
                 // ── 信息区 ───────────────────────────────────────────
                 item(key = "info") {
-                    SectionHeader(title = "应用信息", subtitle = null)
+                    SectionHeader(title = "应用信息")
                     AppCard {
                         InfoRow(label = "版本名", value = appSnapshot.versionName ?: "未知")
                         InfoRow(label = "版本号", value = appSnapshot.versionCode.toString())
@@ -310,7 +310,7 @@ fun AppDetailScreen(
 
                 // ── 动作区 ───────────────────────────────────────────
                 item(key = "actions") {
-                    SectionHeader(title = "操作", subtitle = null)
+                    SectionHeader(title = "操作")
                     AppCard {
                         // 启动 / 提取安装包（均不依赖 Shizuku）
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -464,33 +464,11 @@ fun AppDetailScreen(
                                 Text("卸载")
                             }
                         }
-
-                        if (appSnapshot.isSystem) {
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                text = "系统应用受系统保护无法卸载 —— 可用「冻结」停用（数据保留，随时解冻恢复）。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
 
-                // ── 操作语义（诚实边界）────────────────────────────────
+                // ── 操作语义（UI-001：说明卡删除）────────────────────
                 item(key = "notes") {
-                    SectionHeader(title = "操作语义", subtitle = null)
-                    AppCard {
-                        Text(
-                            text = listOf(
-                                "冻结 = pm disable-user --user 0：免 Root 停用，图标消失、后台清零，数据完整保留，解冻即恢复；",
-                                "强制停止 = am force-stop：立即终止全部进程，不删数据；",
-                                "隐藏 = pm hide：从系统整体隐藏（比冻结更彻底），数据保留，可随时恢复；",
-                                "提取安装包：复制 APK 到本应用专属目录（无需 Shizuku），可分享给其他设备安装。",
-                            ).joinToString(separator = "\n"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         }
@@ -515,6 +493,7 @@ fun AppDetailScreen(
             },
             title = { Text(text = "强制停止「${appSnapshot.label}」？") },
             text = {
+                // keep-text: 高危确认（强制停止前破坏性影响声明）
                 Text(text = "应用的全部进程会被立即终止：未保存的临时状态可能丢失，已写入磁盘的数据不受影响。")
             },
             confirmButton = {

@@ -1,6 +1,7 @@
 package com.abyss.tools.core.plugin
 
 import com.abyss.tools.core.common.ToolCatalog
+import com.abyss.tools.core.common.ToolCategory
 import com.abyss.tools.core.common.ToolStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,7 +44,8 @@ class ToolCatalogPluginBindingTest {
         // 承接位：Linux 运行环境（QEMU_VM 执行域提供方）
         val linux = ToolCatalog.tools.first { it.pluginId == "abyss-plugin-linux" }
         assertEquals(ToolStatus.PLUGIN, linux.status)
-        assertTrue(linux.summary.contains("linux-runtime-v1"))
+        // UI-001：summary 字段已删除，改验目录结构字段非空
+        assertTrue(linux.iconKey.isNotBlank())
     }
 
     @Test
@@ -51,6 +53,8 @@ class ToolCatalogPluginBindingTest {
         val linux = ToolCatalog.tools.first { it.pluginId == "abyss-plugin-linux" }
         assertEquals("linux-runtime", linux.id)
         assertTrue(linux.title.isNotEmpty())
-        assertTrue(linux.summary.contains("双执行域"))
+        // UI-001：summary 字段已删除 —— 标题 + 状态即目录全部语义
+        assertTrue(linux.title.length <= 12)
+        assertEquals(ToolCategory.DEV, linux.category)
     }
 }

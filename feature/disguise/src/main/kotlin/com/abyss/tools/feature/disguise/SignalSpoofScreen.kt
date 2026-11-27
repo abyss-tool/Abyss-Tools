@@ -177,7 +177,6 @@ fun SignalSpoofScreen(
             item {
                 SectionHeader(
                     title = "状态栏信号显示伪装",
-                    subtitle = "覆盖层绘制：无卡 / 关网也能显示指定Assertion与信号格，截图与屏幕共享同视图",
                 )
             }
 
@@ -189,8 +188,8 @@ fun SignalSpoofScreen(
                         "悬浮窗授权" to when {
                             overlayPermGranted -> "已授予（SYSTEM_ALERT_WINDOW）"
                             shizukuStatus is ShizukuStatus.Running && shizukuStatus.authorized ->
-                                "未授予 —— 可用 Shizuku 一键授权"
-                            else -> "未授予 —— 需 Shizuku 或系统设置页"
+                                "未授予（可用 Shizuku 一键授权）"
+                            else -> "未授予（需 Shizuku 或系统设置页）"
                         },
                     )
                 }
@@ -306,7 +305,7 @@ fun SignalSpoofScreen(
                             SignalSpoofSpec.RIGHT_MARGIN_MAX_DP.toFloat(),
                     )
                     Text(
-                        text = "默认 68dp 让位真实电池图标；不同 ROM 图标布局不同，拖到与真机对齐为准。",
+                        text = "默认 68dp 让位真实电池图标（不同 ROM 布局不同，以对齐真机为准）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -369,8 +368,8 @@ fun SignalSpoofScreen(
                 item {
                     InfoCard(
                         title = "需要悬浮窗授权（一次性）",
-                        body = "与系统「设置 → 应用 → 在其他应用上层显示」同一开关。" +
-                            "Shizuku 已授权时可免跳设置页一键开启（appops 官方通道）。",
+                        body = "与系统「设置 → 应用 → 在其他应用上层显示」同一开关" +
+                            "Shizuku 已授权时可一键开启（appops 官方通道）",
                         tone = com.abyss.tools.core.designsystem.component.ChipTone.WARN,
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -474,7 +473,6 @@ fun SignalSpoofScreen(
             item {
                 SectionHeader(
                     title = "连接性真实开关",
-                    subtitle = "与系统快捷开关等价的真实切换（svc / cmd connectivity 官方通道，全系统生效）",
                 )
             }
 
@@ -546,7 +544,6 @@ fun SignalSpoofScreen(
             item {
                 SectionHeader(
                     title = "旧系统回退（Android 8~10）",
-                    subtitle = "cmd connectivity 需 Android 11+；老系统改用 settings + 广播形态",
                 )
                 Column(
                     modifier = Modifier
@@ -557,8 +554,8 @@ fun SignalSpoofScreen(
                 ) {
                     Text(
                         text = "若上方飞行模式开关提示「命令不存在 / 未知命令」，" +
-                            "说明系统低于 Android 11 —— 用回退命令（设置项 + 定向广播）。" +
-                            "个别 ROM 对该广播有限制，以系统开关页为准。",
+                            "系统低于 Android 11 时用回退命令（设置项 + 定向广播）" +
+                            "个别 ROM 限制该广播，以系统开关页为准",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -584,31 +581,7 @@ fun SignalSpoofScreen(
                 }
             }
 
-            item {
-                SectionHeader(title = "能力边界（诚实声明）", subtitle = null)
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    InfoCard(
-                        title = "显示伪装的生效范围",
-                        body = "覆盖层画在状态栏区域，全部 App 界面、截图、屏幕共享、" +
-                            "录屏看到的都是伪装的Assertion与信号格。锁屏与下拉快捷" +
-                            "设置面板头部是系统安全屏，不显示覆盖层（免 Root 无解，" +
-                            "属 SystemUI 进程领域）。",
-                    )
-                    InfoCard(
-                        title = "App 代码读到的仍是真实值",
-                        body = "覆盖层只影响「显示」。目标 App 用 TelephonyManager / " +
-                            "WifiManager 代码读取的信号与网络Assertion仍是真机真实值 —— " +
-                            "让 App 读到假值需要对目标进程 Hook（LSPatch / 沙箱双开插件路线，" +
-                            "见插件中心）。电量 / 机型伪装不受此限（dumpsys / 属性层，全系统真实）。",
-                    )
-                    InfoCard(
-                        title = "真实开关 ≠ 信号格数伪造",
-                        body = "下方连接性开关是与系统快捷开关完全等价的真实状态切换；" +
-                            "上方覆盖层才是「显示层伪造」。两者可独立使用，也可组合" +
-                            "（如：真实关数据 + 覆盖层显示满格 5G-A）。",
-                    )
-                }
-            }
+            // UI-001：能力边界说明卡删除（FEAT-030 规格承载边界语义）
         }
     }
 }

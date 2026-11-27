@@ -66,4 +66,5 @@
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | UI-001 文案清除 —— ToolCategory.description/ToolDef.summary 字段删除；占位页五类说明清零；ListRowCard/SectionHeader 瘦身；ui_text_budget.py 门禁上线。 |
 
