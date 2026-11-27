@@ -139,7 +139,14 @@ class ZipPatchApplier : PatchApplier {
                         if (dest.exists()) {
                             val backup = backup(backupDir, action.path, dest)
                             touched += dest to backup
-                            if (dest.delete()) deleted += action.path
+                            // NB-8（fail-closed）：delete() 失败（文件被占 / ROM
+                            // 怪癖）必须抛错走回滚 —— 此前静默吞掉后补丁仍报
+                            // 成功，目录停在「账本已升版但声明删除的文件仍在」
+                            // 的自相矛盾态。
+                            if (!dest.delete()) {
+                                throw IOException("补丁删除失败：${action.path}")
+                            }
+                            deleted += action.path
                         }
                     }
                     ACTION_REPLACE, ACTION_ADD -> {

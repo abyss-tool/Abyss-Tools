@@ -146,6 +146,15 @@ class OkHttpTransport : HttpTransport {
             if (existing > 0) header("Range", "bytes=$existing-")
         }.build()
         client.newCall(request).execute().use { response ->
+            // 416 = Range 越界（残留 part 长于远端资产 —— 资产被重发 / 回滚）。
+            // 就地截断后无 Range 递归重发一次：若走通用失败抛错，越界 part 会
+            // 永久保留 → 每次重试携带同一 Range → 下载死循环（NB-4：此前
+            // ResumePlanner 的 416→RESTART 自愈分支因 isSuccessful 先抛不可达，
+            // 递归后 existing=0 → 不再带 Range，深度恒 ≤ 1 无环路）。
+            if (response.code == 416 && existing > 0) {
+                part.writeBytes(ByteArray(0))
+                return download(url, dest, onProgress)
+            }
             if (!response.isSuccessful) throw IOException("HTTP ${response.code} <- $url")
             // 重定向落点复检（同 get：302 去往任意第三方域在此拦截）
             FetchHostPolicy.check(response.request.url.toString())
