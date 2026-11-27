@@ -5,7 +5,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 病毒拦截审计日志（N-VIR-006 FR-002/003/005）。
@@ -13,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * 纪律：
  *  - 每次判定与处置（扫描命中 / 拦截 / 用户放行 / 自动放行 / 加白名单）都留痕。
  *  - 日志默认仅写本地沙箱，**绝不随云查询外传**（FR-005）。
- *  - 文件上限 512KB，轮转保留最近 2 份，可导出（脱敏选项默认开启）。
+ *  - 文件上限 512KB，轮转保留 2 份（当前 + .1 轮转件），可导出（脱敏选项默认开启，含轮转历史）。
  *  - 仅记录包名/哈希/verdict/理由链/操作者/结果，不写文件路径、不写 token、不写隐私。
  */
 object VirusAuditLog {
@@ -46,10 +45,8 @@ object VirusAuditLog {
 
     private const val MAX_MEMORY = 200
     private const val MAX_FILE_BYTES = 512L * 1024
-    private const val MAX_ROTATIONS = 2
 
     private val buffer = ConcurrentLinkedQueue<Entry>()
-    private val count = AtomicInteger(0)
 
     @Volatile
     private var logDir: File? = null
@@ -80,10 +77,10 @@ object VirusAuditLog {
             operator = operator, result = result,
             reasons = reasons.toList(),
         )
+        // NB-3a：offer/poll + 独立计数器非原子 —— 并发下计数与队列漂移
+        // （poll 空时仍递减 → 越界丢弃/越界保留）。改以队列自身水位为准。
         buffer.offer(ev)
-        if (count.incrementAndGet() > MAX_MEMORY) {
-            buffer.poll(); count.decrementAndGet()
-        }
+        while (buffer.size() > MAX_MEMORY) buffer.poll()
         appendToFile(ev)
     }
 
@@ -91,7 +88,7 @@ object VirusAuditLog {
         buffer.toList().takeLast(limit.coerceAtMost(MAX_MEMORY))
 
     fun clear() {
-        buffer.clear(); count.set(0)
+        buffer.clear()
         runCatching { logFile()?.delete() }
         runCatching { rotatedFile()?.delete() }
     }
@@ -110,8 +107,15 @@ object VirusAuditLog {
             for (ev in buffer.toList()) w.write(ev.toLine(maskSha) + "\n")
             val main = logFile()
             if (main?.exists() == true) {
-                w.write("\n## 磁盘日志\n")
+                w.write("\n## 磁盘日志（当前）\n")
                 main.forEachLine { w.write(it + "\n") }
+            }
+            // NB-3b：轮转件（.log.1）承载更早的完整审计历史 —— 旧实现导出
+            // 时静默丢弃，审计链断档。修复：一并导出并标注轮转序。
+            val rotated = rotatedFile()
+            if (rotated?.exists() == true) {
+                w.write("\n## 磁盘日志（轮转 .1，较早）\n")
+                rotated.forEachLine { w.write(it + "\n") }
             }
         }
         dest

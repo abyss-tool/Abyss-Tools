@@ -40,6 +40,12 @@ import kotlinx.serialization.json.Json
  *  - 任意一步写失败 → 从备份回滚全部已改文件，目标目录恢复原状。
  */
 
+/** 补丁备份区目录前缀（公开：PluginInstaller 备份 GC 消费，单一事实源）。 */
+const val PATCH_BACKUP_PREFIX = ".abyss-patch-backup-"
+
+/** 旧版备份区前缀（历史存量目录识别用）。 */
+const val PATCH_BACKUP_PREFIX_OLD = ".patch-backup-"
+
 @Serializable
 data class PatchFileAction(
     val path: String,
@@ -223,8 +229,8 @@ class ZipPatchApplier : PatchApplier {
         const val ACTION_REPLACE = "replace"
         const val ACTION_ADD = "add"
         const val ACTION_DELETE = "delete"
-        const val BACKUP_PREFIX = ".abyss-patch-backup-"
-        const val BACKUP_PREFIX_OLD = ".patch-backup-"
+        const val BACKUP_PREFIX = PATCH_BACKUP_PREFIX
+        const val BACKUP_PREFIX_OLD = PATCH_BACKUP_PREFIX_OLD
 
         /** zip bomb 防线：数据层补丁的真实体量是 KB 级，三重上限极端冗余。 */
         const val MAX_ENTRIES = 512

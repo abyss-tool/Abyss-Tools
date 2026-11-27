@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.os.Build
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -60,7 +61,19 @@ class SignalOverlayService : Service() {
         // FGS 时序纪律：startForeground 先于一切（Android 12+ 后台启动窗口）
         createChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
-        registerReceiver(configReceiver, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
+        // B-29（N-CMP-001 升级前置）：ACTION_CONFIGURATION_CHANGED 为受保护
+        // 系统广播 —— Android 13+ 显式 RECEIVER_NOT_EXPORTED（只收系统定向
+        // 投递，最小暴露面；targetSdk 28 暂未被强制，但审计与前向兼容要求
+        // 声明），老系统降级默认注册（与 PackageInstallerApkGateway 同模式）。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                configReceiver,
+                IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        } else {
+            registerReceiver(configReceiver, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

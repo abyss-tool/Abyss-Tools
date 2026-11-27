@@ -269,6 +269,34 @@ class PluginInstaller(
 
     fun clearCache() {
         File(pluginsRoot, "cache").deleteRecursively()
+        gcPatchBackups()
+    }
+
+    /**
+     * 补丁备份区 GC（B-27）：PatchEngine 把备份建在 pluginsRoot 下的
+     * `.abyss-patch-backup-<ts>/`（targetDir 外部）—— 失败回滚成功后与
+     * 正常升级后都不清理，长期膨胀。策略：按目录名时间戳（而非 mtime，
+     * 防复制/恢复改 mtime）保留最近 [keep] 份，其余删除。
+     * 纯 JVM 可测（临时目录注入）。
+     */
+    fun gcPatchBackups(keep: Int = 3) {
+        require(keep >= 0) { "keep 必须非负：$keep" }
+        val dirs = pluginsRoot.listFiles { f ->
+            f.isDirectory && (f.name.startsWith(com.abyss.tools.core.update.PATCH_BACKUP_PREFIX) ||
+                f.name.startsWith(com.abyss.tools.core.update.PATCH_BACKUP_PREFIX_OLD))
+        }.orEmpty()
+        if (dirs.size <= keep) return
+        // 前缀互异时名字整序 ≠ 时间序（.a- vs .p- 前缀先决）—— 剥前缀取时间戳排序
+        fun ageOf(f: File): Long = when {
+            f.name.startsWith(com.abyss.tools.core.update.PATCH_BACKUP_PREFIX) ->
+                f.name.removePrefix(com.abyss.tools.core.update.PATCH_BACKUP_PREFIX).toLongOrNull() ?: 0L
+            else ->
+                f.name.removePrefix(com.abyss.tools.core.update.PATCH_BACKUP_PREFIX_OLD).toLongOrNull() ?: 0L
+        }
+        val sortedByAge = dirs.sortedByDescending(::ageOf)
+        sortedByAge.drop(keep).forEach { dir ->
+            runCatching { dir.deleteRecursively() }
+        }
     }
 
     private fun cacheDirFor(pluginId: String): File {
