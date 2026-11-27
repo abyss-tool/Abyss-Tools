@@ -277,16 +277,17 @@ class ShizukuShellGateway(
                 CappedText("", false)
             } else {
                 // NB-6（描述符恰好归还一次）：FileInputStream.close() 会关闭底层
-                // fd —— 若再叠加 pfd.use 的 close 即对同一 OS 描述符双重关闭，
-                // 并发下 fd 号被复用（OkHttp socket / 其他 exec 管道）时误杀
-                // 无关流。改用 detachFd() 把所有权移交给 FileInputStream，
-                // 由其唯一负责关闭；pfd 拆离后不再持有可关描述符。
-                val fd = pfd.detachFd()
-                runCatching {
-                    FileInputStream(fd).use { input ->
-                        StreamGuards.readTextCapped(input, maxStreamBytes)
-                    }
-                }.getOrDefault(CappedText("", false))
+                // fd —— 与外层 pfd.use 的 close 叠加即对同一 OS 描述符双重关闭，
+                // 第二次 close 的归宿依赖平台吞异常行为（Android 对同
+                // FileDescriptor 对象幂等，但这是实现细节而非契约）。改用
+                // closeStream=false：FIS 只作读取视图，fd 由 pfd.use 唯一归还。
+                pfd.use {
+                    runCatching {
+                        FileInputStream(it.fileDescriptor).let { input ->
+                            StreamGuards.readTextCapped(input, maxStreamBytes, closeStream = false)
+                        }
+                    }.getOrDefault(CappedText("", false))
+                }
             }
             latch.countDown()
         }
