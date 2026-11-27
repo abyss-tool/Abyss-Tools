@@ -157,6 +157,8 @@ fun ScriptLabScreen(
         result.stdout.lineSequence().forEach { add(OutputLine(it, LineKind.STDOUT)) }
         result.stderr.lineSequence().forEach { add(OutputLine(it, LineKind.STDERR)) }
         if (result.truncated) add(OutputLine(TRUNCATED_NOTE, LineKind.SYSTEM))
+        if (result.timedOut) add(OutputLine(TIMEOUT_NOTE, LineKind.SYSTEM))
+        if (result.streamAbandoned) add(OutputLine(STREAM_ABANDONED_NOTE, LineKind.SYSTEM))
         add(OutputLine("$EXIT_PREFIX ${result.exitCode}", LineKind.SYSTEM))
     }
 
@@ -483,6 +485,8 @@ private const val DISPLAY_LINE_CAP = 400
 
 /** 单流截断的人话提示（ShellGateway 管道纪律的 UI 侧如实上报）。 */
 private const val TRUNCATED_NOTE = "输出超限已截断（单流 1MB 上限）"
+private const val TIMEOUT_NOTE = "命令超时被强杀（30s 硬超时）—— 退出码不可信"
+private const val STREAM_ABANDONED_NOTE = "输出流未收尾（管道被继承），结果不完整"
 
 /** exit 行前缀（非零退出码按失败色渲染 —— 见 [isNonZeroExitLine]）。 */
 private const val EXIT_PREFIX = "exit:"

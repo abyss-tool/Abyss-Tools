@@ -14,8 +14,19 @@ data class ShellResult(
     val stderr: String,
     /** 输出超过单流上限被截断（StreamGuards 上报，UI 如实提示）。 */
     val truncated: Boolean = false,
+    /**
+     * 硬超时触发：看门狗强杀（B-08/B-17 修复）。此时 exitCode 是被杀码，
+     * 不再可信 —— [isSuccess] 恒为 false（超时 ≠ 成功，fail-closed 纪律）。
+     */
+    val timedOut: Boolean = false,
+    /**
+     * 流放弃：进程退出后读取线程未在有界时间内收尾（孙进程继承管道等
+     * 极端场景）。该流的输出不完整（同时 truncated=true），不得当完整
+     * 成功消费（B-08：原实现返回 truncated=false 的空文本 = fail-open）。
+     */
+    val streamAbandoned: Boolean = false,
 ) {
-    val isSuccess: Boolean get() = exitCode == 0
+    val isSuccess: Boolean get() = exitCode == 0 && !timedOut
 }
 
 /** Shizuku 不可用（未运行 / 未授权）时的人话错误 —— UI 直接展示。 */
