@@ -28,8 +28,8 @@ class MirroredTransportTest {
 
     /** fake transport：按 URL 路由字节/错误，记录请求落点。 */
     private class ByteFakeTransport(
-        private val bytes: (String) -> ByteArray?,
         private val failAt: Set<String> = emptySet(),
+        private val bytes: (String) -> ByteArray?,
     ) : HttpTransport {
         val requested = mutableListOf<String>()
         override fun get(url: String): String {
@@ -70,9 +70,9 @@ class MirroredTransportTest {
         val raw = "hello".toByteArray()
         // 全部反代/镜像 500，仅 DIRECT（原始 URL）可用
         val fake = ByteFakeTransport(
-            bytes = { url -> if (url == rawUrl) raw else null },
             failAt = setOf(ghfastUrl, rawGitmirrorUrl, "https://ghproxy.net/$rawUrl",
                 "https://gh-proxy.com/$rawUrl", "https://ghproxy.cn/$rawUrl"),
+            bytes = { url -> if (url == rawUrl) raw else null },
         )
         val result = mirrored(fake).getBytes(rawUrl)
         assertArrayEquals(raw, result)
