@@ -1,14 +1,14 @@
 # N-APP-002 · Alpine + PRoot 底座与可用性探测降级链
 
 > 深渊工具 Abyss Tools · 软件规格说明书（新增能力）  
-> 状态：**规划中 · 待实现** ｜ 优先级：**P0** ｜ 里程碑：**M1** ｜ 承载形态：**新增能力** ｜ 基线：**v0.9.5 / versionCode 28** ｜ 编制日期：**2026-11-21**
+> 状态：**已实现（abyss-plugin-linux v0.2.0，底座迁出至 Linux 插件仓）** ｜ 优先级：**P0** ｜ 里程碑：**M1** ｜ 承载形态：**新增能力** ｜ 基线：**v0.9.5 / versionCode 28** ｜ 编制日期：**2026-11-21**
 
 | 项 | 值 |
 | --- | --- |
 | 规格编号 | `N-APP-002` |
 | 所属域 | 新增能力 |
 | 承载形态 | 新增能力 |
-| 当前状态 | 规划中 · 待实现 |
+| 当前状态 | 已实现（abyss-plugin-linux 仓；probe/domain-proot/shizuku 三模块，纯 JVM 可测） |
 | 优先级 / 里程碑 | P0 / M1 |
 | 组织与基线 | abyss-tool 组织 19 仓库克隆研究；v0.9.5 / versionCode 28 |
 | 标签 | M1 · PRoot · 降级链 |
@@ -70,9 +70,33 @@
 
 - ptrace 被平台级策略否决，无法靠代码优化解决。
 
+
+## 0. 实现说明（架构演进 · ADR-100 D-3）
+
+**重要架构变更（2026-11-22）**：底座实现从 `abyss-plugin-app-builder` 迁出至独立的 `abyss-plugin-linux` 仓。本规格的所有 FR/AC 由 Linux 插件的三个模块共同承担：
+- **probe/**：ptrace 只读探测（5s 超时，无副作用）；降级链 `SHIZUKU_SESSION → PURE_PROOT → UNAVAILABLE`；ROM 黑名单（ColorOS 15/16、MagicOS）识别并人话告知
+- **domain-proot/**：Alpine mini rootfs（约 4MB，无 Termux 依赖，仅用 App 私有目录 `filesDir/linux/`）+ PRoot 二进制
+- **shizuku/**：per-app 授权检测、Shell 上下文拉起（uid 2000）；宿主授权不继承
+
+### FR 实现对照表
+
+| FR | 实现位置 | 说明 |
+|---|---|---|
+| FR-001 底座打包进插件（私有目录） | `abyss-plugin-linux/domain-proot/` + asset 模块 | Alpine mini rootfs + proot 二进制以 AAR/asset 形式打包，解压到 `filesDir/linux/alpine/`；不依赖 Termux |
+| FR-002 ptrace 只读探测，5s 超时 | `abyss-plugin-linux/probe/`（纯 JVM 可单测） | 探测命令只读、无副作用；5s 硬超时返回 UNAVAILABLE |
+| FR-003 Shizuku 授权→shell→proot 拉起 | `abyss-plugin-linux/shizuku/` + `domain-proot/ProotLauncher` | Shizuku 运行中且已授权时经 `sh -c` 上下文以 uid 2000 拉起 PRoot |
+| FR-004 纯 PRoot 兜底 / 不可用 fail-closed | `probe/ProbeRunner` | Shizuku 不可用→沙箱内纯 PRoot；两者皆失败→UNAVAILABLE，不启动注定失败的构建 |
+| FR-005 ROM 黑名单人话告知 | `probe/KnownRomPolicy` | ColorOS 15/16（约 1min 后被 ptrace 拦截）/ MagicOS（内核拒绝）识别并展示已知 ROM 清单 + 切域建议 |
+| FR-006 底座状态持久化 + 首页展示 | `session/RuntimeStateStore`（持久化）+ Linux 插件首页 | 四态 UNINITIALIZED/READY/DEGRADED/UNAVAILABLE 持久化到 SharedPreferences；首页卡片实时反映 |
+
+### AC 验证
+- AC-001：受限 ROM 模拟器上 probe 返回 UNAVAILABLE 且不进入构建流程（probe 单测覆盖）。
+- AC-002：Shizuku 授权前后 `shizukuState` NOT_GRANTED→GRANTED 正确切换（StateStore 单测覆盖）。
+
 ## 8. 变更记录
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 1.0 | 2026-11-27 | 底座迁出至 abyss-plugin-linux 仓；probe/domain-proot/shizuku 三模块就绪；M1 交付。 |
 

@@ -153,9 +153,9 @@
 
 | 编号 | 标题 | 状态 | 优先级 | 里程碑 |
 | --- | --- | --- | --- | --- |
-| `N-APP-001` | 构建器插件工程脚手架与 HOST_API 接入 | 规划中 · 待实现 | P0 | M1 |
-| `N-APP-002` | Alpine + PRoot 底座与可用性探测降级链 | 规划中 · 待实现 | P0 | M1 |
-| `N-APP-003` | Shizuku 独立授权与执行上下文 | 规划中 · 待实现 | P0 | M1 |
+| `N-APP-001` | 构建器插件工程脚手架与 HOST_API 接入 | 已实现（abyss-plugin-app-builder v0.2.0 · ADR-100 D-3 瘦客户端） | P0 | M1 |
+| `N-APP-002` | Alpine + PRoot 底座与可用性探测降级链 | 已实现（abyss-plugin-linux v0.2.0，probe/domain-proot/shizuku） | P0 | M1 |
+| `N-APP-003` | Shizuku 独立授权与执行上下文 | 已实现（abyss-plugin-linux 全生态唯一授权点） | P0 | M1 |
 | `N-APP-004` | 构建路径一：Anpyra 与硬性预检 | 规划中 · 待实现 | P1 | M1 |
 | `N-APP-005` | 构建路径二：aapt2 + 固定壳 DEX | 规划中 · 待实现 | P1 | M2 |
 | `N-APP-006` | 构建路径三：标准 Gradle 与资源约束 | 规划中 · 待实现 | P1 | M2 |
@@ -196,7 +196,7 @@
 | `N-SEC-003` | 签名密钥轮换与迁移路径 | 规划中 · 待实现 | P2 | M3 |
 | `N-UPD-001` | vcdiff 二进制增量合成 | 规划中 · 待实现 | P1 | M2 |
 | `N-UPD-002` | 灰度通道与一键回滚 | 规划中 · 待实现 | P2 | M2 |
-| `N-UPD-003` | 更新链可观测性与失败分类 | 规划中 · 待实现 | P1 | M1 |
+| `N-UPD-003` | 更新链可观测性与失败分类 | 已实现（v0.9.16 · UpdateTracer + UpdateFailureSheet） | P1 | M1 |
 | `N-CMP-001` | targetSdk 升级前置：执行域迁移 | 规划中 · 待实现 | P2 | M4 |
 | `N-CMP-002` | FGS 类型化与前台服务治理 | 规划中 · 待实现 | P2 | M4 |
 | `N-CMP-003` | 16KB 与 edge-to-edge 全量适配 | 规划中 · 待实现 | P2 | M3 |
