@@ -39,6 +39,7 @@ object DiagnosticsLog {
         NETWORK("网络"),
         BACKUP_RESTORE("备份恢复"),
         CRASH("崩溃防护"),
+        VIRUS_SCAN("病毒拦截"),
         GENERAL("通用"),
     }
 
