@@ -111,13 +111,26 @@ class PluginInstaller(
             val dir = pluginDir(entry.id).apply { mkdirs() }
             val target = dir.resolve(PluginContract.MANIFEST_FILE)
             val staging = dir.resolve("${PluginContract.MANIFEST_FILE}.staging")
+            val backup = dir.resolve("${PluginContract.MANIFEST_FILE}.bak")
             staging.writeText(PluginManifest.serialize(manifest))
-            if (target.exists() && !target.delete()) {
-                throw IOException("旧 manifest 清除失败：${entry.id}")
+            // B-12 原子落盘（备份 → 改名 → 回滚）：旧实现先 delete 再
+            // renameTo —— 两者之间 manifest 缺位，且 rename 失败无回滚，
+            // 已装插件的登记直接丢失（与注释「原子落盘」承诺相悖）。
+            backup.delete() // 清理上一轮失败残留（同 POSIX rename 覆盖语义对齐）
+            val hadOld = target.exists()
+            if (hadOld && !target.renameTo(backup)) {
+                throw IOException("旧 manifest 备份失败：${entry.id}")
             }
             if (!staging.renameTo(target)) {
-                throw IOException("manifest 落盘失败（staging 改名受阻）：${entry.id}")
+                // 回滚：恢复备份，不留「登记丢失」窗口；回滚本身失败如实上报
+                if (hadOld && !backup.renameTo(target)) {
+                    throw IOException(
+                        "manifest 落盘失败且回滚失败（staging 与备份均受阻）：${entry.id}"
+                    )
+                }
+                throw IOException("manifest 落盘失败（staging 改名受阻，已回滚）：${entry.id}")
             }
+            if (hadOld) backup.delete()
             manifest
         }
     }

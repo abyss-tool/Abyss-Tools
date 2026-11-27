@@ -68,4 +68,5 @@ installDataPlugin（校验 + 原子落盘）/ installApkPlugin 一条龙 / unins
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-27 | B-12 收口：`installDataPlugin` 落盘改「备份 → 改名 → 失败回滚」三段原子语义 —— 旧实现 delete+rename 之间存在登记缺位窗口且无回滚。回归用例：升级受阻（备份位 EISDIR 注入）旧 manifest 完好 + 成功路径无 staging/bak 残留。 |
 

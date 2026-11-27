@@ -276,6 +276,42 @@ class PluginFrameworkTest {
     }
 
     @Test
+    fun `数据层安装 - 升级受阻时旧 manifest 完好（B-12 原子性回归）`() {
+        val root = tmp.newFolder("plugins-atomic-rollback")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+        installer.installDataPlugin(entry()).getOrThrow()
+        val oldManifestText = installer.pluginDir("abyss-plugin-terminal")
+            .resolve("plugin.json").readText()
+
+        // 注入备份位受阻：plugin.json.bak 预置为非空目录（POSIX rename
+        // file→非空目录 EISDIR 失败，无需 mock 框架）→ 升级必失败
+        val bak = installer.pluginDir("abyss-plugin-terminal").resolve("plugin.json.bak")
+        bak.mkdirs()
+        bak.resolve("blocker.txt").writeText("占位")
+
+        val failed = installer.installDataPlugin(entry(version = "9.9.9"))
+        assertTrue(failed.isFailure)
+
+        // 旧登记完好无损：内容逐字节一致且可再解析（fail-closed 不丢数据）
+        val target = installer.pluginDir("abyss-plugin-terminal").resolve("plugin.json")
+        assertTrue(target.exists())
+        assertEquals(oldManifestText, target.readText())
+        assertEquals("0.1.0", installer.installedVersion("abyss-plugin-terminal").toString())
+    }
+
+    @Test
+    fun `数据层安装 - 成功路径无 staging 与 bak 残留（B-12）`() {
+        val root = tmp.newFolder("plugins-atomic-residue")
+        val installer = PluginInstaller(root, fakeTransport(), noGateway)
+        installer.installDataPlugin(entry()).getOrThrow()
+        installer.installDataPlugin(entry(version = "0.2.0")).getOrThrow()
+        val dir = installer.pluginDir("abyss-plugin-terminal")
+        assertTrue(!dir.resolve("plugin.json.staging").exists())
+        assertTrue(!dir.resolve("plugin.json.bak").exists())
+        assertEquals("0.2.0", installer.installedVersion("abyss-plugin-terminal").toString())
+    }
+
+    @Test
     fun `updatablePatch - from 命中本机版本时取 to 最大的补丁`() {
         val root = tmp.newFolder("plugins-patch-select")
         val installer = PluginInstaller(root, fakeTransport(), noGateway)
