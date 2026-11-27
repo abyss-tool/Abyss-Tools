@@ -1,5 +1,6 @@
 package com.abyss.tools.core.update
 
+import com.abyss.tools.core.common.AbyssChannels
 import kotlinx.serialization.Serializable
 import java.io.File
 
@@ -46,17 +47,38 @@ object AgentReleaseParsers {
         ignoreUnknownKeys = true
     }
 
+    /** SHA-256 摘要形态（64 位小写十六进制）。 */
+    private val SHA256_HEX = Regex("^[0-9a-f]{64}$")
+
     /**
-     * fail-closed 解析：坏 JSON / 缺关键字段（versionName 或 download 资产）
-     * 一律抛给人话错误，绝不把畸形清单猜成合法态。
+     * fail-closed 解析：坏 JSON / 缺关键字段（versionName / download 资产 /
+     * 签名证书指纹）/ 资产 URL 仓库归属不符，一律抛人话错误，绝不把畸形
+     * 清单猜成合法态。
+     *
+     * B-06 ②（资产 URL 仓库归属）：download.url 必须命中
+     * [AbyssChannels.AGENT_ASSET_URL_PREFIX]（指定发布仓 releases/download/
+     * 路径）—— 旧语义仅域级白名单，任意 github.com 仓库路径均放行。
+     *
+     * B-18（signingCertSha256 实校验前置）：指纹必填且形态合法 ——
+     * 无指纹锚点的清单不再提供安装通路（fail-closed，而非降级展示）。
      */
     fun parseAgentReleaseManifest(raw: String): AgentReleaseManifest {
         val manifest = json.decodeFromString<AgentReleaseManifest>(raw)
         require(manifest.versionName.isNotBlank()) { "通道清单缺 versionName" }
         require(manifest.download.isNotEmpty()) { "通道清单缺 download 资产（arm64/universal 均未发布）" }
+        require(!manifest.signingCertSha256.isNullOrBlank()) {
+            "通道清单缺 signingCertSha256 —— 无签名证书指纹锚点，拒绝该清单（fail-closed）"
+        }
+        require(SHA256_HEX.matches(manifest.signingCertSha256!!)) {
+            "通道清单 signingCertSha256 形态非法（需 64 位小写十六进制）：${manifest.signingCertSha256}"
+        }
         manifest.download.values.forEach { asset ->
             require(asset.url.isNotBlank()) { "通道清单 download 资产缺 url" }
             require(!asset.sha256.isNullOrBlank()) { "通道清单 download 资产缺 sha256（拒绝无校验下载）" }
+            require(asset.url.startsWith(AbyssChannels.AGENT_ASSET_URL_PREFIX)) {
+                "download 资产 URL 不在指定发布仓 releases/download/ 路径内" +
+                    "（fail-closed 防清单劫持指向任意仓库）：${asset.url}"
+            }
         }
         return manifest
     }
@@ -85,11 +107,19 @@ class AgentReleaseManager(
     /**
      * 下载指定变体 APK 并校验 sha256（阻塞）。校验不符删除缓存文件
      * （不留坏文件占坑），抛人话错误。
+     *
+     * B-06 ② 防御深度：资产 URL 仓库归属在解析层已拦；此处对直接构造的
+     * [DownloadInfo]（调用方绕过解析器的形态）再做同门禁 —— 下载发起前
+     * 拒绝，绝不向非指定发布仓发起请求。
      */
     fun downloadVerified(
         asset: DownloadInfo,
         onProgress: (readBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): File {
+        require(asset.url.startsWith(AbyssChannels.AGENT_ASSET_URL_PREFIX)) {
+            "agent 资产 URL 不在指定发布仓 releases/download/ 路径内（fail-closed）：" +
+                "${asset.url} —— 拒绝向非深渊agent 发布仓发起下载"
+        }
         cacheDir.mkdirs()
         val dest = File(cacheDir, fileNameOf(asset.url))
         try {
@@ -105,8 +135,21 @@ class AgentReleaseManager(
         return dest
     }
 
-    /** 提交系统安装器（阻塞；等待安装结果广播）。 */
-    fun install(file: File): Result<Unit> = apkGateway.install(file)
+    /**
+     * 提交系统安装器（阻塞；等待安装结果广播）。
+     *
+     * B-06 ③/B-18：携带通道清单期望（versionCode + signingCertSha256）——
+     * Android 侧网关在会话提交前对 APK 实际 versionCode 与签名证书指纹
+     * 硬校验，不符即拒（fail-closed），不再无锚点直装。
+     */
+    fun install(file: File, manifest: AgentReleaseManifest): Result<Unit> =
+        apkGateway.install(
+            file,
+            InstallExpectation(
+                expectedVersionCode = manifest.versionCode.toLong(),
+                expectedSigningCertSha256 = manifest.signingCertSha256,
+            ),
+        )
 
     /** 从 URL 提取安全文件名（与 UpdateManager.fileNameOf 同构，防路径穿越）。 */
     private fun fileNameOf(url: String): String {

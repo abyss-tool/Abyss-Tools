@@ -21,20 +21,27 @@ interface ApkInstallGateway {
     fun install(apk: File): Result<Unit>
 
     /**
-     * 带期望门禁的安装（v0.7.8：自更新专用）—— 通道清单声明与实际
-     * APK 必须对得上号，不符即拒（fail-closed）。默认实现忽略门禁直接
-     * 转发（插件安装等无清单期望的调用方零感知）；Android 实现覆写收紧。
+     * 带期望门禁的安装（v0.7.8：自更新专用；v0.9.18 B-06/B-18 扩展至
+     * 深渊agent）：通道清单声明与实际 APK 必须对得上号，不符即拒
+     * （fail-closed）。默认实现忽略门禁直接转发（插件安装等无清单
+     * 期望的调用方零感知）；Android 实现覆写收紧。
      */
     fun install(apk: File, expectation: InstallExpectation): Result<Unit> = install(apk)
 }
 
 /**
- * 自更新期望（v0.7.8）：version.json 声明的版本号 —— 下载完成的 APK
- * 必须与之一致才允许提交安装。镜像错位 / 通道未滚动 / 资产指错版本等
- * 一类「清单与资产漂移」在进入系统安装器之前就地拦截，不再依赖系统
- * 返回难懂的 INSTALL_FAILED_VERSION_DOWNGRADE 之类错误码。
+ * 安装期望（v0.7.8 自更新；v0.9.18 B-06/B-18 深渊agent 复用）：
+ * 下载完成的 APK 必须与通道清单一致才允许提交安装。镜像错位 / 通道
+ * 未滚动 / 资产指错版本等「清单与资产漂移」在进入系统安装器之前
+ * 就地拦截，不再依赖系统返回难懂的 INSTALL_FAILED_* 错误码。
  */
 data class InstallExpectation(
     /** 通道清单声明的 versionCode（下载的 APK 必须严格相等）。 */
     val expectedVersionCode: Long,
+    /**
+     * 通道清单声明的 APK 签名证书 SHA-256 指纹（64 位小写十六进制；
+     * B-18：深渊agent 通道必填）。null = 无指纹期望（自更新走
+     * PublisherSignatures 常量锚，不在此字段表达）。
+     */
+    val expectedSigningCertSha256: String? = null,
 )

@@ -54,4 +54,13 @@ object AbyssChannels {
      */
     const val AGENT_VERSION_JSON: String =
         "https://raw.githubusercontent.com/Ultra-Guru/Android-Guru-Agent-Release/main/version.json"
+
+    /**
+     * 深渊agent APK 资产 URL 的唯一合法前缀（B-06 ② 仓库归属硬校验）：
+     * 清单内的 download.url 只允许指向该发布仓自身的 releases/download/
+     * 路径 —— 旧语义只做域级白名单（github.com 任意仓库路径均放行），
+     * 清单与镜像同时被劫持时可诱导安装任意仓库的 APK。
+     */
+    const val AGENT_ASSET_URL_PREFIX: String =
+        "https://github.com/Ultra-Guru/Android-Guru-Agent-Release/releases/download/"
 }

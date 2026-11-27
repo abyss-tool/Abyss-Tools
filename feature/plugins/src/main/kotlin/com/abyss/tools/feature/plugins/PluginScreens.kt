@@ -2045,7 +2045,9 @@ private fun AgentPinnedCard(manager: AgentReleaseManager) {
                                                 }
                                                 phase = AgentPhase.INSTALLING
                                                 val installed = withContext(Dispatchers.IO) {
-                                                    manager.install(file)
+                                                    // B-18：携带清单期望（versionCode + 证书指纹），
+                                                    // 网关提交安装器前硬校验
+                                                    manager.install(file, manifest)
                                                 }
                                                 installed
                                                     .onSuccess { phase = AgentPhase.DONE }

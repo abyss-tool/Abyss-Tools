@@ -104,6 +104,23 @@ class PackageInstallerApkGateway(private val context: Context) : ApkInstallGatew
             }
         }
 
+        // ── 门禁 2.5：深渊agent 通道期望 → APK 签名证书指纹硬校验
+        //（B-18：signingCertSha256 定义终于被消费 —— 清单指纹 vs APK 实际
+        // 签名证书指纹逐字节比对，不符即拒；镜像/清单劫持即便同时替换
+        // APK 与 sha256，也无法伪造同指纹的签名证书）────────────────────
+        val expectedCert = expectation?.expectedSigningCertSha256
+        if (expectedCert != null) {
+            val certMatch = incoming.any {
+                PublisherSignatures.sha256Fingerprint(it).equals(expectedCert, ignoreCase = true)
+            }
+            if (!certMatch) {
+                throw SecurityException(
+                    "深渊agent APK 签名证书指纹与通道清单不符" +
+                        "（期望 ${expectedCert.take(17)}…）—— 拒绝安装（fail-closed）",
+                )
+            }
+        }
+
         // ── 门禁 3：目标包已安装 → 同签名门禁（两侧都可读才比对）──────
         val installedInfo: PackageInfo? = try {
             pm.getPackageInfo(packageName, signatureFlags())
