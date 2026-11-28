@@ -21,7 +21,11 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC_DIR = ROOT / "docs" / "abyss-specs"
 INDEX = SPEC_DIR / "SPEC-INDEX.md"
 
-SPEC_ID_RE = re.compile(r"`((?:SRS|ARC|CORE|UPD|PLG|SHL|SDK|INS|FEAT|HUB|N-[A-Z]+|SEC|DC|QA|ADR|LIN|APP|ENG|PLAN)-\d{3})`")
+# SRV（服务器插件，Linux 插件解耦套件 v1.3+）与既有前缀同列 —— 漏列即孤儿误报。
+SPEC_ID_RE = re.compile(r"`((?:SRS|ARC|CORE|UPD|PLG|SHL|SDK|INS|FEAT|HUB|N-[A-Z]+|SEC|DC|QA|ADR|LIN|APP|ENG|PLAN|SRV|RM)-\d{3})`")
+# 文件名前缀里的编号（SRS-106-….md / N-DO-001-….md）—— 比正文首个反引号编号更可靠：
+# 裁定型规格常在标题前先引用别的编号（如 ARC-104 开头引用 SRS-106）。
+SPEC_ID_FROM_NAME_RE = re.compile(r"^((?:N-[A-Z]+|[A-Z]+)-\d{3})")
 HEADER_FIELD_RE = re.compile(r"\|\s*(规格编号|状态|优先级|里程碑)\s*\|")
 
 
@@ -31,12 +35,22 @@ def load_registered_ids() -> set[str]:
 
 
 def scan_spec_files() -> dict[str, Path]:
+    """文件 → 编号映射：优先取文件名前缀编号，文件名无编号（README 等）才退回正文首个编号。"""
     out: dict[str, Path] = {}
+    unnamed: list[Path] = []
+    # 第一遍：文件名带编号的规格（权威映射）
     for md in SPEC_DIR.rglob("*.md"):
         if md.name in ("SPEC-INDEX.md",):
             continue
-        m = SPEC_ID_RE.search(md.read_text(encoding="utf-8"))
+        m = SPEC_ID_FROM_NAME_RE.match(md.stem)
         if m:
+            out[m.group(1)] = md
+        else:
+            unnamed.append(md)
+    # 第二遍：文件名无编号（README / 总览）只在编号未被占用时认领，绝不覆盖权威映射
+    for md in unnamed:
+        m = SPEC_ID_RE.search(md.read_text(encoding="utf-8"))
+        if m and m.group(1) not in out:
             out[m.group(1)] = md
     return out
 
@@ -49,12 +63,12 @@ def lint_spec_file(path: Path) -> list[str]:
     for field in ("规格编号", "当前状态", "优先级 / 里程碑"):
         if not re.search(rf"\|\s*{re.escape(field)}\s*\|", header_cut):
             errors.append(f"  · 缺失头部字段 `{field}`")
-    # 编号必须与文件名一致
-    m2 = re.match(r"^((?:N-[A-Z]+|[A-Z]+)-\d{3})", path.stem)
+    # 文件名带编号时：正文必须以反引号形式登记自己的编号（允许先引用别的编号）；
+    # 文件名无编号时（README / 总览）：正文首个编号即视为该文件的编号，无一致性要求。
+    m2 = SPEC_ID_FROM_NAME_RE.match(path.stem)
     id_from_name = m2.group(1) if m2 else None
-    m = SPEC_ID_RE.search(text)
-    if m and id_from_name and m.group(1) != id_from_name:
-        errors.append(f"  · 文件名 ID `{id_from_name}` 与正文编号 `{m.group(1)}` 不一致")
+    if id_from_name and not re.search(rf"`{re.escape(id_from_name)}`", text):
+        errors.append(f"  · 文件名 ID `{id_from_name}` 未在正文以 `编号` 形式登记")
     return errors
 
 
