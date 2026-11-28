@@ -26,6 +26,12 @@
          无 FGS type 强制） -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
+    <!-- ARC-011（v0.10.2）：Dhizuku 公开 API 通道声明（Dhizuku-API AAR 自带
+         API 权限，API_V2 由管理器校验）—— 只用 init / isPermissionGranted /
+         requestPermission 三个公开方法，设备所有者交叉验证走 DPM。 -->
+    <uses-permission android:name="com.rosan.dhizuku.permission.API" />
+    <uses-permission android:name="com.rosan.dhizuku.permission.API_V2" />
+
     <!-- 定位伪装「以当前位置为基准」（可选授权，新手引导第三步） -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -38,6 +44,9 @@
         <package android:name="com.hamondev.shevery" />
         <package android:name="af.shizuku.plus.api" />
         <package android:name="rikka.sui" />
+        <!-- ARC-011：Dhizuku 提供端（原版 Dhizuku；Shevery 已在上表）—— 提供端
+             是否为设备所有者由 DevicePolicyManager.isDeviceOwnerApp 交叉验证。 -->
+        <package android:name="com.rosan.dhizuku" />
     </queries>
 
     <!-- allowBackup=false：伪装配置 / 指令历史 / 蓝图脚本不进云备份域
@@ -114,6 +123,38 @@
         <service
             android:name="com.abyss.tools.feature.disguise.SignalOverlayService"
             android:exported="false" />
+
+        <!-- ARC-011 / FEAT-040（v0.10.2）：无障碍服务 —— 只做前台包名感知 +
+             手势代点两类原语；isAccessibilityTool=false 如实声明（冒称会被
+             设备保护机制拦截），不申请 canRetrieveWindowContent。配置见
+             res/xml/accessibility_service_config.xml。 -->
+        <service
+            android:name=".privilege.AbyssAccessibilityService"
+            android:exported="false"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- ARC-011 / N-DO-001 探测底座（v0.10.2）：零策略设备管理员接收器 ——
+             只为 isAdminActive 提供真实查询对象；本阶段无任何设备策略动作。 -->
+        <receiver
+            android:name=".privilege.AbyssDeviceAdminReceiver"
+            android:exported="false"
+            android:label="@string/device_admin_label"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
 
         <!-- 统一 FileProvider：应用管理器（提取 APK 分享）与二维码工坊
              （PNG 分享）共用，路径映射见 res/xml/file_paths.xml -->

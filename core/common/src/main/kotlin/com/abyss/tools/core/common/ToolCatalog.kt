@@ -31,6 +31,11 @@ package com.abyss.tools.core.common
  * UI-001（功能文案精简）：ToolCategory.description 与 ToolDef.summary
  * 装饰字段删除 —— 目录数据只保留 id / title / status / pluginId /
  * iconKey；状态语义经 [ToolStatus.label] 供无障碍朗读。
+ *
+ * FEAT-039（v0.10.2）：每条工具附带 [ToolAccess]（最小能力集合 + 多模式），
+ * 仪表盘 / 功能页 / 工具详情页三处消费同一份权限矩阵（与
+ * 《Abyss-Tools-权限矩阵.csv》逐条对齐）；门禁判定唯一公式
+ * `snapshot.allows(tool.access.required)`。
  */
 enum class ToolCategory(
     val id: String,
@@ -64,6 +69,11 @@ data class ToolDef(
     val pluginId: String? = null,
     /** designsystem 侧图标键（AbyssIcons.icon(key) 映射）。 */
     val iconKey: String,
+    /**
+     * 功能级门禁与多模式（FEAT-039）：打开该工具所需的最小能力集合 +
+     * 降级 / 增强路径。默认零权限 —— 既有构造零改动。
+     */
+    val access: ToolAccess = ToolAccess(),
 )
 
 object ToolCatalog {
@@ -94,6 +104,37 @@ object ToolCatalog {
     const val ID_SYS_CONTROL = "system-control"
     const val ID_WIDGET_STUDIO = "widget-studio"
 
+    /**
+     * 仪表盘快捷工具单一数据源（FEAT-039 FR-007）：此前 `items(count = 4)`
+     * 与 `listOf(...)` 双源，增删项必出 off-by-one；现在 count / key 全部
+     * 由本列表推导，缺条目 mapNotNull 诚实跳过。
+     */
+    val QUICK_TOOL_IDS: List<String> = listOf(
+        ID_SYS_CONTROL, ID_TERMINAL, ID_MEDIA_LAB, "app-builder",
+    )
+
+    // ── 能力缩写（权限矩阵可读性）──────────────────────────────────
+    private val SH = Capability.SHIZUKU_SHELL
+    private val ACC = Capability.ACCESSIBILITY
+    private val INST = Capability.INSTALL_UNKNOWN
+    private val OV = Capability.OVERLAY
+    private val OBS = Capability.APP_OBSERVE
+    private val DHZ = Capability.DHIZUKU_ACTIVE
+    private val DAD = Capability.DEVICE_ADMIN_ACTIVE
+    private val ROOT = Capability.SHIZUKU_ROOT
+    private val NONE: Set<Capability> = emptySet()
+    private val DO: Set<Capability> = setOf(DHZ, DAD)
+
+    private fun mode(name: String, required: Set<Capability>, note: String) =
+        ToolMode(name = name, required = required, note = note)
+
+    /** 只读 / 预览零权限 + 执行需 Shizuku 的标准双模式。 */
+    private fun shizukuDual(readonly: String, exec: String, vararg extra: ToolMode): List<ToolMode> =
+        listOf(
+            mode(readonly, NONE, "无需授权"),
+            mode(exec, setOf(SH), "系统级执行"),
+        ) + extra
+
     val categories: List<ToolCategory> = ToolCategory.entries.toList()
 
     val tools: List<ToolDef> = listOf(
@@ -105,6 +146,14 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-app-builder",
             iconKey = "construction",
+            access = ToolAccess(
+                required = setOf(SH, INST),
+                modes = listOf(
+                    mode("构建态", setOf(SH), "需 Linux 底座插件"),
+                    mode("安装态", setOf(INST), "安装构建产物"),
+                ),
+                guide = ToolGuide.PLUGINS,
+            ),
         ),
         ToolDef(
             id = "linux-runtime",
@@ -113,6 +162,15 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-linux",
             iconKey = "terminal",
+            access = ToolAccess(
+                required = setOf(SH, INST),
+                modes = listOf(
+                    mode("PRoot 域", NONE, "用户态执行，仅本地"),
+                    mode("Shizuku 域", setOf(SH), "挂载与网络"),
+                    mode("root 域", setOf(ROOT), "高危动作"),
+                ),
+                guide = ToolGuide.PLUGINS,
+            ),
         ),
 
         // ── 系统工具 ───────────────────────────────────────────────────
@@ -122,6 +180,10 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "apps",
+            access = ToolAccess(
+                required = setOf(SH),
+                modes = shizukuDual("只读列表", "冻结 / 隐藏 / 强停", mode("恢复安装", setOf(INST), "装回备份 APK")),
+            ),
         ),
         ToolDef(
             id = ID_SYS_CONTROL,
@@ -129,6 +191,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "tune",
+            access = ToolAccess(required = setOf(SH), modes = shizukuDual("只读诊断", "写入 settings / appops"), guide = ToolGuide.SHIZUKU),
         ),
         ToolDef(
             id = ID_SHIZUKU_KIT,
@@ -136,6 +199,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.BUILT_IN,
             iconKey = "security",
+            access = ToolAccess(required = setOf(SH), modes = shizukuDual("说明卡", "执行指令"), guide = ToolGuide.SHIZUKU),
         ),
         ToolDef(
             id = "battery-doctor",
@@ -143,6 +207,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.FRAMEWORK,
             iconKey = "bolt",
+            access = ToolAccess(),
         ),
         ToolDef(
             id = "virus-guard",
@@ -151,6 +216,14 @@ object ToolCatalog {
             status = ToolStatus.PLUGIN,
             pluginId = "abyss-plugin-virus-guard",
             iconKey = "bug_report",
+            access = ToolAccess(
+                required = setOf(SH, INST, OBS),
+                modes = listOf(
+                    mode("扫描", setOf(OBS), "特征比对与观察"),
+                    mode("处置", setOf(SH), "隔离 / 卸载"),
+                ),
+                guide = ToolGuide.PLUGINS,
+            ),
         ),
 
         // ── 终端与脚本（v0.8.0 内置化：Shizuku Shell 真实执行）──────────
@@ -160,6 +233,7 @@ object ToolCatalog {
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "terminal",
+            access = ToolAccess(required = setOf(SH), modes = shizukuDual("查看历史", "执行命令"), guide = ToolGuide.SHIZUKU),
         ),
         ToolDef(
             id = ID_SCRIPT_LAB,
@@ -167,6 +241,7 @@ object ToolCatalog {
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "code",
+            access = ToolAccess(required = setOf(SH), modes = shizukuDual("编辑脚本", "运行脚本"), guide = ToolGuide.SHIZUKU),
         ),
         ToolDef(
             id = "code-editor",
@@ -174,6 +249,7 @@ object ToolCatalog {
             category = ToolCategory.TERMINAL,
             status = ToolStatus.FRAMEWORK,
             iconKey = "edit",
+            access = ToolAccess(),
         ),
         ToolDef(
             id = ID_TASK_BLUEPRINT,
@@ -181,6 +257,14 @@ object ToolCatalog {
             category = ToolCategory.TERMINAL,
             status = ToolStatus.BUILT_IN,
             iconKey = "account_tree",
+            access = ToolAccess(
+                required = setOf(SH),
+                modes = shizukuDual(
+                    "编排 JSON", "执行步骤链",
+                    mode("自动确认", setOf(SH, ACC), "代点系统弹窗"),
+                ),
+                guide = ToolGuide.SHIZUKU,
+            ),
         ),
 
         // ── 沙箱与多开（v0.8.0 内置化：多用户隔离引擎）──────────────────
@@ -190,6 +274,14 @@ object ToolCatalog {
             category = ToolCategory.SANDBOX,
             status = ToolStatus.BUILT_IN,
             iconKey = "layers",
+            access = ToolAccess(
+                required = setOf(SH),
+                modes = listOf(
+                    mode("多用户基础", setOf(SH), "pm install --user"),
+                    mode("DO 托管", DO, "设备所有者策略"),
+                ),
+                guide = ToolGuide.SHIZUKU,
+            ),
         ),
         ToolDef(
             id = ID_DUAL_OPEN,
@@ -197,6 +289,14 @@ object ToolCatalog {
             category = ToolCategory.SANDBOX,
             status = ToolStatus.BUILT_IN,
             iconKey = "copy",
+            access = ToolAccess(
+                required = setOf(SH),
+                modes = listOf(
+                    mode("多用户基础", setOf(SH), "pm install --user"),
+                    mode("DO 托管", DO, "设备所有者策略"),
+                ),
+                guide = ToolGuide.SHIZUKU,
+            ),
         ),
         // ── 虚拟机（已收编 · HUB-014 归档纪律）────────────────────────
         // ADR-100 D-4：abyss-plugin-virtual-machine 归档，QEMU 整机能力由
@@ -210,6 +310,7 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "battery",
+            access = ToolAccess(required = setOf(SH), modes = shizukuDual("配置预览", "dumpsys battery"), guide = ToolGuide.SHIZUKU),
         ),
         ToolDef(
             id = ID_LOCATION_DISGUISE,
@@ -217,6 +318,7 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "location",
+            access = ToolAccess(required = setOf(SH), modes = shizukuDual("配置预览", "mock_location appops"), guide = ToolGuide.SHIZUKU),
         ),
         ToolDef(
             id = ID_SIGNAL_DISGUISE,
@@ -224,6 +326,14 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "signal",
+            access = ToolAccess(
+                required = setOf(SH),
+                modes = shizukuDual(
+                    "配置预览", "连通性开关",
+                    mode("状态栏覆盖层", setOf(OV), "悬浮窗或 Shizuku appops"),
+                ),
+                guide = ToolGuide.SHIZUKU,
+            ),
         ),
         ToolDef(
             id = ID_MODEL_DISGUISE,
@@ -231,6 +341,15 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.BUILT_IN,
             iconKey = "smartphone",
+            access = ToolAccess(
+                required = setOf(SH),
+                modes = shizukuDual(
+                    "配置预览", "NAME_ONLY 设备名",
+                    mode("STANDARD / DEEP 档案", setOf(SH), "仅导出，待 Hook 层"),
+                    mode("档案注入", DO, "设备所有者策略"),
+                ),
+                guide = ToolGuide.SHIZUKU,
+            ),
         ),
         ToolDef(
             id = "privacy-guard",
@@ -238,6 +357,7 @@ object ToolCatalog {
             category = ToolCategory.DISGUISE,
             status = ToolStatus.FRAMEWORK,
             iconKey = "visibility_off",
+            access = ToolAccess(),
         ),
 
         // ── 媒体工具（v0.8.0 内置化：MediaMuxer 无重编码引擎）──────────
@@ -247,6 +367,7 @@ object ToolCatalog {
             category = ToolCategory.MEDIA,
             status = ToolStatus.BUILT_IN,
             iconKey = "movie",
+            access = ToolAccess(),
         ),
         ToolDef(
             id = ID_QR_CRAFT,
@@ -254,6 +375,7 @@ object ToolCatalog {
             category = ToolCategory.MEDIA,
             status = ToolStatus.BUILT_IN,
             iconKey = "qr",
+            access = ToolAccess(),
         ),
 
         // ── 自动化 ────────────────────────────────────────────────────
@@ -263,6 +385,15 @@ object ToolCatalog {
             category = ToolCategory.AUTOMATION,
             status = ToolStatus.BUILT_IN,
             iconKey = "bolt",
+            access = ToolAccess(
+                required = setOf(SH, ACC),
+                modes = listOf(
+                    mode("编排编辑", NONE, "无需授权"),
+                    mode("命令编排", setOf(SH), "系统级执行"),
+                    mode("代点", setOf(ACC), "无障碍点击"),
+                ),
+                guide = ToolGuide.ACCESSIBILITY,
+            ),
         ),
 
         // ── 桌面美化（v0.9.0 引力场：组件银河四成员）───────────────
@@ -272,6 +403,7 @@ object ToolCatalog {
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "widgets",
+            access = ToolAccess(),
         ),
         ToolDef(
             id = ID_DYNAMIC_ISLAND,
@@ -279,6 +411,14 @@ object ToolCatalog {
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "swap",
+            access = ToolAccess(
+                required = setOf(OV),
+                modes = listOf(
+                    mode("手动授权", setOf(OV), "系统设置开启悬浮窗"),
+                    mode("一键授予", setOf(SH), "Shizuku appops"),
+                ),
+                guide = ToolGuide.OVERLAY,
+            ),
         ),
         ToolDef(
             id = ID_LIVE_WALLPAPER,
@@ -286,6 +426,7 @@ object ToolCatalog {
             category = ToolCategory.DESKTOP,
             status = ToolStatus.BUILT_IN,
             iconKey = "wallpaper",
+            access = ToolAccess(),
         ),
 
         // ── 网络守护（v0.8.0 内置化：netstats 流量审计）────────────────
@@ -295,6 +436,10 @@ object ToolCatalog {
             category = ToolCategory.NETWORK,
             status = ToolStatus.BUILT_IN,
             iconKey = "lan",
+            access = ToolAccess(
+                required = NONE,
+                modes = shizukuDual("netstats 只读", "细粒度审计"),
+            ),
         ),
 
         // ── 数据与备份（v0.8.0 内置化：APK 库 + zip 引擎）──────────────
@@ -304,6 +449,13 @@ object ToolCatalog {
             category = ToolCategory.DATA,
             status = ToolStatus.BUILT_IN,
             iconKey = "backup",
+            access = ToolAccess(
+                required = NONE,
+                modes = listOf(
+                    mode("zip / APK 库", NONE, "无需授权"),
+                    mode("恢复安装", setOf(INST), "装回备份 APK"),
+                ),
+            ),
         ),
 
         // ── 系统工具：临时时间修改（保留占位）──────────────────────────
@@ -313,6 +465,7 @@ object ToolCatalog {
             category = ToolCategory.SYSTEM,
             status = ToolStatus.FRAMEWORK,
             iconKey = "schedule",
+            access = ToolAccess(),
         ),
     )
 

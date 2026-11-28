@@ -53,11 +53,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.text.style.TextAlign
+import com.abyss.tools.core.common.Capability
+import com.abyss.tools.core.common.CapabilityGuide
+import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.designsystem.component.ChipTone
+import com.abyss.tools.core.designsystem.component.HelpIconButton
 import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
 import com.abyss.tools.core.designsystem.component.rememberReducedMotion
 import com.abyss.tools.core.designsystem.component.StatusChip
+import com.abyss.tools.core.designsystem.component.TierBadge
+import com.abyss.tools.core.designsystem.component.TierExplanationDialog
+import com.abyss.tools.core.designsystem.component.capabilityLabels
 import com.abyss.tools.core.shell.ShizukuStatus
 import com.abyss.tools.core.shell.ShizukuVariant
 import com.abyss.tools.core.shell.ShizukuVariants
@@ -71,12 +79,15 @@ import com.abyss.tools.core.shell.ShizukuVariants
  *  2. 启动并授权 Shizuku —— 实时状态 + 无线调试激活教程（可跳过）；
  *  3. 安装未知应用 —— 插件安装 / App 自更新（可跳过）；
  *  4. 可选权限（定位基准 / 通知）；
- *  5. 功能导览 —— 主界面有什么、去哪找；
- *  6. 一切就绪 —— 状态回顾 + 上手贴士。
+ *  5. 权限档位中心（ARC-009 修订 / FEAT-038，v0.10.2）—— 五档徽章 + 小问号 +
+ *     无障碍 / 设备管理员 / Dhizuku / 悬浮窗 真值与跳转，Android 15/16 分支说明；
+ *  6. 功能导览 —— 主界面有什么、去哪找；
+ *  7. 一切就绪 —— 五档结果 + 能力明细 + 还差什么能到下一档。
  *
- * 设计纪律：权限不是一次性全要 —— 每一步讲清楚「干什么用 / 不给会怎样」。
+ * 设计纪律：权限不是一次性全要 —— 每一步讲清楚「干什么用 / 不给会怎样」；
+ * 档位中心只展示真值与路径，无障碍与 ultra 都是可缺失档，不卡流程。
  */
-private const val TOTAL_STEPS = 7
+private const val TOTAL_STEPS = 8
 
 @Composable
 fun OnboardingScreen(
@@ -84,6 +95,9 @@ fun OnboardingScreen(
     onRequestShizukuPermission: () -> Unit,
     onOpenShizukuApp: () -> Unit,
     onDone: () -> Unit,
+    /** ARC-009 修订：权限快照（档位中心 / 就绪页消费；默认空 = 旧调用）。 */
+    privilegeSnapshot: PrivilegeSnapshot = PrivilegeSnapshot(),
+    onOpenCapability: (Capability) -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -266,9 +280,14 @@ fun OnboardingScreen(
                         },
                     )
 
-                    5 -> FeatureTourStep()
+                    5 -> TierCenterStep(
+                        snapshot = privilegeSnapshot,
+                        onOpenCapability = onOpenCapability,
+                    )
 
-                    6 -> ReadyStep(shizukuStatus = shizukuStatus)
+                    6 -> FeatureTourStep()
+
+                    7 -> ReadyStep(shizukuStatus = shizukuStatus, snapshot = privilegeSnapshot)
                 }
             }
         }
@@ -547,7 +566,87 @@ private fun OptionalPermStep(
     }
 }
 
-// ── 步 5：功能导览 ─────────────────────────────────────────────────────
+// ── 步 5：权限档位中心（ARC-009 修订 / FEAT-038）──────────────────────
+
+@Composable
+private fun TierCenterStep(
+    snapshot: PrivilegeSnapshot,
+    onOpenCapability: (Capability) -> Unit,
+) {
+    var showExplain by remember { mutableStateOf(false) }
+    Text(
+        text = "权限档位",
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+    )
+    Text(
+        text = "五档由已授权能力自动判定，不是手动开关",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TierBadge(snapshot = snapshot, onClick = { showExplain = true })
+        Spacer(Modifier.size(2.dp))
+        HelpIconButton(onClick = { showExplain = true })
+        Spacer(Modifier.weight(1f))
+        val next = snapshot.toNextTier
+        Text(
+            text = when {
+                next == null -> "已是最高档"
+                next.second.isEmpty() -> "「${next.first.label}」已达成"
+                else -> "距 ${next.first.label} 还差 ${capabilityLabels(next.second)}"
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+        )
+    }
+    if (showExplain) {
+        TierExplanationDialog(
+            snapshot = snapshot,
+            onDismiss = { showExplain = false },
+            onOpenCapability = { cap ->
+                showExplain = false
+                onOpenCapability(cap)
+            },
+        )
+    }
+    TierCapability.entries.forEach { entry ->
+        val cap = entry.capability
+        val has = snapshot.has(cap)
+        PermissionCard(
+            title = "${cap.label} · ${if (has) "已就绪" else "未就绪"}",
+            rows = listOf("用途" to entry.purpose, "边界" to entry.boundary),
+            tone = if (has) ChipTone.OK else ChipTone.NEUTRAL,
+        )
+        if (!has && cap.guide != CapabilityGuide.NONE) {
+            OutlinedButton(onClick = { onOpenCapability(cap) }) { Text(entry.action) }
+        }
+    }
+    snapshot.environmentNotes.forEach { note ->
+        Text(
+            text = note,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 档位中心的能力条目（用途 / 边界 / 按钮动作）。 */
+private enum class TierCapability(
+    val capability: Capability,
+    val purpose: String,
+    val boundary: String,
+    val action: String,
+) {
+    ACCESS(Capability.ACCESSIBILITY, "自动化代点、场景化伪装", "Android 15+ 侧载需先允许受限设置，可跳过", "前往无障碍设置"),
+    ADMIN(Capability.DEVICE_ADMIN_ACTIVE, "设备策略能力（ultra 档）", "占用设备管理员槽位，可随时取消", "激活设备管理员"),
+    DHIZUKU(Capability.DHIZUKU_ACTIVE, "共享设备所有者身份（ultra 档）", "需提供端已是设备所有者", "打开 Dhizuku 授权"),
+    OVERLAY(Capability.OVERLAY, "悬浮球与状态栏覆盖层", "仅影响显示，可随时关闭", "前往悬浮窗设置"),
+    INSTALL(Capability.INSTALL_UNKNOWN, "插件安装与自更新", "仅允许本应用安装", "前往未知来源设置"),
+}
+
+// ── 步 6：功能导览 ─────────────────────────────────────────────────────
 
 @Composable
 private fun FeatureTourStep() {
@@ -577,11 +676,12 @@ private fun FeatureTourStep() {
     )
 }
 
-// ── 步 6：一切就绪 ─────────────────────────────────────────────────────
+// ── 步 7：一切就绪 ─────────────────────────────────────────────────────
 
 @Composable
-private fun ReadyStep(shizukuStatus: ShizukuStatus) {
+private fun ReadyStep(shizukuStatus: ShizukuStatus, snapshot: PrivilegeSnapshot) {
     val running = shizukuStatus as? ShizukuStatus.Running
+    val next = snapshot.toNextTier
     Text(
         text = "🌌",
         style = MaterialTheme.typography.displayMedium,
@@ -596,14 +696,34 @@ private fun ReadyStep(shizukuStatus: ShizukuStatus) {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TierBadge(snapshot = snapshot, onClick = {})
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = when {
+                next == null -> "已是最高档"
+                next.second.isEmpty() -> "「${next.first.label}」已达成"
+                else -> "到 ${next.first.label} 还差 ${capabilityLabels(next.second)}"
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     PermissionCard(
         title = "状态回顾",
         rows = listOf(
             "免责声明" to "已同意 ✓",
+            "权限档位" to "${snapshot.tier.label} · 已就绪 ${snapshot.capabilities.size} 项能力",
             "Shizuku 通道" to when {
                 running?.authorized == true -> "已就绪 ✅（全部系统级功能可用）"
                 running != null -> "运行中但未授权（需要时在功能页内一键授权）"
                 else -> "暂未启动（用到时各功能页会再次引导）"
+            },
+            "无障碍" to if (snapshot.has(Capability.ACCESSIBILITY)) "已开启 ✅" else "未开启（进阶档可缺失）",
+            "设备管理 · Dhizuku" to if (snapshot.has(Capability.DEVICE_ADMIN_ACTIVE) && snapshot.has(Capability.DHIZUKU_ACTIVE)) {
+                "已就绪 ✅"
+            } else {
+                "未激活（ultra 档可缺失）"
             },
         ),
         tone = if (running?.authorized == true) ChipTone.OK else ChipTone.NEUTRAL,

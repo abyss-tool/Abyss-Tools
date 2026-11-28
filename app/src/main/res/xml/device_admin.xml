@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ARC-011 / N-DO-001 探测底座（v0.10.2）：零策略设备管理员声明。
+     不索取任何锁定 / 擦除 / 加密策略 —— 本阶段只为 isAdminActive 提供真实
+     查询对象；激活前 UI 必须显著告知影响与取消路径（N-DO-001 FR-002）。 -->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies />
+</device-admin>

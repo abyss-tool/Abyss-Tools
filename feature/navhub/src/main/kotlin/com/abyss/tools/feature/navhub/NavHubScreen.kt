@@ -12,29 +12,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.abyss.tools.core.common.Capability
+import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ToolCatalog
-import com.abyss.tools.core.common.ToolDef
 import com.abyss.tools.core.common.ToolStatus
 import com.abyss.tools.core.designsystem.component.AbyssIcons
-import com.abyss.tools.core.designsystem.component.ChipTone
-import com.abyss.tools.core.designsystem.component.ListRowCard
+import com.abyss.tools.core.designsystem.component.CapabilityGuardCard
+import com.abyss.tools.core.designsystem.component.GatedToolCard
 import com.abyss.tools.core.designsystem.component.SectionHeader
-import com.abyss.tools.core.designsystem.component.entranceStagger
 import com.abyss.tools.core.designsystem.component.StatusChip
+import com.abyss.tools.core.designsystem.component.ToolModesCard
+import com.abyss.tools.core.designsystem.component.entranceStagger
+import com.abyss.tools.core.designsystem.component.tone
 
 /**
  * 功能页 —— 全部工具的分类目录（主界面的第二 tab）。
@@ -46,11 +49,16 @@ import com.abyss.tools.core.designsystem.component.StatusChip
  * UI-001（功能文案精简）：页头统计副标、分类 description、工具
  * summary、占位详情页五段长说明全部清零 —— 分类头单行、工具行
  * 图标 + 标题 + 状态圆点；占位页只留一句短状态标签。
+ *
+ * FEAT-039（v0.10.2）：全量工具行换 [GatedToolCard] —— 锁定行显示
+ * 「需 Shizuku」短文案，点击统一交给 onOpenTool（AbyssRoot 裁决进
+ * 门禁说明页还是真实页）；三处消费同一份 [PrivilegeSnapshot]。
  */
 @Composable
 fun NavHubScreen(
     bottomClearance: Dp,
     onOpenTool: (String) -> Unit,
+    snapshot: PrivilegeSnapshot? = null,
 ) {
     Column(
         modifier = Modifier
@@ -87,17 +95,22 @@ fun NavHubScreen(
                         modifier = Modifier.entranceStagger(catIndex * ENTRIES_PER_CATEGORY),
                     )
                 }
+                val tools = ToolCatalog.toolsOf(category)
                 items(
-                    count = ToolCatalog.toolsOf(category).size,
-                    key = { index -> "tool-${ToolCatalog.toolsOf(category)[index].id}" },
+                    count = tools.size,
+                    key = { index -> "tool-${tools[index].id}" },
                 ) { index ->
-                    val tool = ToolCatalog.toolsOf(category)[index]
+                    val tool = tools[index]
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .entranceStagger(catIndex * ENTRIES_PER_CATEGORY + index + 1),
                     ) {
-                        ToolRow(tool = tool, onClick = { onOpenTool(tool.id) })
+                        GatedToolCard(
+                            tool = tool,
+                            snapshot = snapshot,
+                            onOpen = { onOpenTool(tool.id) },
+                        )
                     }
                 }
             }
@@ -105,31 +118,25 @@ fun NavHubScreen(
     }
 }
 
-@Composable
-private fun ToolRow(tool: ToolDef, onClick: () -> Unit) {
-    ListRowCard(
-        icon = AbyssIcons.icon(tool.iconKey),
-        title = tool.title,
-        onClick = onClick,
-        badge = { StatusChip(text = tool.status.label, tone = tool.status.tone()) },
-    )
-}
-
-private fun ToolStatus.tone(): ChipTone = when (this) {
-    ToolStatus.READY -> ChipTone.OK
-    ToolStatus.BUILT_IN -> ChipTone.OK
-    ToolStatus.PLUGIN -> ChipTone.INFO
-    ToolStatus.FRAMEWORK -> ChipTone.NEUTRAL
-}
-
-/** 工具占位详情页（框架期统一承接 READY / FRAMEWORK 状态的工具）。 */
+/**
+ * 工具详情 / 门禁说明页。
+ *
+ * FEAT-039：`snapshot != null && !allows(required)` 时为**门禁模式** —— 顶部
+ * [CapabilityGuardCard]（缺失能力 + 去授权）+ [ToolModesCard]（多模式 ✓/✗）+
+ * 「以受限模式进入」（任一模式门槛已满足时经 [onEnterUngated] 进入真实页）。
+ * 否则与 v0.10.1 占位页完全一致。
+ */
 @Composable
 fun ToolScreen(
     toolId: String,
     onOpenPlugin: (String) -> Unit,
     onBack: () -> Unit,
+    snapshot: PrivilegeSnapshot? = null,
+    onOpenCapability: (Capability) -> Unit = {},
+    onEnterUngated: (() -> Unit)? = null,
 ) {
     val tool = ToolCatalog.byId(toolId)
+    val gated = tool != null && snapshot != null && !snapshot.allows(tool.access.required)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -159,7 +166,7 @@ fun ToolScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = AbyssIcons.icon(tool.iconKey) as ImageVector,
+                            imageVector = AbyssIcons.icon(tool.iconKey),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(30.dp),
@@ -176,6 +183,25 @@ fun ToolScreen(
                         StatusChip(text = tool.status.label, tone = tool.status.tone())
                     }
                 }
+            }
+            if (gated && snapshot != null) {
+                item {
+                    CapabilityGuardCard(
+                        required = tool.access.required,
+                        snapshot = snapshot,
+                        onOpenCapability = onOpenCapability,
+                    )
+                }
+                item { ToolModesCard(tool = tool, snapshot = snapshot) }
+                // 受限模式进入：任一模式门槛已满足 → 显式进入真实页（页面内守卫继续兜底）
+                if (onEnterUngated != null && tool.access.modes.any { snapshot.allows(it.required) }) {
+                    item {
+                        OutlinedButton(onClick = onEnterUngated, modifier = Modifier.fillMaxWidth()) {
+                            Text("以受限模式进入")
+                        }
+                    }
+                }
+                return@LazyColumn
             }
             item {
                 SectionHeader(title = "所属分类 · ${tool.category.title}")
@@ -238,7 +264,7 @@ private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) 
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.size(10.dp))
-        androidx.compose.material3.Button(onClick = { onOpenPlugin(pluginId) }) {
+        Button(onClick = { onOpenPlugin(pluginId) }) {
             Text(if (pluginId.isBlank()) "前往插件中心" else "查看插件 · $pluginId")
         }
     }

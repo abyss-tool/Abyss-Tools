@@ -162,4 +162,7 @@ dependencies {
 
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+
+    // ARC-011（v0.10.2）：Dhizuku 公开 API —— 仅 app/privilege/DhizukuBridge 一处调用
+    implementation(libs.dhizuku.api)
 }

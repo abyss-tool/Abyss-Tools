@@ -73,4 +73,15 @@ object ShizukuVariants {
 
     /** 官方下载页（全平台）：无任何变体时的兜底跳转目标。 */
     const val DOWNLOAD_URL = "https://shizuku.rikka.app/"
+
+    /**
+     * Dhizuku 提供端（DeviceOwner 持有者）白名单 —— ARC-011 FR-007 的三方交叉
+     * 验证用：`Dhizuku.init ∧ isPermissionGranted ∧ dpm.isDeviceOwnerApp(provider)`。
+     * 原版 Dhizuku 与 Shevery 共用一条通道；Shizuku+ 的 DO 模式接入前以其发布页
+     * 复核后再加。只做只读校验，不参与任何放行判定以外的逻辑。
+     */
+    val DEVICE_OWNER_PROVIDERS: List<String> = listOf(
+        "com.rosan.dhizuku",
+        ShizukuVariant.SHEVERY.packageName,
+    )
 }

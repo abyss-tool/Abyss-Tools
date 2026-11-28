@@ -8,7 +8,7 @@
 | 规格编号 | `FEAT-027` |
 | 所属域 | 功能 |
 | 承载形态 | 主壳内置 |
-| 当前状态 | 基线已实现 |
+| 当前状态 | 基线已实现 + v0.10.2 修订 |
 | 优先级 / 里程碑 | P1 / M0 |
 | 组织与基线 | abyss-tool 组织 19 仓库克隆研究；v0.9.5 / versionCode 28 |
 | 标签 | 伪装 · 诚实边界 |
@@ -67,4 +67,5 @@
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-28 | v0.10.2 修订：`DisguiseShared.ShizukuGuardBanner` 保留原签名并新增泛化 `CapabilityGuardBanner(required, snapshot, …)`（缺 Shizuku 走旧横幅、缺其它能力走 `CapabilityGuardCard`）；机型伪装页接入五级模式卡（`FEAT-040`）。 |
 

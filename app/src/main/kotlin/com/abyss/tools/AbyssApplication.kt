@@ -2,6 +2,10 @@ package com.abyss.tools
 
 import android.app.Application
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.CrashGuard
 import com.abyss.tools.core.common.LauncherIconGateway
@@ -27,6 +31,8 @@ import com.abyss.tools.feature.disguise.DisguiseSettings
 import com.abyss.tools.feature.settings.SettingsRepository
 import com.abyss.tools.install.PackageInstallerApkGateway
 import com.abyss.tools.plugin.api.PluginContract
+import com.abyss.tools.privilege.AndroidPrivilegeProbe
+import com.abyss.tools.privilege.PrivilegeRepository
 import java.io.File
 
 /**
@@ -61,6 +67,12 @@ object ServiceRegistry {
 
     /** 应用管理器的已装应用数据源（PackageManager 实现，内存缓存）。 */
     lateinit var appInfoProvider: AppInfoProvider
+
+    /**
+     * 权限能力快照单一事实源（ARC-011，v0.10.2）：StateFlow 去重扇出，
+     * 仪表盘 / 功能页 / 引导页 / 伪装模式卡全部消费同一份快照。
+     */
+    lateinit var privilegeRepository: PrivilegeRepository
 
     val ready: Boolean
         get() = ::settings.isInitialized
@@ -97,6 +109,9 @@ object ServiceRegistry {
 
         // FEAT-036：桌面图标三选一（activity-alias 互斥启停）
         launcherIconGateway = PackageLauncherIconGateway(appContext)
+
+        // ARC-011：权限能力探测 + 快照仓储（init 即探测一次，首帧不展示假态）
+        privilegeRepository = PrivilegeRepository(AndroidPrivilegeProbe(appContext))
 
         // FEAT-037：深渊agent 直达下载（Guru 发布仓 version.json 固定通道；
         // 走同一镜像感知 transport —— 下载资产自动吃 MirrorRouter 镜像链）
@@ -148,5 +163,25 @@ class AbyssApplication : Application() {
         // Shevery / Shizuku+ 不需要，但也在此幂等探测一次。
         ShizukuMonitor.ensureInit(this)
         ServiceRegistry.init(this)
+
+        // ── ARC-011 FR-008 快照刷新时机（全部不跨会话缓存）────────────
+        // ① Shizuku binder 生死 / 授权结果 → 重算快照（监听器首调即同步一次）
+        runCatching {
+            ShizukuMonitor.addListener { ServiceRegistry.privilegeRepository.refresh() }
+        }
+        // ② 无障碍开关：Secure 设置变更即刷（系统设置里直接关闭也能实时降档）
+        runCatching {
+            contentResolver.registerContentObserver(
+                Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
+                false,
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        ServiceRegistry.privilegeRepository.refresh()
+                    }
+                },
+            )
+        }
+        // ③ DeviceAdminReceiver.onEnabled/onDisabled 在 receiver 内直接刷新
+        // ④ 安装未知应用 / 悬浮窗 / Dhizuku 授权页返回：MainActivity.onResume
     }
 }

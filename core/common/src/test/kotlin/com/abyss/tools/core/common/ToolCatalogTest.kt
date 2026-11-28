@@ -50,6 +50,92 @@ class ToolCatalogTest {
         assertEquals(ToolCategory.SYSTEM, ToolCatalog.categories.first())
     }
 
+    // ── FEAT-039（v0.10.2）：权限矩阵数据契约 ───────────────────────────
+
+    @Test
+    fun `全部 27 条工具都登记了 access 且与权限矩阵一致`() {
+        assertEquals(27, ToolCatalog.tools.size)
+        val expected: Map<String, Set<Capability>> = mapOf(
+            "app-builder" to setOf(Capability.SHIZUKU_SHELL, Capability.INSTALL_UNKNOWN),
+            "linux-runtime" to setOf(Capability.SHIZUKU_SHELL, Capability.INSTALL_UNKNOWN),
+            "app-manager" to setOf(Capability.SHIZUKU_SHELL),
+            "system-control" to setOf(Capability.SHIZUKU_SHELL),
+            "shizuku-kit" to setOf(Capability.SHIZUKU_SHELL),
+            "battery-doctor" to emptySet(),
+            "virus-guard" to setOf(Capability.SHIZUKU_SHELL, Capability.INSTALL_UNKNOWN, Capability.APP_OBSERVE),
+            "terminal" to setOf(Capability.SHIZUKU_SHELL),
+            "script-lab" to setOf(Capability.SHIZUKU_SHELL),
+            "code-editor" to emptySet(),
+            "task-blueprint" to setOf(Capability.SHIZUKU_SHELL),
+            "sandbox-space" to setOf(Capability.SHIZUKU_SHELL),
+            "dual-open" to setOf(Capability.SHIZUKU_SHELL),
+            "battery-disguise" to setOf(Capability.SHIZUKU_SHELL),
+            "location-disguise" to setOf(Capability.SHIZUKU_SHELL),
+            "signal-disguise" to setOf(Capability.SHIZUKU_SHELL),
+            "model-disguise" to setOf(Capability.SHIZUKU_SHELL),
+            "privacy-guard" to emptySet(),
+            "media-lab" to emptySet(),
+            "qr-craft" to emptySet(),
+            "automation" to setOf(Capability.SHIZUKU_SHELL, Capability.ACCESSIBILITY),
+            "widget-studio" to emptySet(),
+            "dynamic-island" to setOf(Capability.OVERLAY),
+            "live-wallpaper" to emptySet(),
+            "network-audit" to emptySet(),
+            "backup-master" to emptySet(),
+            "time-shift" to emptySet(),
+        )
+        assertEquals(expected.keys, ToolCatalog.tools.map { it.id }.toSet())
+        ToolCatalog.tools.forEach { tool ->
+            assertEquals("access.required 不符: ${tool.id}", expected.getValue(tool.id), tool.access.required)
+        }
+    }
+
+    @Test
+    fun `modes 命名唯一且说明非空`() {
+        ToolCatalog.tools.forEach { tool ->
+            val names = tool.access.modes.map { it.name }
+            assertEquals("模式名重复: ${tool.id}", names.size, names.toSet().size)
+            tool.access.modes.forEach { m ->
+                assertTrue("模式 ${tool.id}/${m.name} 缺说明", m.note.isNotBlank())
+                assertTrue("模式 ${tool.id}/${m.name} 名称空白", m.name.isNotBlank())
+            }
+        }
+    }
+
+    @Test
+    fun `需 Shizuku 的工具都声明了零权限只读模式`() {
+        // sandbox-space / dual-open 为「Shizuku 主力」组：多用户引擎本身即需 Shizuku，无零权限只读模式（FEAT-039 §3.1）
+        val shizukuOnly = setOf("sandbox-space", "dual-open")
+        ToolCatalog.tools
+            .filter { it.access.required == setOf(Capability.SHIZUKU_SHELL) && it.id !in shizukuOnly }
+            .forEach { tool ->
+                assertTrue(
+                    "${tool.id} 应有零权限只读 / 预览模式",
+                    tool.access.modes.any { it.required.isEmpty() },
+                )
+            }
+    }
+
+    @Test
+    fun `普通用户可直接打开的工具集精确匹配`() {
+        val zero = ToolCatalog.tools.filter { it.access.required.isEmpty() }.map { it.id }.toSet()
+        assertEquals(
+            setOf(
+                "qr-craft", "media-lab", "backup-master", "network-audit",
+                "widget-studio", "live-wallpaper",
+                "battery-doctor", "code-editor", "privacy-guard", "time-shift",
+            ),
+            zero,
+        )
+    }
+
+    @Test
+    fun `快捷工具单一数据源全部可解析且 count 由列表推导`() {
+        val quick = ToolCatalog.QUICK_TOOL_IDS.mapNotNull(ToolCatalog::byId)
+        assertEquals(ToolCatalog.QUICK_TOOL_IDS.size, quick.size)
+        assertEquals(4, quick.size)
+    }
+
     /** UI-001：目录不携带装饰长文案 —— 标题短句、无长文本标点。 */
     @Test
     fun `目录无长文案字段（UI-001 文案精简）`() {

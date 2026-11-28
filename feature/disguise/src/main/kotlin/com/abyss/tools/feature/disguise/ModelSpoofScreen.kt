@@ -32,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.abyss.tools.core.common.Capability
+import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.shell.DeviceIdentityCommands
 import com.abyss.tools.core.shell.ShellGateway
@@ -62,11 +64,16 @@ fun ModelSpoofScreen(
     onRequestShizukuPermission: () -> Unit,
     onOpenShizuku: () -> Unit,
     onBack: () -> Unit,
+    /** FEAT-040：权限快照（null = 旧调用，模式卡按「仅 low 生效」保守渲染）。 */
+    privilegeSnapshot: PrivilegeSnapshot? = null,
+    onOpenCapability: (Capability) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     var level by remember { mutableStateOf(settings.modelSpoofLevel) }
+    var disguiseMode by remember { mutableStateOf(settings.disguiseMode) }
+    val modeSnapshot = privilegeSnapshot ?: PrivilegeSnapshot()
     var vendorFilter by remember { mutableStateOf<Vendor?>(null) }
     var selectedProfileId by remember { mutableStateOf(settings.modelProfileId) }
     var deviceName by remember { mutableStateOf(settings.deviceName) }
@@ -216,7 +223,31 @@ fun ModelSpoofScreen(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { ShizukuGuardBanner(shizukuStatus, onRequestShizukuPermission, onOpenShizuku) }
+            item {
+                // FEAT-040 FR-006：泛化守卫 —— 本页只需 Shizuku，行为与旧横幅一致
+                CapabilityGuardBanner(
+                    required = setOf(Capability.SHIZUKU_SHELL),
+                    snapshot = privilegeSnapshot,
+                    shizukuStatus = shizukuStatus,
+                    onRequestPermission = onRequestShizukuPermission,
+                    onOpenShizuku = onOpenShizuku,
+                    onOpenCapability = onOpenCapability,
+                )
+            }
+
+            // ── 伪装模式（FEAT-040 五级，按实时能力标注生效真值）───────────
+            item {
+                SectionHeader(title = "伪装模式")
+                DisguiseModeCard(
+                    snapshot = modeSnapshot,
+                    preferred = disguiseMode,
+                    onPrefer = { mode ->
+                        disguiseMode = mode
+                        settings.disguiseMode = mode
+                    },
+                    onOpenCapability = onOpenCapability,
+                )
+            }
 
             // ── 真机信息 ───────────────────────────────────────────────
             item {
