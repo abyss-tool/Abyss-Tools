@@ -118,9 +118,9 @@ class SessionGrantIssuerConcurrencyTest {
         } finally {
             pool.shutdownNow()
         }
-        // 翻转次数一个不丢（旧 volatile 读-改-写会 < flips）；翻转后表恒空
+        // 翻转次数一个不丢（旧 volatile 读-改-写会 < flips）；代际 = 初值 1 + 翻转数
         val grant = issuer.issue("com.abyss.plugin.appbuilder", publisherSha, "linux-runtime-v1", "sess-gen")
-        assertEquals(flips.get(), issuer.currentGeneration())
+        assertEquals(flips.get() + 1L, issuer.currentGeneration())
         assertTrue(issuer.verify(grant, "sess-gen") is SessionGrantIssuer.GrantCheck.Valid)
     }
 }
