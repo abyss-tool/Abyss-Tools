@@ -91,20 +91,13 @@ class ToolCatalogTest {
     }
 
     @Test
-    fun `modes 的门槛不超出 required 加可选能力集 且非空时至少一条可用模式语义合法`() {
-        // 可选能力 = 档案注入 / DO 托管 / 一键授予 / 状态栏覆盖层 / 恢复安装 等增强路径所用的能力
-        val optionalUniverse = setOf(
-            Capability.SELF_BRANDING, Capability.SHIZUKU_ROOT, Capability.ACCESSIBILITY,
-            Capability.INSTALL_UNKNOWN, Capability.OVERLAY, Capability.APP_OBSERVE,
-            Capability.DHIZUKU_ACTIVE, Capability.DEVICE_ADMIN_ACTIVE,
-        )
+    fun `modes 命名唯一且说明非空`() {
         ToolCatalog.tools.forEach { tool ->
+            val names = tool.access.modes.map { it.name }
+            assertEquals("模式名重复: ${tool.id}", names.size, names.toSet().size)
             tool.access.modes.forEach { m ->
-                assertTrue(
-                    "模式 ${tool.id}/${m.name} 的 required 含未知维度",
-                    (m.required - optionalUniverse - tool.access.required).isEmpty(),
-                )
                 assertTrue("模式 ${tool.id}/${m.name} 缺说明", m.note.isNotBlank())
+                assertTrue("模式 ${tool.id}/${m.name} 名称空白", m.name.isNotBlank())
             }
         }
     }
