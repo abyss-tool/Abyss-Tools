@@ -35,13 +35,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import com.abyss.tools.core.common.AppInfo
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import com.abyss.tools.core.common.Capability
+import com.abyss.tools.core.common.PrivilegeTier
+import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.common.toUiState
 import com.abyss.tools.core.common.UiState
-import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.ChipTone
+import com.abyss.tools.core.designsystem.component.GatedToolCard
+import com.abyss.tools.core.designsystem.component.HelpIconButton
+import com.abyss.tools.core.designsystem.component.InteractiveStatusChip
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
+import com.abyss.tools.core.designsystem.component.TierBadge
+import com.abyss.tools.core.designsystem.component.TierExplanationDialog
 import com.abyss.tools.core.designsystem.component.entranceStagger
 import com.abyss.tools.core.designsystem.component.rememberReducedMotion
 import com.abyss.tools.core.designsystem.glass.AbyssGlassSurface
@@ -89,8 +98,16 @@ fun DashboardScreen(
     autoCheckUpdates: Boolean = false,
     shizukuUi: ShizukuUi = ShizukuUi.NotRunning,
     installPermGranted: Boolean = false,
+    /** ARC-011 / FEAT-038：权限能力快照；null = 旧调用（退回两枚圆点，零破坏）。 */
+    snapshot: PrivilegeSnapshot? = null,
+    /** 「去授权」统一落点（能力 → 系统页 / 请求）。 */
+    onOpenCapability: (Capability) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    var showTierDialog by remember { mutableStateOf(false) }
+
+    // FEAT-039 FR-007：快捷工具单一数据源 —— count / key 全部由列表推导。
+    val quickTools = remember { ToolCatalog.QUICK_TOOL_IDS.mapNotNull(ToolCatalog::byId) }
 
     // ── 插件索引（仪表盘只取统计）────────────────────────────────────
     var indexState by remember { mutableStateOf<UiState<PluginIndex>>(UiState.Loading) }
@@ -158,22 +175,44 @@ fun DashboardScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // ── 状态行：Shizuku / 安装权限（真实态，新手引导页可修）────
+            // ── 状态区（FEAT-038）：档位徽章 + 小问号 + 五枚能力片 + 环境提示 ──
+            // 快照为 null 的旧调用退回 v0.10.1 的两枚圆点（预览 / 旧测试零破坏）。
             // 错峰入场（v0.7.6）：包裹 Box 挂 entranceStagger，卡片零改动。
             item {
                 Box(Modifier.fillMaxWidth().entranceStagger(0)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val (shizukuLabel, shizukuTone) = when (shizukuUi) {
-                            ShizukuUi.Authorized -> "Shizuku · 已授权" to ChipTone.OK
-                            ShizukuUi.RunningUnauthorized -> "Shizuku · 未授权" to ChipTone.WARN
-                            ShizukuUi.NotRunning -> "Shizuku · 未运行" to ChipTone.NEUTRAL
+                    if (snapshot == null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val (shizukuLabel, shizukuTone) = when (shizukuUi) {
+                                ShizukuUi.Authorized -> "Shizuku · 已授权" to ChipTone.OK
+                                ShizukuUi.RunningUnauthorized -> "Shizuku · 未授权" to ChipTone.WARN
+                                ShizukuUi.NotRunning -> "Shizuku · 未运行" to ChipTone.NEUTRAL
+                            }
+                            StatusChip(text = shizukuLabel, tone = shizukuTone)
+                            StatusChip(
+                                text = if (installPermGranted) "安装未知应用 · 已允许" else "安装未知应用 · 未允许",
+                                tone = if (installPermGranted) ChipTone.OK else ChipTone.WARN,
+                            )
                         }
-                        StatusChip(text = shizukuLabel, tone = shizukuTone)
-                        StatusChip(
-                            text = if (installPermGranted) "安装未知应用 · 已允许" else "安装未知应用 · 未允许",
-                            tone = if (installPermGranted) ChipTone.OK else ChipTone.WARN,
+                    } else {
+                        PrivilegeStatusArea(
+                            snapshot = snapshot,
+                            onExplain = { showTierDialog = true },
+                            onOpenCapability = onOpenCapability,
                         )
                     }
+                }
+            }
+
+            if (snapshot != null && showTierDialog) {
+                item {
+                    TierExplanationDialog(
+                        snapshot = snapshot,
+                        onDismiss = { showTierDialog = false },
+                        onOpenCapability = { cap ->
+                            showTierDialog = false
+                            onOpenCapability(cap)
+                        },
+                    )
                 }
             }
 
@@ -204,19 +243,18 @@ fun DashboardScreen(
                     SectionHeader(title = "快捷工具")
                 }
             }
-            items(count = 4, key = { it }) { index ->
-                val tool = listOf(
-                    "system-control", "terminal", "media-lab", "app-builder",
-                )[index].let { ToolCatalog.byId(it) }
-                if (tool != null) {
-                    Box(Modifier.fillMaxWidth().entranceStagger(4 + index)) {
-                        com.abyss.tools.core.designsystem.component.ListRowCard(
-                            icon = AbyssIcons.icon(tool.iconKey),
-                            title = tool.title,
-                            onClick = { onOpenTool(tool.id) },
-                            badge = { StatusChip(text = tool.status.label) },
-                        )
-                    }
+            items(
+                count = quickTools.size,
+                key = { index -> "quick-${quickTools[index].id}" },
+            ) { index ->
+                val tool = quickTools[index]
+                Box(Modifier.fillMaxWidth().entranceStagger(4 + index)) {
+                    // 锁定 / 解锁由同一份快照裁决；点击统一交给 onOpenTool（AbyssRoot 裁决）
+                    GatedToolCard(
+                        tool = tool,
+                        snapshot = snapshot,
+                        onOpen = { onOpenTool(tool.id) },
+                    )
                 }
             }
 
@@ -459,6 +497,100 @@ private fun RoadmapCard() {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * 仪表盘状态区（FEAT-038）：第一行档位徽章（BASIC 旁常驻问号）+ 变体提示，
+ * 第二行五枚能力片（点击直达授权页），第三行环境提示（只作说明）。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PrivilegeStatusArea(
+    snapshot: PrivilegeSnapshot,
+    onExplain: () -> Unit,
+    onOpenCapability: (Capability) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TierBadge(snapshot = snapshot, onClick = onExplain)
+            if (snapshot.tier == PrivilegeTier.BASIC) {
+                Spacer(Modifier.size(2.dp))
+                HelpIconButton(onClick = onExplain)
+            }
+            Spacer(Modifier.weight(1f))
+            snapshot.shizuku.variantHint?.let { hint ->
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        // 窄屏自动换行（五枚片总宽 > 320dp 内容宽时），不挤压触控区
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            maxItemsInEachRow = 5,
+        ) {
+            val (shizukuStatus, shizukuTone) = when {
+                snapshot.has(Capability.SHIZUKU_SHELL) -> "已授权" to ChipTone.OK
+                snapshot.shizuku.version != null -> "未授权" to ChipTone.WARN
+                else -> "未运行" to ChipTone.NEUTRAL
+            }
+            InteractiveStatusChip(
+                label = "Shizuku",
+                status = shizukuStatus,
+                tone = shizukuTone,
+                onClick = { onOpenCapability(Capability.SHIZUKU_SHELL) },
+            )
+
+            val acc = snapshot.has(Capability.ACCESSIBILITY)
+            InteractiveStatusChip(
+                label = "无障碍",
+                status = if (acc) "已开启" else "未开启",
+                tone = if (acc) ChipTone.OK else ChipTone.NEUTRAL,
+                onClick = { onOpenCapability(Capability.ACCESSIBILITY) },
+            )
+
+            val admin = snapshot.has(Capability.DEVICE_ADMIN_ACTIVE)
+            val dhizuku = snapshot.has(Capability.DHIZUKU_ACTIVE)
+            val (adminStatus, adminTone) = when {
+                admin && dhizuku -> "已就绪" to ChipTone.OK
+                admin || dhizuku -> "部分" to ChipTone.WARN
+                else -> "未激活" to ChipTone.NEUTRAL
+            }
+            InteractiveStatusChip(
+                label = "设备管理",
+                status = adminStatus,
+                tone = adminTone,
+                onClick = { onOpenCapability(if (dhizuku) Capability.DEVICE_ADMIN_ACTIVE else Capability.DHIZUKU_ACTIVE) },
+            )
+
+            val install = snapshot.has(Capability.INSTALL_UNKNOWN)
+            InteractiveStatusChip(
+                label = "安装未知",
+                status = if (install) "已允许" else "未允许",
+                tone = if (install) ChipTone.OK else ChipTone.WARN,
+                onClick = { onOpenCapability(Capability.INSTALL_UNKNOWN) },
+            )
+
+            val overlay = snapshot.has(Capability.OVERLAY)
+            InteractiveStatusChip(
+                label = "悬浮窗",
+                status = if (overlay) "已允许" else "未允许",
+                tone = if (overlay) ChipTone.OK else ChipTone.NEUTRAL,
+                onClick = { onOpenCapability(Capability.OVERLAY) },
+            )
+        }
+        // 「本机理论可达最高档」：环境提示逐条显示（Android 15 受限设置 / 16 高级保护）
+        snapshot.environmentNotes.forEach { note ->
+            Text(
+                text = note,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

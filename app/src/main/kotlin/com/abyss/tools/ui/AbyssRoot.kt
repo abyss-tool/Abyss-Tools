@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.ServiceRegistry
 import com.abyss.tools.core.common.AppInfo
+import com.abyss.tools.core.common.Capability
+import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
@@ -93,7 +95,13 @@ sealed interface Screen {
     data object Settings : Screen
     data object PluginHub : Screen
     data class PluginDetail(val pluginId: String) : Screen
-    data class Tool(val toolId: String) : Screen
+
+    /**
+     * 工具页（FEAT-039）：[ungated] = 用户已在门禁说明页显式选择「以受限模式
+     * 进入」—— 真实功能页内的守卫横幅 / 网关二次校验继续兜底。随返回栈序列化
+     * （token 前缀 `tool!:`），进程重建后语义不丢。
+     */
+    data class Tool(val toolId: String, val ungated: Boolean = false) : Screen
 
     /** 设置分区子页（FEAT-035）：sectionId ∈ SettingsSections，未知 id fail-closed 丢弃。 */
     data class SettingsSection(val sectionId: String) : Screen
@@ -114,7 +122,7 @@ private fun Screen.stateKey(): String = when (this) {
     Screen.PluginHub -> "pluginhub"
     is Screen.SettingsSection -> "settings:$sectionId"
     is Screen.PluginDetail -> "plugin:$pluginId"
-    is Screen.Tool -> "tool:$toolId"
+    is Screen.Tool -> if (ungated) "tool!:$toolId" else "tool:$toolId"
     is Screen.AppManagerDetail -> "appmgr:${app.packageName}"
 }
 
@@ -180,6 +188,12 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
         }
     }
 
+    /** 栈顶替换（FEAT-039：门禁说明页 → 「以受限模式进入」真实页，不叠加一层）。 */
+    fun replace(screen: Screen) {
+        lastAction = NavAction.PUSH
+        stack = if (stack.size > 1) stack.dropLast(1) + screen else listOf(screen)
+    }
+
     fun selectTab(index: Int) {
         // FEAT-034 FR-003：显式覆盖 0/1/2/3；非法索引 fail-closed 直接 return
         // —— 不改栈、不切页、不抛（替代旧 else -> Settings 的猜测行为）。
@@ -216,6 +230,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
         private const val PREFIX_SETTINGS = "settings:"
         private const val PREFIX_PLUGIN = "plugin:"
         private const val PREFIX_TOOL = "tool:"
+        private const val PREFIX_TOOL_UNGATED = "tool!:"
         private const val PREFIX_APPMGR = "appmgr:"
 
         /** 恢复（fail-closed：未知 token 丢弃，不猜；空栈回 Dashboard）。 */
@@ -237,7 +252,15 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
                         val id = token.removePrefix(PREFIX_PLUGIN)
                         if (id.isNotBlank()) screens += Screen.PluginDetail(id)
                     }
-                    token.startsWith(PREFIX_TOOL) -> screens += Screen.Tool(token.removePrefix(PREFIX_TOOL))
+                    // FEAT-039：受限模式进入的标记位随 token 恢复（先于普通前缀匹配）
+                    token.startsWith(PREFIX_TOOL_UNGATED) -> {
+                        val id = token.removePrefix(PREFIX_TOOL_UNGATED)
+                        if (id.isNotBlank()) screens += Screen.Tool(id, ungated = true)
+                    }
+                    token.startsWith(PREFIX_TOOL) -> {
+                        val id = token.removePrefix(PREFIX_TOOL)
+                        if (id.isNotBlank()) screens += Screen.Tool(id)
+                    }
                     token.startsWith(PREFIX_APPMGR) -> {
                         val pkg = token.removePrefix(PREFIX_APPMGR)
                         if (pkg.isNotBlank()) pending = pkg
@@ -268,6 +291,10 @@ fun AbyssRoot(
     onReopenOnboarding: () -> Unit,
     glassEnabled: Boolean = true,
     lensEnabled: Boolean = true,
+    /** ARC-011 / FEAT-038/039：权限能力快照（仪表盘 / 功能页 / 门禁裁决共用）。 */
+    privilegeSnapshot: PrivilegeSnapshot = PrivilegeSnapshot(),
+    /** 「去授权」统一落点（能力 → 系统页 / 请求）。 */
+    onOpenCapability: (Capability) -> Unit = {},
 ) {
     val registry = ServiceRegistry
     // v0.9.6：glassEnabled 保留参数位用于 API 能力降级；单次会话内 runCatching
@@ -380,11 +407,16 @@ fun AbyssRoot(
                                 autoCheckUpdates = settings.checkOnLaunch,
                                 shizukuUi = shizukuStatus.toShizukuUi(),
                                 installPermGranted = registry.installPermGranted(),
+                                snapshot = privilegeSnapshot,
+                                onOpenCapability = onOpenCapability,
                             )
 
                             Screen.NavHub -> NavHubScreen(
                                 bottomClearance = bottomClearance,
+                                // FEAT-039 FR-006：路由裁决 —— 解锁直接进真实页；
+                                // 锁定进 ToolScreen 门禁说明页（ungated=false）
                                 onOpenTool = { backStack.push(Screen.Tool(it)) },
+                                snapshot = privilegeSnapshot,
                             )
 
                             Screen.Settings -> SettingsScreen(
@@ -445,7 +477,31 @@ fun AbyssRoot(
                                 onBack = { backStack.pop() },
                             )
 
-                            is Screen.Tool -> when (screen.toolId) {
+                            is Screen.Tool -> {
+                                // FEAT-039 FR-006 路由裁决：未显式「受限模式进入」且能力
+                                // 不足 → 门禁说明页（不进功能页）；其余按既有 when 落真实页。
+                                // 进程重建后以实时快照重新裁决，不信任旧快照。
+                                val gateTool = ToolCatalog.byId(screen.toolId)
+                                if (gateTool != null && !screen.ungated &&
+                                    !privilegeSnapshot.allows(gateTool.access.required)
+                                ) {
+                                    val anyModeUsable = gateTool.access.modes.any { privilegeSnapshot.allows(it.required) }
+                                    ToolScreen(
+                                        toolId = screen.toolId,
+                                        onOpenPlugin = { pluginId ->
+                                            if (pluginId.isBlank()) backStack.selectTab(2)
+                                            else backStack.push(Screen.PluginDetail(pluginId))
+                                        },
+                                        onBack = { backStack.pop() },
+                                        snapshot = privilegeSnapshot,
+                                        onOpenCapability = onOpenCapability,
+                                        onEnterUngated = if (anyModeUsable) {
+                                            { backStack.replace(Screen.Tool(screen.toolId, ungated = true)) }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                } else when (screen.toolId) {
                                 // ── 伪装四件套（v0.3 内置化：真实功能页）──────────
                                 ToolCatalog.ID_BATTERY_DISGUISE -> BatterySpoofScreen(
                                     shizukuStatus = shizukuStatus,
@@ -463,6 +519,8 @@ fun AbyssRoot(
                                     onRequestShizukuPermission = onRequestShizukuPermission,
                                     onOpenShizuku = onOpenShizuku,
                                     onBack = { backStack.pop() },
+                                    privilegeSnapshot = privilegeSnapshot,
+                                    onOpenCapability = onOpenCapability,
                                 )
 
                                 ToolCatalog.ID_SIGNAL_DISGUISE -> SignalSpoofScreen(
@@ -584,20 +642,21 @@ fun AbyssRoot(
                                 )
 
                                 // ── 其余工具：通用占位页（内置卡 / 插件卡 / 路线图卡）──
-                                else -> ToolScreen(
-                                    toolId = screen.toolId,
-                                    onOpenPlugin = { pluginId ->
-                                        if (pluginId.isBlank()) {
-                                            // FEAT-034 AC-007：全 app 只有一个插件中心
-                                            // 深度 —— 统一落顶层「插件」tab，不再 push
-                                            // 二级插件中心页。
-                                            backStack.selectTab(2)
-                                        } else {
-                                            backStack.push(Screen.PluginDetail(pluginId))
-                                        }
-                                    },
-                                    onBack = { backStack.pop() },
-                                )
+                                    else -> ToolScreen(
+                                        toolId = screen.toolId,
+                                        onOpenPlugin = { pluginId ->
+                                            if (pluginId.isBlank()) {
+                                                // FEAT-034 AC-007：全 app 只有一个插件中心
+                                                // 深度 —— 统一落顶层「插件」tab，不再 push
+                                                // 二级插件中心页。
+                                                backStack.selectTab(2)
+                                            } else {
+                                                backStack.push(Screen.PluginDetail(pluginId))
+                                            }
+                                        },
+                                        onBack = { backStack.pop() },
+                                    )
+                                }
                             }
                         }
                     }
