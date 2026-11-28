@@ -18,6 +18,10 @@ okhttp = "4.12.0"
 # Shizuku 13.1.5（Maven Central）：免 Root 提权底座 —— 伪装四件套 / 沙箱引擎
 # 的系统级指令通道（adb shell 上下文）。与 Shizuku App v13.x 服务端兼容。
 shizuku = "13.1.5"
+# Dhizuku-API 2.5.3（Maven Central，io.github.iamr0s）：DeviceOwner 身份共享通道 ——
+# ARC-011 只用 init / isPermissionGranted / requestPermission 三个公开方法做
+# 能力探测与授权请求；提供端是否为设备所有者由 DevicePolicyManager 交叉验证。
+dhizuku = "2.5.3"
 # material-icons 官方已停止演进（BOM 2026.02.00 仍映射 1.7.8），显式 pin 同值
 compose-material-icons = "1.7.8"
 junit = "4.13.2"
@@ -45,6 +49,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+dhizuku-api = { group = "io.github.iamr0s", name = "Dhizuku-API", version.ref = "dhizuku" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 eddsa = { group = "net.i2p.crypto", name = "eddsa", version.ref = "eddsa" }
 

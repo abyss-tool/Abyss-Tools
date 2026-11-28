@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ARC-011 / FEAT-040（v0.10.2）：深渊工具无障碍服务配置。
+     最小能力集：只监听窗口状态切换（前台包名感知）+ 手势代点；
+     isAccessibilityTool=false 如实声明（本服务不是无障碍工具）；
+     不申请 canRetrieveWindowContent / flagRequestTouchExplorationMode。 -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canPerformGestures="true"
+    android:description="@string/accessibility_service_description"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="100"
+    android:settingsActivity="com.abyss.tools.MainActivity" />

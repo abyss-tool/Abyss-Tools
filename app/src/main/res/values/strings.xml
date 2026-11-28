@@ -2,4 +2,8 @@
 <resources>
     <string name="app_name">深渊工具</string>
     <string name="app_name_en">Abyss Tools</string>
+    <!-- ARC-011 / FEAT-040：无障碍服务（系统设置「已安装的服务」列表可见） -->
+    <string name="accessibility_service_label">深渊工具 · 代点与前台感知</string>
+    <string name="accessibility_service_description">为自动化编排提供手势代点与前台应用感知。本服务不是无障碍工具，不读取屏幕内容，可随时在系统设置中关闭。</string>
+    <string name="device_admin_label">深渊工具 · 设备管理员</string>
 </resources>
