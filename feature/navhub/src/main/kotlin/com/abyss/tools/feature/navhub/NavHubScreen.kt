@@ -222,7 +222,7 @@ fun ToolScreen(
                             pluginId = tool.pluginId ?: "",
                             onOpenPlugin = onOpenPlugin,
                             baseMissing = baseMissing &&
-                                (tool.pluginId in PluginBroker.LINUX_DEPENDENT_PLUGIN_IDS || tool.id == PluginBroker.LINUX_BASE_PLUGIN_ID),
+                                (tool.pluginId == PluginBroker.LINUX_BASE_PLUGIN_ID || tool.pluginId in PluginBroker.LINUX_DEPENDENT_PLUGIN_IDS),
                         )
                     }
                 }
