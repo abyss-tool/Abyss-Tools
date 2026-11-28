@@ -31,12 +31,34 @@ sealed interface ShizukuStatus {
         override val binderAlive: Boolean get() = false
     }
 
-    /** binder 在。authorized = 是否已授权本应用。 */
+    /**
+     * binder 在。authorized = 是否已授权本应用。
+     *
+     * ARC-011 / SHL-004（v0.10.2）扇出**展示性事实**（全部带默认值，既有构造零改动）：
+     *  - [serverUid]：`Shizuku.getUid()`，0 = root / 2000 = shell —— 官方 API 唯一
+     *    可靠的服务端身份线索；高危动作二次门禁用，不单独升档；
+     *  - [suiAvailable]：Sui（Root 集成形态）binder 已挂载；
+     *  - [installedVariants]：本机已装变体的展示名 —— **已装 ≠ 活跃**：官方 API
+     *    没有「当前活跃变体」查询方法，Shevery 兼容存根可冒充官方包名、Shizuku+
+     *    的 per-app scope 可在授权后仍拦截调用，因此变体名只进 UI 文案且措辞
+     *    用「疑似」，能力可用性靠执行前只读探针 + checkRemotePermission 兜底。
+     */
     data class Running(
         val version: Int?,
         val authorized: Boolean,
+        val serverUid: Int? = null,
+        val suiAvailable: Boolean = false,
+        val installedVariants: List<ShizukuVariant> = emptyList(),
     ) : ShizukuStatus {
         override val binderAlive: Boolean get() = true
+
+        /** 仅展示用的变体提示：恰一个已装变体 → 「疑似 X」；未装 → 「未检测到已装变体」。 */
+        val variantHint: String?
+            get() = when (installedVariants.size) {
+                0 -> "未检测到已装变体"
+                1 -> "疑似 ${installedVariants.single().displayName}"
+                else -> null
+            }
     }
 }
 
@@ -65,7 +87,13 @@ object ShizukuMonitor {
     private val binderDead = Shizuku.OnBinderDeadListener { refresh() }
     private val permissionResult = Shizuku.OnRequestPermissionResultListener { _, _ -> refresh() }
 
-    /** 当前快照（binder 不在时安全降级 NotRunning，绝不抛）。 */
+    /**
+     * 当前快照（binder 不在时安全降级 NotRunning，绝不抛）。
+     *
+     * v0.10.2：补齐 serverUid / suiAvailable / 已装变体三项目标公开事实；
+     * 变体探测依赖 [ensureInit] 捕获的 applicationContext（未初始化时诚实留空，
+     * 不猜）。**不做**「当前活跃变体」硬判定（见 [ShizukuStatus.Running] 注释）。
+     */
     fun current(): ShizukuStatus = runCatching {
         if (!Shizuku.pingBinder()) {
             ShizukuStatus.NotRunning
@@ -76,6 +104,11 @@ object ShizukuMonitor {
             ShizukuStatus.Running(
                 version = runCatching { Shizuku.getVersion() }.getOrNull(),
                 authorized = authorized,
+                serverUid = runCatching { Shizuku.getUid() }.getOrNull(),
+                suiAvailable = suiAvailable,
+                installedVariants = appContextRef?.let { ctx ->
+                    runCatching { ShizukuVariants.installed(ctx) }.getOrDefault(emptyList())
+                } ?: emptyList(),
             )
         }
     }.getOrDefault(ShizukuStatus.NotRunning)
@@ -100,10 +133,17 @@ object ShizukuMonitor {
      * API 调用前完成 —— 幂等，重复调用无害。
      */
     fun ensureInit(context: Context) {
+        // applicationContext 先落位（幂等）：current() 的已装变体扇出依赖它，
+        // 重复调用只覆盖为等价引用，无副作用。
+        appContextRef = context.applicationContext
         if (suiInitialized) return
         suiInitialized = true
         suiAvailable = runCatching { Sui.init(context.packageName) }.getOrDefault(false)
     }
+
+    /** 进程级 applicationContext（ensureInit 落位；仅用于只读包探测）。 */
+    @Volatile
+    private var appContextRef: Context? = null
 
     /** 拉起 Shizuku 的授权弹窗（Shizuku API 形态：requestPermission(requestCode)）。 */
     fun requestPermission() {
