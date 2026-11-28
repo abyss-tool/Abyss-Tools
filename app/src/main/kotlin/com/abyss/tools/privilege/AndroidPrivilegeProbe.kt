@@ -6,8 +6,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityManager
-import android.view.accessibility.AccessibilityServiceInfo
 import com.abyss.tools.core.common.Capability
 import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ShizukuFacet

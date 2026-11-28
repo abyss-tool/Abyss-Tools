@@ -1,13 +1,13 @@
 package com.abyss.tools.privilege
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureResultCallback
 import android.content.Intent
 import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.GestureDescription
 import com.abyss.tools.ServiceRegistry
 
 /**

@@ -23,14 +23,14 @@ object DhizukuBridge {
         .getOrDefault(false)
 
     /**
-     * 拉起 Dhizuku 授权请求（内部 startActivity 到 Dhizuku 管理器）。
-     * 传入 Activity 上下文；结果经 [androidx.activity] 回调后由 onResume 重读真值，
-     * 这里不缓存任何授权态。
+     * 拉起 Dhizuku 授权请求（公开 API 只有一参形态 `requestPermission(listener)`，
+     * 内部 startActivity 到 Dhizuku 管理器；两参带 Context 的重载是 private，不可调用）。
+     * 必须先 [init] 成功；结果不缓存 —— 返回 App 后由 onResume 重读真值。
      */
-    // DhizukuRequestPermissionListener 是抽象类（继承 AIDL Stub）而非接口 —— 不能 SAM 转换
     fun requestPermission(context: Context): Boolean = runCatching {
+        // 调用前确保 init（Dhizuku 内部依赖 mContext 解析提供端）
+        DhizukuBridge.init(context)
         Dhizuku.requestPermission(
-            context.applicationContext,
             object : DhizukuRequestPermissionListener() {
                 override fun onRequestPermission(requestCode: Int) {
                     // 结果不缓存：返回 App 后由 onResume 重读真值
