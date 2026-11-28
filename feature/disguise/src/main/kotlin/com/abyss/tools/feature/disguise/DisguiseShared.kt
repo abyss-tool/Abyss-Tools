@@ -175,13 +175,6 @@ internal fun DisguiseModeCard(
                 modifier = Modifier.weight(1f),
             )
             StatusChip(text = "当前生效：${highest.label}", tone = ChipTone.OK)
-            Spacer(Modifier.size(6.dp))
-            Text(
-                text = highest.label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-            )
         }
         Spacer(Modifier.size(8.dp))
         DisguiseMode.entries.forEach { mode ->
@@ -201,7 +194,12 @@ internal fun DisguiseModeCard(
                     // 能力不足只置灰、不禁点击：点击弹「缺 …」提示与去授权（FEAT-040 FR-005）
                     modifier = Modifier.alpha(if (effect.state == ModeState.UNAVAILABLE) 0.5f else 1f),
                     onClick = {
-                        if (effect.state == ModeState.UNAVAILABLE) denied = mode else onPrefer(mode)
+                        // NB-31（深挖第三轮）：成功切换即清除上一枚不可用模式的
+                        // 「缺 …」提示行 —— 否则旧提示与当前选中态自相矛盾。
+                        if (effect.state == ModeState.UNAVAILABLE) denied = mode else {
+                            denied = null
+                            onPrefer(mode)
+                        }
                     },
                 )
                 Spacer(Modifier.size(10.dp))

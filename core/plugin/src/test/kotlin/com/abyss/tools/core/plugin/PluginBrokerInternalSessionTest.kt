@@ -152,6 +152,58 @@ class PluginBrokerInternalSessionTest {
     }
 
     @Test
+    fun `会话标识为空 - E_GRANT_INVALID 不抛异常（NB-26 穿透锚）`() {
+        // 旧实现：issueInternal 的 require 会以 IllegalArgumentException 穿透
+        // Binder / UI 调用栈（违反 FR-002）；现在预拦为人话错误码。
+        val binding = broker().getInternalSession(request(), fixtureIndex(), installedBase, sessionId = "")
+        val denied = binding as PluginBroker.Binding.Denied
+        assertEquals("E_GRANT_INVALID", denied.code)
+        assertTrue(denied.humanReason.contains("会话标识"))
+    }
+
+    @Test
+    fun `能力 since 高于已装版本 - E_DEP_VERSION 引导升级（NB-27 假可用收口）`() {
+        // 索引升级到 0.3.0 且该能力 since=0.3.0，本地仍装 0.2.0：
+        // 「看似提供」但本地没有 —— 必须拒签并引导升级，绝不带病签发。
+        val index = fixtureIndex().let { idx ->
+            idx.copy(
+                plugins = idx.plugins.map { e ->
+                    if (e.id == "abyss-plugin-linux") {
+                        e.copy(
+                            version = "0.3.0",
+                            provides = e.provides.map { it.copy(since = "0.3.0") },
+                        )
+                    } else {
+                        e
+                    }
+                },
+            )
+        }
+        val binding = broker().getInternalSession(request(), index, installedBase, "sess-x")
+        val denied = binding as PluginBroker.Binding.Denied
+        assertEquals("E_DEP_VERSION", denied.code)
+        assertEquals(PluginBroker.Remedy.INSTALL_BASE_PLUGIN, denied.remedy)
+        assertTrue(denied.humanReason.contains("升级"))
+    }
+
+    @Test
+    fun `能力 since 非法形态 - fail-closed 拒签不猜（NB-27）`() {
+        val index = fixtureIndex().let { idx ->
+            idx.copy(
+                plugins = idx.plugins.map { e ->
+                    if (e.id == "abyss-plugin-linux") {
+                        e.copy(provides = e.provides.map { it.copy(since = "0.x") })
+                    } else {
+                        e
+                    }
+                },
+            )
+        }
+        val binding = broker().getInternalSession(request(), index, installedBase, "sess-x")
+        assertEquals("E_CAPABILITY_MISMATCH", (binding as PluginBroker.Binding.Denied).code)
+    }
+
+    @Test
     fun `minHost 高于宿主 - 复用解析器 fail-closed（E_HOST_API_TOO_LOW）`() {
         val resolver = DependencyResolver(hostApiVersion = 1, hostAppVersion = SemVer.parse("0.10.0")!!)
         val broker = PluginBroker(resolver, SessionGrantIssuer(clock = { 1L }), "com.abyss.tools", hostSignerColons)

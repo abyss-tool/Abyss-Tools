@@ -33,9 +33,12 @@ package com.abyss.tools.core.common
  * iconKey；状态语义经 [ToolStatus.label] 供无障碍朗读。
  *
  * FEAT-039（v0.10.2）：每条工具附带 [ToolAccess]（最小能力集合 + 多模式），
- * 仪表盘 / 功能页 / 工具详情页三处消费同一份权限矩阵（与
- * 《Abyss-Tools-权限矩阵.csv》逐条对齐）；门禁判定唯一公式
- * `snapshot.allows(tool.access.required)`。
+ * 仪表盘 / 功能页 / 工具详情页三处消费同一份权限矩阵（required 能力集合与
+ * 《Abyss-Tools-权限矩阵.csv》逐条对齐；矩阵 display_tier 列与代码派生档位
+ * 的差异属设计裁决 —— ARC-011 定稿「特殊授权（安装未知应用）与 APP_OBSERVE
+ * 不升档」，故含特殊授权的工具（app-builder / linux-runtime / virus-guard）
+ * 代码侧最低档位派生为 SENIOR 而非矩阵标注的 ABYSS_MAX，以 ARC-011 为准）；
+ * 门禁判定唯一公式 `snapshot.allows(tool.access.required)`。
  */
 enum class ToolCategory(
     val id: String,

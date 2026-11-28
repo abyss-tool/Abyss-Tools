@@ -105,6 +105,12 @@ class PluginBroker(
                 "内部请求方标识非法（须形如 internal:terminal），已拒绝并记审计",
             )
         }
+        // ⓪′ 会话标识预校验（NB-26）：issueInternal 的入参 require 非空 ——
+        // 直接传入会让 IllegalArgumentException 穿透 Binder / UI 调用栈
+        // （违反 FR-002「不抛异常穿透 UI」），在此预拦为人话错误码。
+        if (sessionId.isBlank()) {
+            return denied("E_GRANT_INVALID", "会话标识为空 —— 拒绝签发内部令牌（请重试并携带 sessionId）")
+        }
         // ① 能力必须是注册能力（当前唯一：linux-runtime-v1）
         if (request.capability != PluginContract.CAPABILITY_LINUX_RUNTIME_V1) {
             return denied("E_CAPABILITY_MISMATCH", "请求的能力未注册：${request.capability}")
@@ -133,9 +139,8 @@ class PluginBroker(
             }
         }
         // ④ 能力收敛：请求能力 ∈ 底座 provides（能力可收紧不可放宽）
-        if (base.provides.none { it.capability == request.capability }) {
-            return denied("E_CAPABILITY_MISMATCH", "$basePluginId 未提供 ${request.capability} 能力（能力版本不兼容）")
-        }
+        val provide = base.provides.firstOrNull { it.capability == request.capability }
+            ?: return denied("E_CAPABILITY_MISMATCH", "$basePluginId 未提供 ${request.capability} 能力（能力版本不兼容）")
         ChannelPolicy.validateEntry(base)?.let { reason ->
             return denied("E_CAPABILITY_MISMATCH", "底座插件渠道不合规（$reason）—— 已拒绝解析", Remedy.RETRY)
         }
@@ -146,6 +151,21 @@ class PluginBroker(
                 "请先安装 Linux 运行环境（$basePluginId）再使用此功能",
                 Remedy.INSTALL_BASE_PLUGIN,
             )
+        // ⑤′ since 门槛（NB-27）：能力自 provide.since 版本起才存在 —— 已装版本
+        // 低于 since 时索引条目「看似提供」但本地底座实际没有，签发即谎报可用；
+        // 在此比对并引导升级（假可用 → E_DEP_VERSION，绝不带病签发）。
+        // since 非空但解析失败 = 索引数据损坏 → fail-closed 拒签（不猜、不放行）。
+        val since: SemVer? = provide.since.takeIf { it.isNotBlank() }?.let { raw ->
+            SemVer.parse(raw)
+                ?: return denied("E_CAPABILITY_MISMATCH", "底座能力声明 since 非法（$raw）—— 拒绝解析", Remedy.RETRY)
+        }
+        if (since != null && baseVersion < since) {
+            return denied(
+                "E_DEP_VERSION",
+                "Linux 运行环境需升级到 ${provide.since} 才提供 ${request.capability}（当前已装 $baseVersion）",
+                Remedy.INSTALL_BASE_PLUGIN,
+            )
+        }
         // ⑥ 签发内部令牌（五元组 + TTL ≤60s + 一次性 nonce + requesterId 审计）
         val grant = grantIssuer.issueInternal(
             callerPackage = hostPackage,

@@ -544,6 +544,7 @@ private fun PrivilegeStatusArea(
                 status = shizukuStatus,
                 tone = shizukuTone,
                 onClick = { onOpenCapability(Capability.SHIZUKU_SHELL) },
+                reason = snapshot.reasons[Capability.SHIZUKU_SHELL],
             )
 
             val acc = snapshot.has(Capability.ACCESSIBILITY)
@@ -552,6 +553,7 @@ private fun PrivilegeStatusArea(
                 status = if (acc) "已开启" else "未开启",
                 tone = if (acc) ChipTone.OK else ChipTone.NEUTRAL,
                 onClick = { onOpenCapability(Capability.ACCESSIBILITY) },
+                reason = snapshot.reasons[Capability.ACCESSIBILITY],
             )
 
             val admin = snapshot.has(Capability.DEVICE_ADMIN_ACTIVE)
@@ -566,6 +568,8 @@ private fun PrivilegeStatusArea(
                 status = adminStatus,
                 tone = adminTone,
                 onClick = { onOpenCapability(if (dhizuku) Capability.DEVICE_ADMIN_ACTIVE else Capability.DHIZUKU_ACTIVE) },
+                reason = snapshot.reasons[Capability.DHIZUKU_ACTIVE]
+                    ?: snapshot.reasons[Capability.DEVICE_ADMIN_ACTIVE],
             )
 
             val install = snapshot.has(Capability.INSTALL_UNKNOWN)
@@ -574,6 +578,7 @@ private fun PrivilegeStatusArea(
                 status = if (install) "已允许" else "未允许",
                 tone = if (install) ChipTone.OK else ChipTone.WARN,
                 onClick = { onOpenCapability(Capability.INSTALL_UNKNOWN) },
+                reason = snapshot.reasons[Capability.INSTALL_UNKNOWN],
             )
 
             val overlay = snapshot.has(Capability.OVERLAY)
@@ -582,6 +587,7 @@ private fun PrivilegeStatusArea(
                 status = if (overlay) "已允许" else "未允许",
                 tone = if (overlay) ChipTone.OK else ChipTone.NEUTRAL,
                 onClick = { onOpenCapability(Capability.OVERLAY) },
+                reason = snapshot.reasons[Capability.OVERLAY],
             )
         }
         // 「本机理论可达最高档」：环境提示逐条显示（Android 15 受限设置 / 16 高级保护）

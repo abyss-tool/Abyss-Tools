@@ -3,6 +3,7 @@ package com.abyss.tools.core.plugin
 import com.abyss.tools.plugin.api.PluginContract
 import java.security.SecureRandom
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * 宿主签发的跨插件会话令牌（ARC-102 §4 ④⑤ / SEC-100 L4 —— 纯 JVM 可单测）。
@@ -16,6 +17,13 @@ import java.util.UUID
  *  - 任何失败返回人话错误码（DC-102 表），不抛异常穿透 UI；
  *  - grant 不可跨会话复用、不可持久化（消费方每次 openSession 重新申请）；
  *  - 会话心跳续期需宿主重新签发（旧 grant 不延期）。
+ *
+ * NB-25（深挖第三轮）：issue / verify / revoke / invalidateAll 在 Binder 池线程 +
+ * 主壳功能协程并发下的三处硬伤一并收口：
+ *  - nonce 消耗由「读—判—写」改为 putIfAbsent 原子消耗（并发重放只放行一次）；
+ *  - 代际翻转改 AtomicLong（volatile 读-改-写丢更新）；
+ *  - usedNonces / activeGrants 按过期时限机会性清扫（长驻宿主不再无界增长），
+ *   两表标 internal 供同模块单测直接断言（清扫 / 有界性）。
  */
 /**
  * 令牌作用域（ARC-104 §4.2）：
@@ -86,20 +94,39 @@ class SessionGrantIssuer(
     private val random: SecureRandom = SecureRandom(),
 ) {
 
-    /** 签发代际：宿主重启 → [invalidateAll] 翻转 → 旧 grant 全部失效。 */
-    @Volatile
-    private var generation: Long = 1L
+    /** 签发代际：宿主重启 → [invalidateAll] 翻转 → 旧 grant 全部失效。
+     * NB-25：AtomicLong —— 并发 invalidateAll（灰度关停 + 宿主回收同拍）
+     * 下 volatile 读-改-写会丢一次翻转。 */
+    private val generation = AtomicLong(1L)
 
-    /** 已消耗的 nonce（重放检测；会话撤销时按 sessionId 收缩）。
+    /** 已消耗的 nonce 登记（重放检测；会话撤销时按 sessionId 收缩）。
      * NB-12：issue/verify/revoke/invalidateAll 将跑在 Binder 池线程 +
      * DeathRecipient 线程（AIDL 桥落地后的真实并发面）—— 线性表在并发
      * 修改下会丢登记（重放检测穿透）/ CME / 表损坏；nonce 消费必须与
      * 重放判定原子，改用 ConcurrentHashMap（null 值本就不进表，语义不变）。
-     */
-    private val usedNonces = java.util.concurrent.ConcurrentHashMap<String, String>() // nonce → sessionId
+     * NB-25：internal 供同模块单测断言（并发消耗 / TTL 清扫 / 有界性）。 */
+    internal val usedNonces = java.util.concurrent.ConcurrentHashMap<String, NonceUse>() // nonce → 登记项
 
-    /** 有效会话的授权登记（sessionId → grant；撤销 / 死亡回收用）。 */
-    private val activeGrants = java.util.concurrent.ConcurrentHashMap<String, SessionGrant>()
+    /** 有效会话的授权登记（sessionId → grant；撤销 / 死亡回收用）。
+     * NB-25：internal 供同模块单测断言（过期清扫 / 有界性）。 */
+    internal val activeGrants = java.util.concurrent.ConcurrentHashMap<String, SessionGrant>()
+
+    /** nonce 登记项：归属会话 + 该 grant 的过期时刻（清扫依据）。 */
+    internal data class NonceUse(
+        val sessionId: String,
+        val expiryEpochMs: Long,
+    )
+
+    /**
+     * 机会性清扫（NB-25）：nonce 过期即无用（verify ② 先拒过期 grant，
+     * 到不了 nonce 检查）；activeGrants 超过一个 TTL 未续签的会话按协议
+     * 已死（心跳续期 = 重新签发）。每次签发 / 校验顺带扫一遍，长驻宿主
+     * 不再无界增长（内部会话 60s 续签节奏下，表大小 ~活跃会话数）。
+     */
+    private fun sweep(nowEpochMs: Long) {
+        usedNonces.entries.removeIf { it.value.expiryEpochMs <= nowEpochMs }
+        activeGrants.entries.removeIf { it.value.expiryEpochMs + PluginContract.GRANT_TTL_MAX_SEC * 1000L <= nowEpochMs }
+    }
 
     /**
      * 签发（四重校验通过后调用 —— [CapabilityBinder]）：
@@ -121,8 +148,9 @@ class SessionGrantIssuer(
             nonce = nonce,
             issuedAtEpochMs = now,
             expiryEpochMs = now + PluginContract.GRANT_TTL_MAX_SEC * 1000L,
-            hostSignature = signatureOf(generation),
+            hostSignature = signatureOf(generation.get()),
         )
+        sweep(now)
         activeGrants[sessionId] = grant
         return grant
     }
@@ -147,10 +175,11 @@ class SessionGrantIssuer(
             nonce = newNonce(),
             issuedAtEpochMs = now,
             expiryEpochMs = now + INTERNAL_GRANT_TTL_SEC * 1000L,
-            hostSignature = signatureOf(generation),
+            hostSignature = signatureOf(generation.get()),
             scope = GrantScope.INTERNAL,
             requesterId = requesterId,
         )
+        sweep(now)
         activeGrants[sessionId] = grant
         return grant
     }
@@ -163,43 +192,53 @@ class SessionGrantIssuer(
 
     /**
      * 校验 + 单次消耗（五元组逐项：宿主签名/代际 → 过期 → 会话匹配 →
-     * nonce 重放）。任何一项失败即拒；成功即消耗 nonce（重放防护）。
+     * 撤销 → nonce 重放）。任何一项失败即拒；成功即消耗 nonce（重放防护）。
+     *
+     * NB-25：nonce 消耗改为 putIfAbsent 原子操作 —— 旧「读-判-写」在两线程
+     * 同拍 verify 同一 grant 时会双双放行（单次使用承诺被穿透）；撤销检查
+     * 放在消耗之后，若此刻会话已被撤销则回收刚登记的 nonce（不留孤儿）
+     * 并拒绝 —— 在途调用不再穿透已撤销会话。
      */
     fun verify(grant: SessionGrant, sessionId: String): GrantCheck {
         // ① 宿主签名（代际）—— 宿主重启后旧 grant 失效
-        if (grant.hostSignature != signatureOf(generation)) {
+        if (grant.hostSignature != signatureOf(generation.get())) {
             return invalid("E_GRANT_INVALID", "令牌与当前宿主不符（宿主已重启），请重新发起")
         }
         // ② 过期
-        if (grant.isExpired(clock())) {
+        val now = clock()
+        if (grant.isExpired(now)) {
             return invalid("E_GRANT_EXPIRED", "令牌已过期（已自动重试重新签发）")
         }
         // ③ 会话匹配（不可跨会话复用）
         if (grant.sessionId != sessionId) {
             return invalid("E_GRANT_REPLAY", "令牌不可跨会话复用（已拒绝并记审计）")
         }
-        // 撤销的会话：直接失效
-        if (sessionId !in activeGrants.keys) {
-            return invalid("E_GRANT_INVALID", "会话已关闭或被撤销，请重新开始")
-        }
-        // ④ nonce 重放（单次使用）
-        val consumedBy = usedNonces[grant.nonce]
+        // ④ nonce 重放（单次使用）—— putIfAbsent 原子消耗：并发双发只有一个成功
+        val consumedBy = usedNonces.putIfAbsent(grant.nonce, NonceUse(sessionId, grant.expiryEpochMs))
         if (consumedBy != null) {
-            return if (consumedBy == sessionId) {
+            return if (consumedBy.sessionId == sessionId) {
                 invalid("E_GRANT_REPLAY", "令牌已被使用（nonce 重放），已拒绝并记审计")
             } else {
                 invalid("E_GRANT_REPLAY", "nonce 跨会话重放，已拒绝并记审计")
             }
         }
-        usedNonces[grant.nonce] = sessionId
+        // ⑤ 撤销的会话：失效并回收刚登记的 nonce（revoke 的收缩可能发生在
+        // putIfAbsent 之前 —— 此处原子移除自己的登记，不留孤儿条目）
+        if (sessionId !in activeGrants.keys) {
+            usedNonces.remove(grant.nonce, NonceUse(sessionId, grant.expiryEpochMs))
+            return invalid("E_GRANT_INVALID", "会话已关闭或被撤销，请重新开始")
+        }
+        sweep(now)
         return GrantCheck.Valid(grant)
     }
 
-    /** 撤销会话授权（close / Binder 死亡回收 / 宿主撤销）。返回撤销数。 */
+    /** 撤销会话授权（close / Binder 死亡回收 / 宿主撤销）。返回撤销数。
+     * NB-25：nonce 收缩无条件执行（旧实现 remove ?: return 0 会跳过 ——
+     * 二次 revoke 同一会话时孤儿 nonce 永久残留）。 */
     fun revoke(sessionId: String): Int {
-        activeGrants.remove(sessionId) ?: return 0
-        usedNonces.entries.removeAll { it.value == sessionId }
-        return 1
+        val removed = activeGrants.remove(sessionId)
+        usedNonces.entries.removeIf { it.value.sessionId == sessionId }
+        return if (removed != null) 1 else 0
     }
 
     /** 全量失效（宿主重启 / 灰度开关关停 —— ADR-100 §5 R5 回滚路径）。 */
@@ -207,9 +246,12 @@ class SessionGrantIssuer(
         val count = activeGrants.size
         activeGrants.clear()
         usedNonces.clear()
-        generation += 1
+        generation.incrementAndGet()
         return count
     }
+
+    /** 当前代际（测试可观测；生产只读不写）。 */
+    internal fun currentGeneration(): Long = generation.get()
 
     private fun newNonce(): String = UUID(random.nextLong(), random.nextLong()).toString()
 

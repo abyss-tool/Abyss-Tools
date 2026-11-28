@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.Capability
 import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ToolCatalog
+import com.abyss.tools.core.common.ToolGuide
 import com.abyss.tools.core.common.ToolStatus
 import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.plugin.PluginBroker
@@ -200,6 +201,25 @@ fun ToolScreen(
                     )
                 }
                 item { ToolModesCard(tool = tool, snapshot = snapshot) }
+                // NB-34（深挖第三轮）：ToolAccess.guide 落地首个消费点 —— PLUGINS
+                // 导向的工具（底座 / 瘦客户端）在门禁页给出「插件通道」主行动，
+                // 与「去授权」互补（安装底座 vs 授权能力），字段不再是无消费者的死数据。
+                if (tool.access.guide == ToolGuide.PLUGINS && tool.status == ToolStatus.PLUGIN) {
+                    item {
+                        OutlinedButton(
+                            onClick = { onOpenPlugin(tool.pluginId ?: PluginBroker.LINUX_BASE_PLUGIN_ID) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (tool.pluginId == null || tool.pluginId == PluginBroker.LINUX_BASE_PLUGIN_ID) {
+                                    "安装 Linux 运行环境"
+                                } else {
+                                    "查看承载插件"
+                                },
+                            )
+                        }
+                    }
+                }
                 // 受限模式进入：任一模式门槛已满足 → 显式进入真实页（页面内守卫继续兜底）
                 if (onEnterUngated != null && tool.access.modes.any { snapshot.allows(it.required) }) {
                     item {
