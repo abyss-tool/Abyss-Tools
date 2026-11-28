@@ -11,4 +11,4 @@
     android:description="@string/accessibility_service_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="100"
-    android:settingsActivity="com.abyss.tools.MainActivity" />
+    android:settingsActivity="com.abyss.tools/.MainActivity" />

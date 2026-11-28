@@ -2,6 +2,7 @@ package com.abyss.tools.privilege
 
 import android.content.Context
 import com.rosan.dhizuku.api.Dhizuku
+import com.rosan.dhizuku.api.DhizukuRequestPermissionListener
 
 /**
  * Dhizuku 公开 API 的唯一调用点（io.github.iamr0s:Dhizuku-API 2.5.3）。
@@ -26,8 +27,16 @@ object DhizukuBridge {
      * 传入 Activity 上下文；结果经 [androidx.activity] 回调后由 onResume 重读真值，
      * 这里不缓存任何授权态。
      */
+    // DhizukuRequestPermissionListener 是抽象类（继承 AIDL Stub）而非接口 —— 不能 SAM 转换
     fun requestPermission(context: Context): Boolean = runCatching {
-        Dhizuku.requestPermission(context.applicationContext) { /* 结果由 onResume 重读 */ }
+        Dhizuku.requestPermission(
+            context.applicationContext,
+            object : DhizukuRequestPermissionListener() {
+                override fun onRequestPermission(requestCode: Int) {
+                    // 结果不缓存：返回 App 后由 onResume 重读真值
+                }
+            },
+        )
     }.isSuccess
 
     /** 是否已安装任一 Dhizuku 提供端（只读探测，用于「去授权」落点选择）。 */

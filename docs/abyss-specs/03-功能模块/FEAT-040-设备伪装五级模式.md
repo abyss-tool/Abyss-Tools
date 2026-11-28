@@ -38,7 +38,7 @@
 
 | 编号 | 需求描述（原子、可验证） |
 |---|---|
-| FR-001 | `DisguiseMode` 五级，每级绑定能力集合：LOW = `SELF_BRANDING`；MEDIUM = `ACCESSIBILITY`；HIGH = `SHIZUKU_SHELL`；MAX = `SHIZUKU_SHELL ∧ ACCESSIBILITY`；ULTRA = `SHIZUKU_SHELL ∧ DHIZUKU_ACTIVE ∧ DEVICE_ADMIN_ACTIVE`。 |
+| FR-001 | `DisguiseMode` 五级，每级绑定能力集合：LOW = ∅（零授权；自身组件能力 `SELF_BRANDING` 恒为真，不作为门槛，快照为空时 low 仍如实为生效）；MEDIUM = `ACCESSIBILITY`；HIGH = `SHIZUKU_SHELL`；MAX = `SHIZUKU_SHELL ∧ ACCESSIBILITY`；ULTRA = `SHIZUKU_SHELL ∧ DHIZUKU_ACTIVE ∧ DEVICE_ADMIN_ACTIVE`。 |
 | FR-002 | `DisguiseModes.effect(mode, snapshot): ModeEffect` 为纯函数：能力不足 → `UNAVAILABLE(缺失能力)`；LOW → `EFFECTIVE`；MEDIUM → `EFFECTIVE`（前台包名感知 + 手势原语可用）；HIGH → `EFFECTIVE`（四件套命令）；MAX → `EFFECTIVE`（HIGH + MEDIUM 组合可执行）但 `note` 如实标注「档案仅导出，待 Hook 层」（STANDARD / DEEP 档案无消费方）；ULTRA → 当前恒 `PROFILE_ONLY`（设备策略面板 `N-DO-001` 未落地，DEEP 档案无注入通道）—— 「已生成档案 ≠ 已生效」。 |
 | FR-003 | `DisguiseSettings.disguiseMode` 持久化偏好键 `disguise_mode`（枚举名，坏值 fail-closed 回 `HIGH`）；**生效模式以 `PrivilegeSnapshot` 实时计算为准**，偏好只作 UI 缓存（与 `FEAT-036 FR-002` 同款纪律）。 |
 | FR-004 | `DisguiseModeCard`：五枚 `SelectableChip`（low / medium / high / max / ultra），能力不足者置灰且点击弹说明而非切换；每级右侧短标签 = 当前 `ModeEffect`（生效 / 仅档案 / 不可用）；顶部一行「当前生效：{按实时能力算出的最高 EFFECTIVE 模式}」。 |

@@ -134,7 +134,7 @@ data class PrivilegeSnapshot(
 
     /** 到下一档（按阶梯顺序）还差什么；已是最高档返回 null。 */
     val toNextTier: Pair<PrivilegeTier, Set<Capability>>?
-        get() = TierCalculator.nextTier(tier)?.let { it to (TierCalculator.requirements(it) - capabilities) }
+        get() = TierCalculator.nextTier(tier)?.let { it to (TierCalculator.requirements.getValue(it) - capabilities) }
 }
 
 /** 档位计算器（纯函数，可单测）。 */

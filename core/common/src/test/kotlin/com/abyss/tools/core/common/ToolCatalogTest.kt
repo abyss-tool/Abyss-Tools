@@ -111,8 +111,10 @@ class ToolCatalogTest {
 
     @Test
     fun `需 Shizuku 的工具都声明了零权限只读模式`() {
+        // sandbox-space / dual-open 为「Shizuku 主力」组：多用户引擎本身即需 Shizuku，无零权限只读模式（FEAT-039 §3.1）
+        val shizukuOnly = setOf("sandbox-space", "dual-open")
         ToolCatalog.tools
-            .filter { it.access.required == setOf(Capability.SHIZUKU_SHELL) }
+            .filter { it.access.required == setOf(Capability.SHIZUKU_SHELL) && it.id !in shizukuOnly }
             .forEach { tool ->
                 assertTrue(
                     "${tool.id} 应有零权限只读 / 预览模式",

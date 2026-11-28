@@ -217,7 +217,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
             Screen.PluginHub -> TOKEN_PLUGINHUB
             is Screen.SettingsSection -> "$PREFIX_SETTINGS${screen.sectionId}"
             is Screen.PluginDetail -> "$PREFIX_PLUGIN${screen.pluginId}"
-            is Screen.Tool -> "$PREFIX_TOOL${screen.toolId}"
+            is Screen.Tool -> if (screen.ungated) "$PREFIX_TOOL_UNGATED${screen.toolId}" else "$PREFIX_TOOL${screen.toolId}"
             is Screen.AppManagerDetail -> "$PREFIX_APPMGR${screen.app.packageName}"
         }
     }

@@ -198,7 +198,8 @@ internal fun DisguiseModeCard(
                 SelectableChip(
                     text = mode.label,
                     selected = preferred == mode,
-                    enabled = effect.state != ModeState.UNAVAILABLE,
+                    // 能力不足只置灰、不禁点击：点击弹「缺 …」提示与去授权（FEAT-040 FR-005）
+                    modifier = Modifier.alpha(if (effect.state == ModeState.UNAVAILABLE) 0.5f else 1f),
                     onClick = {
                         if (effect.state == ModeState.UNAVAILABLE) denied = mode else onPrefer(mode)
                     },
