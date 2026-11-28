@@ -31,7 +31,9 @@ import com.abyss.tools.core.common.PrivilegeSnapshot
 import com.abyss.tools.core.common.ToolCatalog
 import com.abyss.tools.core.common.ToolStatus
 import com.abyss.tools.core.designsystem.component.AbyssIcons
+import com.abyss.tools.core.plugin.PluginBroker
 import com.abyss.tools.core.designsystem.component.CapabilityGuardCard
+import com.abyss.tools.core.designsystem.component.ChipTone
 import com.abyss.tools.core.designsystem.component.GatedToolCard
 import com.abyss.tools.core.designsystem.component.SectionHeader
 import com.abyss.tools.core.designsystem.component.StatusChip
@@ -125,6 +127,10 @@ fun NavHubScreen(
  * [CapabilityGuardCard]（缺失能力 + 去授权）+ [ToolModesCard]（多模式 ✓/✗）+
  * 「以受限模式进入」（任一模式门槛已满足时经 [onEnterUngated] 进入真实页）。
  * 否则与 v0.10.1 占位页完全一致。
+ *
+ * ARC-104 AC-005（v0.10.3）：[installedPluginIds] 非空即按底座安装态改写插件卡 ——
+ * 底座未装时所有依赖入口显示「需安装 Linux 运行环境」+ 一键跳转，不出现半可用状态；
+ * null = 旧调用 / 安装态未知，保持原文案。
  */
 @Composable
 fun ToolScreen(
@@ -134,6 +140,7 @@ fun ToolScreen(
     snapshot: PrivilegeSnapshot? = null,
     onOpenCapability: (Capability) -> Unit = {},
     onEnterUngated: (() -> Unit)? = null,
+    installedPluginIds: Set<String>? = null,
 ) {
     val tool = ToolCatalog.byId(toolId)
     val gated = tool != null && snapshot != null && !snapshot.allows(tool.access.required)
@@ -209,7 +216,14 @@ fun ToolScreen(
             when (tool.status) {
                 ToolStatus.PLUGIN -> {
                     item {
-                        PluginCarrierCard(pluginId = tool.pluginId ?: "", onOpenPlugin = onOpenPlugin)
+                        val baseMissing = installedPluginIds != null &&
+                            PluginBroker.LINUX_BASE_PLUGIN_ID !in installedPluginIds
+                        PluginCarrierCard(
+                            pluginId = tool.pluginId ?: "",
+                            onOpenPlugin = onOpenPlugin,
+                            baseMissing = baseMissing &&
+                                (tool.pluginId == PluginBroker.LINUX_BASE_PLUGIN_ID || tool.pluginId in PluginBroker.LINUX_DEPENDENT_PLUGIN_IDS),
+                        )
                     }
                 }
                 ToolStatus.BUILT_IN -> {
@@ -250,22 +264,40 @@ internal fun DetailHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun PluginCarrierCard(pluginId: String, onOpenPlugin: (String) -> Unit) {
+private fun PluginCarrierCard(
+    pluginId: String,
+    onOpenPlugin: (String) -> Unit,
+    baseMissing: Boolean = false,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .background(
+                if (baseMissing) ChipTone.WARN.container.copy(alpha = 0.35f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            )
             .padding(16.dp),
     ) {
         Text(
-            text = "该工具由插件承载",
+            text = when {
+                baseMissing && pluginId == PluginBroker.LINUX_BASE_PLUGIN_ID -> "需安装 Linux 运行环境"
+                baseMissing -> "需先安装 Linux 运行环境"
+                else -> "该工具由插件承载"
+            },
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
+            color = if (baseMissing) ChipTone.WARN.content else MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.size(10.dp))
-        Button(onClick = { onOpenPlugin(pluginId) }) {
-            Text(if (pluginId.isBlank()) "前往插件中心" else "查看插件 · $pluginId")
+        Button(onClick = { onOpenPlugin(if (baseMissing) PluginBroker.LINUX_BASE_PLUGIN_ID else pluginId) }) {
+            Text(
+                when {
+                    baseMissing -> "安装 Linux 运行环境"
+                    pluginId.isBlank() -> "前往插件中心"
+                    else -> "查看插件 · $pluginId"
+                },
+            )
         }
     }
 }

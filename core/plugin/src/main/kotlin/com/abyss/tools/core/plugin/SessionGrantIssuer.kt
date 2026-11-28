@@ -17,6 +17,17 @@ import java.util.UUID
  *  - grant 不可跨会话复用、不可持久化（消费方每次 openSession 重新申请）；
  *  - 会话心跳续期需宿主重新签发（旧 grant 不延期）。
  */
+/**
+ * 令牌作用域（ARC-104 §4.2）：
+ *  - [PLUGIN]：消费方插件经 `getCapability` 四重校验签发，TTL ≤ [PluginContract.GRANT_TTL_MAX_SEC]；
+ *  - [INTERNAL]：主壳内部模块经 `PluginBroker.getInternalSession` 签发 —— 跳过消费方白名单
+ *    但保留签名自校验 / 能力收敛 / 审计，TTL 收紧到 ≤ [SessionGrantIssuer.INTERNAL_GRANT_TTL_SEC]。
+ */
+enum class GrantScope {
+    PLUGIN,
+    INTERNAL,
+}
+
 data class SessionGrant(
     val callerPackage: String,
     /** 调用方 APK 签名集 SHA-256（十六进制大写，64 位）。 */
@@ -29,6 +40,10 @@ data class SessionGrant(
     val expiryEpochMs: Long,
     /** 宿主签名摘要（含代际：generation 编入签名串，跨代即失效）。 */
     val hostSignature: String,
+    /** v2（ARC-104）：作用域，默认插件会话 —— 既有构造零改动。 */
+    val scope: GrantScope = GrantScope.PLUGIN,
+    /** v2（ARC-104）：内部会话的请求方标识（如 internal:terminal），与插件会话分账审计。 */
+    val requesterId: String? = null,
 ) {
     init {
         require(callerPackage.isNotBlank()) { "callerPackage 不得为空" }
@@ -36,8 +51,16 @@ data class SessionGrant(
         require(capability.isNotBlank()) { "capability 不得为空" }
         require(sessionId.isNotBlank()) { "sessionId 不得为空" }
         require(expiryEpochMs > issuedAtEpochMs) { "expiry 必须晚于 issuedAt" }
-        require(expiryEpochMs - issuedAtEpochMs <= PluginContract.GRANT_TTL_MAX_SEC * 1000L) {
+        val ttlMs = expiryEpochMs - issuedAtEpochMs
+        require(ttlMs <= PluginContract.GRANT_TTL_MAX_SEC * 1000L) {
             "grant TTL 不得超过 ${PluginContract.GRANT_TTL_MAX_SEC} 秒"
+        }
+        if (scope == GrantScope.INTERNAL) {
+            // 内部通道 TTL 只许更紧（能力可收紧不可放宽，ARC-104 §4.2）
+            require(ttlMs <= SessionGrantIssuer.INTERNAL_GRANT_TTL_SEC * 1000L) {
+                "内部会话 grant TTL 不得超过 ${SessionGrantIssuer.INTERNAL_GRANT_TTL_SEC} 秒"
+            }
+            require(!requesterId.isNullOrBlank()) { "内部会话必须携带 requesterId（审计分账）" }
         }
         require(hostSignature.isNotBlank()) { "hostSignature 不得为空（宿主签发凭证）" }
     }
@@ -99,6 +122,34 @@ class SessionGrantIssuer(
             issuedAtEpochMs = now,
             expiryEpochMs = now + PluginContract.GRANT_TTL_MAX_SEC * 1000L,
             hostSignature = signatureOf(generation),
+        )
+        activeGrants[sessionId] = grant
+        return grant
+    }
+
+    /**
+     * 签发内部会话令牌（ARC-104 §4.2 宿主自消费通道）：五元组同插件会话，
+     * 但 scope = INTERNAL、TTL 固定 60s、强制 requesterId（审计分账）。
+     */
+    fun issueInternal(
+        callerPackage: String,
+        callerSignerSha256: String,
+        capability: String,
+        sessionId: String,
+        requesterId: String,
+    ): SessionGrant {
+        val now = clock()
+        val grant = SessionGrant(
+            callerPackage = callerPackage,
+            callerSignerSha256 = callerSignerSha256,
+            capability = capability,
+            sessionId = sessionId,
+            nonce = newNonce(),
+            issuedAtEpochMs = now,
+            expiryEpochMs = now + INTERNAL_GRANT_TTL_SEC * 1000L,
+            hostSignature = signatureOf(generation),
+            scope = GrantScope.INTERNAL,
+            requesterId = requesterId,
         )
         activeGrants[sessionId] = grant
         return grant
@@ -169,5 +220,8 @@ class SessionGrantIssuer(
 
     companion object {
         const val DEFAULT_HOST_IDENTITY: String = "abyss-tools-publisher"
+
+        /** 内部会话 grant TTL 上限（秒）：比插件会话 300s 更短（ARC-104 §4.2）。 */
+        const val INTERNAL_GRANT_TTL_SEC: Int = 60
     }
 }
