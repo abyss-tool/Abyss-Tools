@@ -330,9 +330,10 @@ fun AbyssRoot(
     // 「我的插件」分区、安装徽章与仪表盘统计重读磁盘。
     var pluginStateVersion by remember { mutableStateOf(0) }
     val bumpPluginState = { pluginStateVersion += 1 }
-    val installedPluginCount = remember(pluginStateVersion) {
-        registry.pluginInstaller.installed().size
+    val installedPluginIds = remember(pluginStateVersion) {
+        registry.pluginInstaller.installed().map { it.id }.toSet()
     }
+    val installedPluginCount = installedPluginIds.size
 
     BackHandler(enabled = backStack.canPop) { backStack.pop() }
 
@@ -495,6 +496,7 @@ fun AbyssRoot(
                                         onBack = { backStack.pop() },
                                         snapshot = privilegeSnapshot,
                                         onOpenCapability = onOpenCapability,
+                                        installedPluginIds = installedPluginIds,
                                         onEnterUngated = if (anyModeUsable) {
                                             { backStack.replace(Screen.Tool(screen.toolId, ungated = true)) }
                                         } else {
@@ -655,6 +657,7 @@ fun AbyssRoot(
                                             }
                                         },
                                         onBack = { backStack.pop() },
+                                        installedPluginIds = installedPluginIds,
                                     )
                                 }
                             }

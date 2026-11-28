@@ -39,6 +39,7 @@ object DiagnosticsLog {
         BACKUP_RESTORE("备份恢复"),
         CRASH("崩溃防护"),
         VIRUS_SCAN("病毒拦截"),
+        PLUGIN_SESSION("插件会话"),
         GENERAL("通用"),
     }
 

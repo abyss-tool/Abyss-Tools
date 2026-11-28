@@ -7,13 +7,18 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import com.abyss.tools.core.common.AbyssChannels
+import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.CrashGuard
 import com.abyss.tools.core.common.LauncherIconGateway
+import com.abyss.tools.core.common.SemVer
 import com.abyss.tools.core.common.diagnostics.DiagnosticsLog
 import com.abyss.tools.core.common.diagnostics.DiagnosticExporter
+import com.abyss.tools.core.plugin.DependencyResolver
+import com.abyss.tools.core.plugin.PluginBroker
 import com.abyss.tools.core.plugin.PluginChannelClient
 import com.abyss.tools.core.plugin.PluginInstaller
 import com.abyss.tools.core.plugin.PluginRepository
+import com.abyss.tools.core.plugin.SessionGrantIssuer
 import com.abyss.tools.core.shell.ShellGateway
 import com.abyss.tools.core.shell.ShizukuMonitor
 import com.abyss.tools.core.shell.ShizukuShellGateway
@@ -30,6 +35,7 @@ import com.abyss.tools.feature.appmgr.PackageManagerProvider
 import com.abyss.tools.feature.disguise.DisguiseSettings
 import com.abyss.tools.feature.settings.SettingsRepository
 import com.abyss.tools.install.PackageInstallerApkGateway
+import com.abyss.tools.install.PublisherSignatures
 import com.abyss.tools.plugin.api.PluginContract
 import com.abyss.tools.privilege.AndroidPrivilegeProbe
 import com.abyss.tools.privilege.PrivilegeRepository
@@ -74,6 +80,13 @@ object ServiceRegistry {
      */
     lateinit var privilegeRepository: PrivilegeRepository
 
+    /**
+     * 宿主 PluginBroker（ARC-104 §4）：主壳内部模块消费 Linux 底座的唯一入口
+     * `getInternalSession()` —— 宿主自校验 + 能力收敛 + 60s 内部 grant + 审计分账；
+     * 底座未装即 E_RUNTIME_UNAVAILABLE（UI 一键引导），绝不谎报可用。
+     */
+    lateinit var pluginBroker: PluginBroker
+
     val ready: Boolean
         get() = ::settings.isInitialized
 
@@ -113,6 +126,23 @@ object ServiceRegistry {
         // ARC-011：权限能力探测 + 快照仓储（init 即探测一次，首帧不展示假态）
         privilegeRepository = PrivilegeRepository(AndroidPrivilegeProbe(appContext))
 
+        // ARC-104 §4：宿主自消费通道 —— 宿主身份 = 自身包名 + 发布者指纹常量；
+        // 审计走 DiagnosticsLog（PLUGIN_SESSION 分账，requesterId 为 subject）。
+        pluginBroker = PluginBroker(
+            resolver = DependencyResolver(hostAppVersion = AppInfo.version),
+            grantIssuer = SessionGrantIssuer(),
+            hostPackage = appContext.packageName,
+            hostSignerSha256 = PublisherSignatures.PINNED_SHA256,
+            onAudit = { ev ->
+                DiagnosticsLog.info(
+                    DiagnosticsLog.Kind.PLUGIN_SESSION,
+                    ev.requesterId,
+                    "${ev.outcome} ${ev.capability} ${ev.sessionId}" +
+                        (ev.baseVersion?.let { " base=$it" } ?: ""),
+                )
+            },
+        )
+
         // FEAT-037：深渊agent 直达下载（Guru 发布仓 version.json 固定通道；
         // 走同一镜像感知 transport —— 下载资产自动吃 MirrorRouter 镜像链）
         agentRelease = AgentReleaseManager(
@@ -142,6 +172,14 @@ object ServiceRegistry {
             apkGateway = apkGateway,
         )
     }
+
+    /** 本机已装插件版本账本（PluginBroker.getInternalSession 的 installed 入参）。 */
+    fun installedPluginVersions(): Map<String, SemVer> =
+        runCatching {
+            pluginInstaller.installed().mapNotNull { m ->
+                SemVer.parse(m.version)?.let { m.id to it }
+            }.toMap()
+        }.getOrDefault(emptyMap())
 
     /** 「安装未知应用」授权态（新手引导 / 仪表盘徽章共用）。 */
     fun installPermGranted(): Boolean = runCatching {
