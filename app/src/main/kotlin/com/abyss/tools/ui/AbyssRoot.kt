@@ -661,6 +661,9 @@ fun AbyssRoot(
                                     },
                                     onBack = { backStack.pop() },
                                     privilegeSnapshot = privilegeSnapshot,
+                                    onOpenPermissionSettings = {
+                                        backStack.push(Screen.SettingsSection("permission"))
+                                    },
                                 )
                             }
                         }

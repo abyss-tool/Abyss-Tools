@@ -147,6 +147,7 @@ fun ToolScreen(
     onOpenPlugin: (String) -> Unit,
     onBack: () -> Unit,
     privilegeSnapshot: PrivilegeSnapshot,
+    onOpenPermissionSettings: () -> Unit = {},
 ) {
     val tool = ToolCatalog.byId(toolId)
     Column(
@@ -198,6 +199,16 @@ fun ToolScreen(
                             StatusChip(text = tool.status.label, tone = tool.status.tone())
                         } else {
                             StatusChip(text = "需${requiredTier.label}", tone = ChipTone.WARN)
+                        }
+                    }
+                    // 权限不足时显示引导按钮
+                    if (!toolAvailable) {
+                        Spacer(Modifier.size(12.dp))
+                        androidx.compose.material3.Button(
+                            onClick = onOpenPermissionSettings,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("前往权限设置开启${requiredTier.label}权限")
                         }
                     }
                 }
