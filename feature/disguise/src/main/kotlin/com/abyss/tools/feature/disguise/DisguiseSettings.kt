@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.abyss.tools.core.common.DisguiseMode
+import com.abyss.tools.core.common.DisguiseModes
 import com.abyss.tools.core.shell.BatteryStatus
 
 /** 定位伪装移动模式（存 prefs 用名字，UI 展示用 [label]）。 */
@@ -107,6 +109,21 @@ class DisguiseSettings(context: Context) {
         set(value) {
             _deviceName = value
             prefs.edit().putString(KEY_DEVICE_NAME, value).apply()
+        }
+
+    private var _disguiseMode by mutableStateOf(
+        DisguiseModes.fromNameOrNull(prefs.getString(KEY_DISGUISE_MODE, null)) ?: DisguiseMode.HIGH,
+    )
+
+    /**
+     * 伪装五级模式偏好（FEAT-040 FR-003）：**只作 UI 缓存** —— 生效模式以
+     * PrivilegeSnapshot 实时计算为准；坏值 fail-closed 回 HIGH。
+     */
+    var disguiseMode: DisguiseMode
+        get() = _disguiseMode
+        set(value) {
+            _disguiseMode = value
+            prefs.edit().putString(KEY_DISGUISE_MODE, value.name).apply()
         }
 
     /** 自定义机型字段（沙箱 Hook 档案导出用）。 */
@@ -230,6 +247,7 @@ class DisguiseSettings(context: Context) {
         const val KEY_BATTERY_GUARD = "battery_guard"
         const val KEY_MODEL_PROFILE = "model_profile"
         const val KEY_MODEL_LEVEL = "model_spoof_level"
+        const val KEY_DISGUISE_MODE = "disguise_mode"
         const val KEY_DEVICE_NAME = "device_name"
         const val KEY_CUSTOM_MODEL = "custom_model"
         const val KEY_CUSTOM_BRAND = "custom_brand"
