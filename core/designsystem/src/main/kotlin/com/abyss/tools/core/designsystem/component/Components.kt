@@ -62,13 +62,17 @@ fun SectionHeader(
     }
 }
 
-/** 语气化状态色：PLUGIN(青) / READY(蓝) / FRAMEWORK(灰) / ERROR(红)。 */
+/** 语气化状态色：PLUGIN(青) / READY(蓝) / FRAMEWORK(灰) / ERROR(红) / MAX(橙) / ULTRA(紫)。 */
 enum class ChipTone(val container: Color, val content: Color) {
     INFO(Color(0xFF0F454F), Color(0xFFB4EBF7)),
     OK(Color(0xFF0E425F), Color(0xFFCBE5FF)),
     NEUTRAL(Color(0xFF1A222D), Color(0xFFB3C0CF)),
     WARN(Color(0xFF4A2B00), Color(0xFFFFDDB0)),
     ERROR(Color(0xFF93000A), Color(0xFFFFDAD6)),
+    /** ARC-011 五档徽章：abyss-max（橙）。 */
+    MAX(Color(0xFF5A3A00), Color(0xFFFFCF8A)),
+    /** ARC-011 五档徽章：abyss-ultra（紫）。 */
+    ULTRA(Color(0xFF3B1E5C), Color(0xFFD9B8FF)),
 }
 
 /**
