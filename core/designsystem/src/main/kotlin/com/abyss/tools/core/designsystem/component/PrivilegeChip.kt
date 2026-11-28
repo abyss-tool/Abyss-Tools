@@ -167,9 +167,11 @@ fun TierExplanationDialog(
                     val missing = TierCalculator.requirements.getValue(row) - snapshot.capabilities
                     val rowStatus = if (missing.isEmpty()) "✓" else "待补 ${capabilityLabels(missing)}"
                     Row(
+                        // mergeDescendants：整行已给出完整 description，行内三段
+                        // Text 不再各自成焦点（TalkBack 不重复朗读）。
                         modifier = Modifier
                             .fillMaxWidth()
-                            .semantics { contentDescription = "${row.label}：${row.condition}，$rowStatus" },
+                            .semantics(mergeDescendants = true) { contentDescription = "${row.label}：${row.condition}，$rowStatus" },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Dot(row.tone())
@@ -314,9 +316,10 @@ fun ToolModesCard(
         tool.access.modes.forEach { mode ->
             val ok = snapshot.allows(mode.required)
             Row(
+                // mergeDescendants：整行已给出完整 description（同上，防重复朗读）。
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics {
+                    .semantics(mergeDescendants = true) {
                         contentDescription = "${mode.name}：${if (ok) "可用" else "缺 ${capabilityLabels(mode.required)}"}"
                     },
                 verticalAlignment = Alignment.CenterVertically,

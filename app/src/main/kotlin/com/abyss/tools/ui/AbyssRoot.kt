@@ -159,6 +159,27 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
     /** 恢复出的待重挂应用详情包名（一次性；查不到则丢弃，诚实降级）。 */
     var pendingAppDetailPackage: String? = null
 
+    /**
+     * 会话内门禁已通过标记（NB-30，深挖第三轮）：工具页首次满足门槛即记录，
+     * 能力中途丢失（关 Shizuku / 无障碍被系统杀）不再把已进入的功能页静默
+     * 换回门禁说明页 —— 页内守卫横幅 / 网关二次校验继续兜底；用户表单态与
+     * 在途任务不再被销毁。
+     * 生命周期严格随导航：pop / replace 移除对应 key、selectTab 重置、
+     * 进程重建即丢失（恢复后以实时快照重新裁决，不信任旧标记 —— fail-closed）。
+     * 纯内存集合、不触发重组（只在导航事件 / 快照变更驱动的重组里被读）。
+     */
+    private val gatePassed = LinkedHashSet<String>()
+
+    internal fun isGatePassed(key: String): Boolean = key in gatePassed
+
+    internal fun markGatePassed(key: String) {
+        gatePassed.add(key)
+    }
+
+    private fun dropGatePass(screen: Screen) {
+        if (screen is Screen.Tool) gatePassed.remove(screen.stateKey())
+    }
+
     val current: Screen get() = stack.last()
     val canPop: Boolean get() = stack.size > 1
     val showBottomBar: Boolean get() = stack.size == 1
@@ -184,6 +205,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
     fun pop() {
         if (canPop) {
             lastAction = NavAction.POP
+            dropGatePass(stack.last())
             stack = stack.dropLast(1)
         }
     }
@@ -191,7 +213,8 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
     /** 栈顶替换（FEAT-039：门禁说明页 → 「以受限模式进入」真实页，不叠加一层）。 */
     fun replace(screen: Screen) {
         lastAction = NavAction.PUSH
-        stack = if (stack.size > 1) stack.dropLast(1) + screen else listOf(screen)
+        if (stack.isNotEmpty()) dropGatePass(stack.last())
+        stack = if (stack.isNotEmpty()) stack.dropLast(1) + screen else listOf(screen)
     }
 
     fun selectTab(index: Int) {
@@ -205,6 +228,7 @@ class AbyssBackStack internal constructor(initialStack: List<Screen>) {
             else -> return
         }
         lastAction = NavAction.TAB
+        gatePassed.clear()
         stack = listOf(target)
     }
 
@@ -479,13 +503,21 @@ fun AbyssRoot(
                             )
 
                             is Screen.Tool -> {
-                                // FEAT-039 FR-006 路由裁决：未显式「受限模式进入」且能力
-                                // 不足 → 门禁说明页（不进功能页）；其余按既有 when 落真实页。
-                                // 进程重建后以实时快照重新裁决，不信任旧快照。
+                                // FEAT-039 FR-006 路由裁决 + NB-30 会话内粘性：
+                                // 首次满足门槛即记账（markGatePassed），此后能力中途
+                                // 丢失不把已进入的功能页换回门禁页（页内守卫横幅 /
+                                // 网关二次校验兜底）；进程重建后标记丢失，以实时
+                                // 快照重新裁决 —— 与旧「每次重组重判」的差别只在
+                                // 会话内降级不丢页，未解锁用户仍一律进门禁页。
                                 val gateTool = ToolCatalog.byId(screen.toolId)
-                                if (gateTool != null && !screen.ungated &&
-                                    !privilegeSnapshot.allows(gateTool.access.required)
-                                ) {
+                                val allowedNow = privilegeSnapshot.allows(gateTool?.access?.required ?: emptySet())
+                                val gateKey = screen.stateKey()
+                                if (!screen.ungated && gateTool != null && allowedNow) {
+                                    backStack.markGatePassed(gateKey)
+                                }
+                                val gateOpen = screen.ungated || gateTool == null || allowedNow ||
+                                    backStack.isGatePassed(gateKey)
+                                if (gateTool != null && !gateOpen) {
                                     val anyModeUsable = gateTool.access.modes.any { privilegeSnapshot.allows(it.required) }
                                     ToolScreen(
                                         toolId = screen.toolId,

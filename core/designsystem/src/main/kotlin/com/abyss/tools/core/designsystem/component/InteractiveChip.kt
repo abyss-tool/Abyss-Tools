@@ -41,6 +41,9 @@ import androidx.compose.ui.unit.dp
 /**
  * 能力明细片：圆点（同 StatusChip 语义）+ 短标签（≤ 6 字）。
  * [status] 只进 contentDescription（「标签 · 状态」），视觉仍以圆点色表态。
+ * NB-33（深挖第三轮）：[reason] 为探测层写入的人话原因（如「无障碍已登记
+ * 但服务未连接」），追进 contentDescription 供 TalkBack 朗读 —— FEAT-038 §5
+ * 「状态附带原因」此前只在门禁说明页可见，仪表盘侧丢失。
  */
 @Composable
 fun InteractiveStatusChip(
@@ -49,8 +52,17 @@ fun InteractiveStatusChip(
     tone: ChipTone,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    reason: String? = null,
 ) {
-    val description = "$label · $status"
+    val description = buildString {
+        append(label)
+        append(" · ")
+        append(status)
+        if (!reason.isNullOrBlank()) {
+            append(" · ")
+            append(reason)
+        }
+    }
     Row(
         modifier = modifier
             .sizeIn(minWidth = 24.dp, minHeight = 24.dp)
@@ -62,7 +74,8 @@ fun InteractiveStatusChip(
                     Modifier
                 },
             )
-            .semantics { contentDescription = description }
+            // mergeDescendants：行内 Text 不再独立成焦点，同段信息只读一遍
+            .semantics(mergeDescendants = true) { contentDescription = description }
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -110,7 +123,7 @@ fun LockBadge(
     icon: ImageVector = Icons.Rounded.Lock,
 ) {
     Row(
-        modifier = modifier.semantics { contentDescription = a11y },
+        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = a11y },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

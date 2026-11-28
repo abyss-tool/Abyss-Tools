@@ -324,6 +324,39 @@ class PluginBrokerTest {
         assertEquals("E_CAPABILITY_MISMATCH", denied.code)
     }
 
+    @Test
+    fun `会话标识为空 - E_GRANT_INVALID 不抛异常（NB-26）`() {
+        val binding = binderOf().getCapability(
+            caller = CapabilityBinder.CallerIdentity("com.abyss.plugin.appbuilder", PUBLISHER_SHA),
+            capability = "linux-runtime-v1",
+            index = fixtureIndex(),
+            installed = mapOf("abyss-plugin-linux" to SemVer.parse("0.2.0")!!),
+            sessionId = "",
+        )
+        val denied = binding as CapabilityBinder.Binding.Denied
+        assertEquals("E_GRANT_INVALID", denied.code)
+    }
+
+    @Test
+    fun `消费方未声明 depends 该能力 - E_DIRECT_BIND_DENIED（NB-28 越权锚）`() {
+        // 白名单消费方请求「未在自己 depends 里声明」的能力（HOST_API v3 引入
+        // 第二能力后的越权路径）—— 必须拒发，白名单 ≠ 通行证。
+        val index = testIndex { entries ->
+            val builder = entries.first { it.id == "abyss-plugin-app-builder" }
+            entries[entries.indexOf(builder)] = builder.copy(depends = emptyList())
+        }
+        val binding = binderOf().getCapability(
+            caller = CapabilityBinder.CallerIdentity("com.abyss.plugin.appbuilder", PUBLISHER_SHA),
+            capability = "linux-runtime-v1",
+            index = index,
+            installed = mapOf("abyss-plugin-linux" to SemVer.parse("0.2.0")!!),
+            sessionId = "sess-1",
+        )
+        val denied = binding as CapabilityBinder.Binding.Denied
+        assertEquals("E_DIRECT_BIND_DENIED", denied.code)
+        assertTrue(denied.humanReason.contains("未声明依赖"))
+    }
+
     companion object {
         /** 主仓 PublisherSignatures.PINNED_SHA256（32 字节十六进制形态）。 */
         private const val PUBLISHER_SHA: String =

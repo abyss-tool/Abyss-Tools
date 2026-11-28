@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,16 +72,21 @@ fun ModelSpoofScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var level by remember { mutableStateOf(settings.modelSpoofLevel) }
-    var disguiseMode by remember { mutableStateOf(settings.disguiseMode) }
+    // NB-32（深挖第三轮）：用户输入改 rememberSaveable —— 旋转 / 深浅色切换
+    // 触发 Activity 重建时，未应用的表单（档位 / 厂商筛选 / 档案 / 设备名 /
+    // 蓝牙名 / 自定义三件）不再回退到上次「应用」时的旧值；枚举可序列化
+    // （java.io.Serializable）由 autoSaver 直接落 Bundle。busy / feedback 为
+    // 瞬态执行态，保持 remember（重建后如实回到待执行态）。
+    var level by rememberSaveable { mutableStateOf(settings.modelSpoofLevel) }
+    var disguiseMode by rememberSaveable { mutableStateOf(settings.disguiseMode) }
     val modeSnapshot = privilegeSnapshot ?: PrivilegeSnapshot()
-    var vendorFilter by remember { mutableStateOf<Vendor?>(null) }
-    var selectedProfileId by remember { mutableStateOf(settings.modelProfileId) }
-    var deviceName by remember { mutableStateOf(settings.deviceName) }
-    var bluetoothName by remember { mutableStateOf(settings.deviceName) }
-    var customModel by remember { mutableStateOf(settings.customModel) }
-    var customBrand by remember { mutableStateOf(settings.customBrand) }
-    var customFingerprint by remember { mutableStateOf(settings.customFingerprint) }
+    var vendorFilter by rememberSaveable { mutableStateOf<Vendor?>(null) }
+    var selectedProfileId by rememberSaveable { mutableStateOf(settings.modelProfileId) }
+    var deviceName by rememberSaveable { mutableStateOf(settings.deviceName) }
+    var bluetoothName by rememberSaveable { mutableStateOf(settings.deviceName) }
+    var customModel by rememberSaveable { mutableStateOf(settings.customModel) }
+    var customBrand by rememberSaveable { mutableStateOf(settings.customBrand) }
+    var customFingerprint by rememberSaveable { mutableStateOf(settings.customFingerprint) }
     var busy by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var feedbackError by remember { mutableStateOf(false) }

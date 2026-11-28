@@ -76,6 +76,11 @@ class CapabilityBinder(
         if (capability != PluginContract.CAPABILITY_LINUX_RUNTIME_V1) {
             return denied("E_CAPABILITY_MISMATCH", "请求的能力未注册：$capability")
         }
+        // ⓪′ 会话标识预校验（NB-26）：issue 的入参 require 非空 —— 直接传入
+        // 会让 IllegalArgumentException 穿透 Binder / UI 调用栈（违反 FR-002）。
+        if (sessionId.isBlank()) {
+            return denied("E_GRANT_INVALID", "会话标识为空 —— 拒绝签发令牌（请重试并携带 sessionId）")
+        }
         // ① 包名白名单（插件间永不直连 —— 非白名单包即「无中介直连」）
         if (!trust.isConsumerPlugin(caller.packageName)) {
             return denied("E_DIRECT_BIND_DENIED", "请通过插件中心启动（能力绑定仅对注册消费方开放）")
@@ -89,6 +94,13 @@ class CapabilityBinder(
         // ③④ 依赖解析（depends 声明匹配 + minHost + 版本区间 + 通道策略）
         val pluginId = trust.pluginIdOf(caller.packageName)
             ?: return denied("E_DIRECT_BIND_DENIED", "调用方不在插件账本（包名无法映射插件 id）—— 请通过插件中心启动")
+        // ③′ 能力声明硬校验（NB-28）：白名单只证明「是消费方」，不等于
+        // 「可拿任意能力」—— 消费方必须在索引里 depends 声明所请求的能力，
+        // 否则拒发（HOST_API v3 引入第二能力后，这条是防越权的唯一契约锚）。
+        val consumerEntry = index.plugins.firstOrNull { it.id == pluginId }
+        if (consumerEntry == null || consumerEntry.depends.none { it.capability == capability }) {
+            return denied("E_DIRECT_BIND_DENIED", "消费方未声明依赖该能力（$capability）—— 拒绝签发")
+        }
         when (val resolution = resolver.resolve(pluginId, index, installed)) {
             is DependencyResolver.Resolution.Rejection -> {
                 return denied(resolution.code, resolution.humanReason)
