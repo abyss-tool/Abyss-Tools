@@ -8,7 +8,7 @@
 | 规格编号 | `SHL-004` |
 | 所属域 | 核心 |
 | 承载形态 | Android 库 |
-| 当前状态 | 基线已实现 |
+| 当前状态 | 基线已实现 + v0.10.2 扩展 |
 | 优先级 / 里程碑 | P1 / M0 |
 | 组织与基线 | abyss-tool 组织 19 仓库克隆研究；v0.9.5 / versionCode 28 |
 | 标签 | Shizuku · 状态管理 · per-app 授权 |
@@ -67,4 +67,5 @@
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | 0.1 | 2026-11-21 | 基于 abyss-tool 组织 19 仓库克隆研究创建；对齐 v0.9.5 基线。 |
+| 0.2 | 2026-11-28 | v0.10.2 扩展：`ShizukuStatus.Running` 扇出 `serverUid`（`Shizuku.getUid()`）/ `suiAvailable` / `installedVariants` / `variantHint`（仅展示，措辞「疑似」）；`ShizukuVariants.DEVICE_OWNER_PROVIDERS` 提供 Dhizuku 提供端白名单。**不做**「活跃变体」硬判定。关联 `ARC-011`。 |
 
