@@ -2,7 +2,7 @@ package com.abyss.tools.privilege
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
-import android.accessibilityservice.GestureResultCallback
+import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.content.Intent
 import android.graphics.Path
 import android.os.Handler
