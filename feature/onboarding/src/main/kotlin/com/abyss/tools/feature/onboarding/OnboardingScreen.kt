@@ -552,6 +552,16 @@ private fun FeatureTourStep() {
         fontWeight = FontWeight.Bold,
     )
     PermissionCard(
+        title = "权限档位说明（按需升级，不强制授权）",
+        rows = listOf(
+            "普通用户" to "无特殊权限，仅可使用基础功能",
+            "进阶用户" to "开启无障碍服务，可使用自动化类功能",
+            "高级用户" to "Shizuku授权，可执行系统级命令与应用管理",
+            "Abyss-Max" to "Shizuku + 无障碍，解锁全部常规功能",
+            "Abyss-Ultra" to "Shizuku+Dhizuku+设备管理员，终极系统控制",
+        ),
+    )
+    PermissionCard(
         title = "功能分类一览（${ToolCatalog.tools.size} 项工具 · ${ToolCatalog.categories.size} 个分类）",
         rows = ToolCatalog.categories
             .map { category ->
