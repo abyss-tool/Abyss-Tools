@@ -1,6 +1,9 @@
 package com.abyss.tools.feature.settings
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,6 +61,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.CrashGuard
+import com.abyss.tools.core.common.AbyssChannels
+import com.abyss.tools.core.common.AbyssIndicatorStyle
+import com.abyss.tools.core.common.LauncherIcon
+import com.abyss.tools.core.common.LauncherIconGateway
+import com.abyss.tools.core.common.UiState
+import com.abyss.tools.core.common.toUiState
+import com.abyss.tools.core.common.privilege.Capability
+import com.abyss.tools.core.common.privilege.PrivilegeSnapshot
+import com.abyss.tools.core.common.privilege.TierCalculator
 import com.abyss.tools.core.common.AbyssChannels
 import com.abyss.tools.core.common.AbyssIndicatorStyle
 import com.abyss.tools.core.common.LauncherIcon
@@ -364,6 +376,11 @@ fun SettingsSectionScreen(
     onClearPluginCache: () -> Unit,
     onRestartOnboarding: (() -> Unit)?,
     onBack: () -> Unit,
+    privilegeSnapshot: PrivilegeSnapshot,
+    onOpenAccessibilitySettings: () -> Unit = {},
+    onOpenShizukuSettings: () -> Unit = {},
+    onOpenDeviceAdminSettings: () -> Unit = {},
+    onOpenInstallUnknownSettings: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -376,7 +393,12 @@ fun SettingsSectionScreen(
         )
         when (sectionId) {
             SettingsSections.PERMISSION -> PermissionSectionPage(
+                privilegeSnapshot = privilegeSnapshot,
                 onRestartOnboarding = onRestartOnboarding,
+                onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+                onOpenShizukuSettings = onOpenShizukuSettings,
+                onOpenDeviceAdminSettings = onOpenDeviceAdminSettings,
+                onOpenInstallUnknownSettings = onOpenInstallUnknownSettings,
             )
             SettingsSections.APPEARANCE -> AppearanceSectionPage(
                 settings = settings,
@@ -403,7 +425,15 @@ fun SettingsSectionScreen(
 }
 
 @Composable
-private fun PermissionSectionPage(onRestartOnboarding: (() -> Unit)?) {
+private fun PermissionSectionPage(
+    privilegeSnapshot: PrivilegeSnapshot,
+    onRestartOnboarding: (() -> Unit)?,
+    onOpenAccessibilitySettings: () -> Unit,
+    onOpenShizukuSettings: () -> Unit,
+    onOpenDeviceAdminSettings: () -> Unit,
+    onOpenInstallUnknownSettings: () -> Unit,
+) {
+    val currentTier = remember(privilegeSnapshot) { TierCalculator.compute(privilegeSnapshot) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -412,11 +442,150 @@ private fun PermissionSectionPage(onRestartOnboarding: (() -> Unit)?) {
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SectionHeader(title = "权限与引导")
+        // 当前权限档位展示
+        SectionHeader(title = "当前权限档位")
+        Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+            AbyssGlassSurface(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val tierTone = when (currentTier) {
+                        com.abyss.tools.core.common.privilege.PrivilegeTier.BASIC -> ChipTone.NEUTRAL
+                        com.abyss.tools.core.common.privilege.PrivilegeTier.ADVANCED -> ChipTone.INFO
+                        com.abyss.tools.core.common.privilege.PrivilegeTier.SENIOR -> ChipTone.OK
+                        com.abyss.tools.core.common.privilege.PrivilegeTier.ABYSS_MAX -> ChipTone.WARN
+                        com.abyss.tools.core.common.privilege.PrivilegeTier.ABYSS_ULTRA -> ChipTone.ERROR
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = currentTier.label,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        StatusChip(
+                            text = if (currentTier == com.abyss.tools.core.common.privilege.PrivilegeTier.BASIC) "未授权" else "已激活",
+                            tone = tierTone
+                        )
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        text = when (currentTier) {
+                            com.abyss.tools.core.common.privilege.PrivilegeTier.BASIC -> "当前未授予任何特殊权限，只能启动极少功能"
+                            com.abyss.tools.core.common.privilege.PrivilegeTier.ADVANCED -> "已开启无障碍服务，可使用自动化类进阶功能"
+                            com.abyss.tools.core.common.privilege.PrivilegeTier.SENIOR -> "Shizuku已授权，可执行系统级命令与应用管理"
+                            com.abyss.tools.core.common.privilege.PrivilegeTier.ABYSS_MAX -> "Shizuku + 无障碍，解锁全部常规功能"
+                            com.abyss.tools.core.common.privilege.PrivilegeTier.ABYSS_ULTRA -> "已激活Abyss-Ultra终极权限"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // 权限管理项
+        SectionHeader(title = "权限管理")
+        // Shizuku权限
+        Box(Modifier.fillMaxWidth().entranceStagger(1)) {
+            PermissionItemCard(
+                title = "Shizuku 授权",
+                description = "系统级命令执行、应用管理等核心能力基础",
+                granted = privilegeSnapshot.has(Capability.SHIZUKU_SHELL),
+                onClick = onOpenShizukuSettings
+            )
+        }
+        // 无障碍服务
+        Box(Modifier.fillMaxWidth().entranceStagger(2)) {
+            PermissionItemCard(
+                title = "无障碍服务",
+                description = "界面自动化、智能交互、任务蓝图等能力必需",
+                granted = privilegeSnapshot.has(Capability.ACCESSIBILITY),
+                onClick = onOpenAccessibilitySettings
+            )
+        }
+        // 安装未知应用
+        Box(Modifier.fillMaxWidth().entranceStagger(3)) {
+            PermissionItemCard(
+                title = "安装未知应用",
+                description = "插件安装、应用构建器导出APK安装必需",
+                granted = privilegeSnapshot.has(Capability.INSTALL_UNKNOWN_APPS),
+                onClick = onOpenInstallUnknownSettings
+            )
+        }
+        // 设备管理员（Ultra档位）
+        Box(Modifier.fillMaxWidth().entranceStagger(4)) {
+            PermissionItemCard(
+                title = "设备管理员",
+                description = "Abyss-Ultra终极权限所需，用于深度系统控制",
+                granted = privilegeSnapshot.has(Capability.DEVICE_ADMIN_ACTIVE),
+                onClick = onOpenDeviceAdminSettings
+            )
+        }
+        // Dhizuku状态（自动探测）
+        Box(Modifier.fillMaxWidth().entranceStagger(5)) {
+            AbyssGlassSurface(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Dhizuku 支持", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.size(2.dp))
+                        Text(
+                            text = "设备所有者权限，安装Shevery/Shizuku+后可自动探测",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    StatusChip(
+                        text = if (privilegeSnapshot.has(Capability.DHIZUKU_ACTIVE)) "已激活" else "未检测",
+                        tone = if (privilegeSnapshot.has(Capability.DHIZUKU_ACTIVE)) ChipTone.OK else ChipTone.NEUTRAL
+                    )
+                }
+            }
+        }
+
+        // 新手引导重启入口
         if (onRestartOnboarding != null) {
-            Box(Modifier.fillMaxWidth().entranceStagger(0)) {
+            SectionHeader(title = "引导")
+            Box(Modifier.fillMaxWidth().entranceStagger(6)) {
                 OnboardingSectionCard(onRestart = onRestartOnboarding)
             }
+        }
+    }
+}
+
+/**
+ * 权限项卡片：显示权限状态，点击跳转到对应设置页
+ */
+@Composable
+private fun PermissionItemCard(
+    title: String,
+    description: String,
+    granted: Boolean,
+    onClick: () -> Unit,
+) {
+    AbyssGlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.size(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            StatusChip(
+                text = if (granted) "已授权" else "未授权",
+                tone = if (granted) ChipTone.OK else ChipTone.WARN
+            )
         }
     }
 }

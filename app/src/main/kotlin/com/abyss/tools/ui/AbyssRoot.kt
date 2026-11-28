@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import com.abyss.tools.ServiceRegistry
 import com.abyss.tools.core.common.AppInfo
 import com.abyss.tools.core.common.ToolCatalog
-import com.abyss.tools.core.common.privilege.PrivilegeProbe
 import com.abyss.tools.core.common.privilege.PrivilegeSnapshot
 import com.abyss.tools.core.designsystem.component.AbyssIcons
 import com.abyss.tools.core.designsystem.component.NAV_TRANSITION_MS
@@ -87,6 +87,9 @@ import com.abyss.tools.feature.widgets.WidgetStudioScreen
 import com.abyss.tools.privilege.AbyssAccessibilityService
 import com.abyss.tools.privilege.AbyssDeviceAdminReceiver
 import com.abyss.tools.privilege.PrivilegeProbe
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kyant.backdrop.backdrops.LayerBackdrop
 
 /**
@@ -294,10 +297,27 @@ fun AbyssRoot(
     ) { AbyssBackStack(listOf(Screen.Dashboard)) }
     val settings = registry.settings
 
-    // 权限快照：初始化时探测，后续在resume时刷新（处理用户在设置页授权后返回的场景）
+    // 权限快照：初始化时探测 + ON_RESUME生命周期自动刷新
+    // 处理用户从设置页/Shizuku/无障碍设置授权后返回App时自动刷新档位，无需重启
     var privilegeSnapshot by remember { mutableStateOf(PrivilegeSnapshot(emptySet())) }
+    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(Unit, shizukuStatus) {
         privilegeSnapshot = PrivilegeProbe.snapshot(context)
+    }
+    // 监听生命周期ON_RESUME事件，每次App回到前台时刷新权限状态
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // 协程中异步刷新，不阻塞主线程
+                kotlinx.coroutines.MainScope().launch {
+                    privilegeSnapshot = PrivilegeProbe.snapshot(context)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     // 恢复出的待重挂应用详情（一次性消费）
@@ -437,6 +457,16 @@ fun AbyssRoot(
                                 onClearPluginCache = { registry.pluginInstaller.clearCache() },
                                 onRestartOnboarding = onReopenOnboarding,
                                 onBack = { backStack.pop() },
+                                privilegeSnapshot = privilegeSnapshot,
+                                onOpenAccessibilitySettings = openAccessibilitySettings,
+                                onOpenShizukuSettings = onOpenShizuku,
+                                onOpenDeviceAdminSettings = openDeviceAdminSettings,
+                                onOpenInstallUnknownSettings = {
+                                    val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                                        .setData(android.net.Uri.parse("package:${context.packageName}"))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                },
                             )
 
                             // FEAT-034 FR-004：插件中心升为顶层 tab —— onBack = null

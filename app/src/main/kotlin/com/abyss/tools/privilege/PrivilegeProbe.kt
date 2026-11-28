@@ -9,6 +9,7 @@ import android.provider.Settings
 import com.abyss.tools.core.common.privilege.Capability
 import com.abyss.tools.core.common.privilege.PrivilegeSnapshot
 import com.abyss.tools.core.shell.ShizukuShell
+import com.abyss.tools.core.shell.ShizukuShellGateway
 import com.abyss.tools.core.shell.ShizukuStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,15 +45,15 @@ object PrivilegeProbe {
             if (shizukuStatus.authorized) {
                 capabilities.add(Capability.SHIZUKU_SHELL)
                 shizukuVersion = shizukuStatus.version
-                // 探测Shizuku是否为root运行
+                // 探测Shizuku是否以root身份运行：通过Shizuku shell执行id -u判断uid是否为0
                 try {
-                    val process = Runtime.getRuntime().exec("id -u")
-                    val uid = process.inputStream.bufferedReader().readLine().trim()
-                    if (uid == "0") {
+                    val shell = ShizukuShellGateway(timeoutMs = 5000)
+                    val result = shell.exec("id -u").getOrNull()
+                    if (result?.isSuccess == true && result.stdout.trim() == "0") {
                         capabilities.add(Capability.SHIZUKU_ROOT)
                     }
                 } catch (_: Exception) {
-                    // ignore
+                    // 探测失败则认为非root，不影响主流程
                 }
             }
         }
@@ -80,14 +81,18 @@ object PrivilegeProbe {
             capabilities.add(Capability.INSTALL_UNKNOWN_APPS)
         }
 
-        // 5. 探测通知监听权限
+        // 5. 探测通知监听权限（服务类后续实现，暂只做基础探测）
         if (isNotificationListenerEnabled(context)) {
             capabilities.add(Capability.NOTIFICATION_LISTENER)
         }
 
-        // 6. 探测写入安全设置权限
-        if (Settings.System.canWrite(context)) {
-            capabilities.add(Capability.WRITE_SECURE_SETTINGS)
+        // 6. 探测写入安全设置权限（通过Shizuku可获得，或系统签名应用）
+        try {
+            if (Settings.System.canWrite(context)) {
+                capabilities.add(Capability.WRITE_SECURE_SETTINGS)
+            }
+        } catch (_: Exception) {
+            // ignore
         }
 
         PrivilegeSnapshot(
@@ -104,7 +109,7 @@ object PrivilegeProbe {
         val pm = context.packageManager
         return when {
             isPackageInstalled(pm, "moe.shizuku.privileged.api") -> "official"
-            isPackageInstalled(pm, "com.android.sui") -> "sui"
+            isPackageInstalled(pm, "rikka.sui") -> "sui"
             isPackageInstalled(pm, SHEVERY_PACKAGE) -> "shevery"
             isPackageInstalled(pm, SHIZUKU_PLUS_PACKAGE) -> "shizukuplus"
             else -> null
@@ -124,17 +129,25 @@ object PrivilegeProbe {
     }
 
     /**
-     * 探测Dhizuku是否已激活（通过Dhizuku公开API判定）
+     * 探测Dhizuku是否已激活：通过检测Dhizuku服务组件状态+设备所有者判定
      */
     private fun isDhizukuActive(context: Context): Boolean {
         return try {
-            // Dhizuku激活后会提供授权，尝试通过反射检测Dhizuku服务是否运行
+            // 先检查包是否安装
+            if (!isPackageInstalled(context.packageManager, DHIZUKU_PACKAGE)) return false
+            // 检查Dhizuku服务组件是否启用
             val dhizukuComponent = ComponentName(
                 DHIZUKU_PACKAGE,
                 "$DHIZUKU_PACKAGE.server.DhizukuServerService"
             )
-            val state = context.packageManager.getComponentEnabledSetting(dhizukuComponent)
-            state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            val componentState = context.packageManager.getComponentEnabledSetting(dhizukuComponent)
+            if (componentState != PackageManager.COMPONENT_ENABLED_STATE_ENABLED &&
+                componentState != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT) {
+                return false
+            }
+            // 检查是否设置了设备所有者（Dhizuku激活后会成为设备所有者）
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+            dpm?.isDeviceOwnerApp(DHIZUKU_PACKAGE) ?: false
         } catch (_: Exception) {
             false
         }
@@ -185,7 +198,7 @@ object PrivilegeProbe {
     }
 
     /**
-     * 探测通知监听权限是否已启用
+     * 探测通知监听权限是否已启用（暂用通用检测，服务类后续按需扩展）
      */
     private fun isNotificationListenerEnabled(context: Context): Boolean {
         return try {
@@ -193,13 +206,8 @@ object PrivilegeProbe {
                 context.contentResolver,
                 "enabled_notification_listeners"
             ) ?: ""
-            val myComponent = ComponentName(
-                context.packageName,
-                "com.abyss.tools.privilege.AbyssNotificationListener"
-            )
-            enabledListeners.split(':').any {
-                ComponentName.unflattenFromString(it) == myComponent
-            }
+            // 先做基础检测，后续新增AbyssNotificationListener后再精准判定
+            enabledListeners.contains(context.packageName)
         } catch (_: Exception) {
             false
         }
